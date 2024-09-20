@@ -1,0 +1,5 @@
+
+#define LIBRARY_VERSION "@libversion@"
+
+#define INSANITY_LIMIT @insanity_limit_mb@
+
