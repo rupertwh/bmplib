@@ -32,9 +32,6 @@
 #include "bmp-write.h"
 
 
-
-
-
 struct Bmphandle {
 	struct {
 		uint32_t magic;
@@ -165,7 +162,6 @@ int cm_align2padding(unsigned long a)
 {
 	return cm_align2size(a) - a;
 }
-
 
 
 
