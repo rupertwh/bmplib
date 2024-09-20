@@ -33,7 +33,8 @@
 #include "bmp-read.h"
 
 
-static int s_read_rgb_pixels(BMPREAD_R rp, void *restrict image);
+static int s_read_rgb_pixels(BMPREAD_R rp, char *restrict image);
+static int s_read_rgb_line(BMPREAD_R rp, void* restrict line);
 static inline int s_get_next_rgb(BMPREAD_R rp, union Pixel* restrict px);
 
 static int s_read_indexed_pixels(BMPREAD_R rp, void *restrict image);
@@ -135,60 +136,23 @@ abort:
 
 
 
-
 /********************************************************
  * 	s_read_rgb_pixels
  *******************************************************/
 
-static int s_read_rgb_pixels(BMPREAD_R rp, void* restrict image)
+static int s_read_rgb_pixels(BMPREAD_R rp, char* restrict image)
 {
-	int           x,y, padding;
-	union Pixel   pixel;
+	int           y, padding;
 	size_t        linelength, offs, real_y;
 
-	linelength = (size_t) rp->width * rp->result_channels;
-
 	padding = cm_align4padding((rp->width * rp->ih->bitcount + 7) / 8);
+	linelength = (size_t) rp->width * rp->result_bytes_per_pixel;
 
 	for (y = 0; y < rp->height; y++) {
-		for (x = 0; x < rp->width; x++) {
-
-			if (!s_get_next_rgb(rp, &pixel)) {
-				goto truncated;
-				/*return feof(rp->file) ? TRUE : FALSE;*/
-			}
-
-			real_y = rp->topdown ? y : rp->height-1-y;
-			offs = linelength * real_y + x * rp->result_channels;
-
-			switch (rp->result_bits_per_channel) {
-			case 8:
-				((unsigned char*)image)[offs]   = pixel.red;
-				((unsigned char*)image)[offs+1] = pixel.green;
-				((unsigned char*)image)[offs+2] = pixel.blue;
-				if (rp->has_alpha)
-					((unsigned char*)image)[offs+3] = pixel.alpha;
-				break;
-			case 16:
-				((uint16_t*)image)[offs]   = (pixel.red);
-				((uint16_t*)image)[offs+1] = (pixel.green);
-				((uint16_t*)image)[offs+2] = (pixel.blue);
-				if (rp->has_alpha)
-					((uint16_t*)image)[offs+3] = (pixel.alpha);
-				break;
-			case 32:
-				((uint32_t*)image)[offs]   = pixel.red;
-				((uint32_t*)image)[offs+1] = pixel.green;
-				((uint32_t*)image)[offs+2] = pixel.blue;
-				if (rp->has_alpha)
-					((uint32_t*)image)[offs+3] = pixel.alpha;
-				break;
-			default:
-				logerr(rp->log, "Waaaaaaaaaaaaaah!");
-				return FALSE;
-
-			}
-		}
+		real_y = rp->topdown ? y : rp->height-1-y;
+		offs = linelength * real_y;
+		if (!s_read_rgb_line(rp, image + offs))
+			goto truncated;
 		if (!cm_gobble_up(rp->file, padding, rp->log)) {
 			logerr(rp->log, "while reading padding bytes from BMP file");
 			goto truncated;
@@ -199,7 +163,63 @@ static int s_read_rgb_pixels(BMPREAD_R rp, void* restrict image)
 truncated:
 	rp->truncated = TRUE;
 	return TRUE;
+}
 
+
+
+/********************************************************
+ * 	s_read_rgb_line
+ *******************************************************/
+
+static int s_read_rgb_line(BMPREAD_R rp, void* restrict line)
+{
+	int           x;
+	union Pixel   pixel;
+	size_t        offs;
+
+	for (x = 0; x < rp->width; x++) {
+
+		if (!s_get_next_rgb(rp, &pixel)) {
+			goto truncated;
+			/*return feof(rp->file) ? TRUE : FALSE;*/
+		}
+
+		offs = x * rp->result_channels;
+
+		switch (rp->result_bits_per_channel) {
+		case 8:
+			((unsigned char*)line)[offs]   = pixel.red;
+			((unsigned char*)line)[offs+1] = pixel.green;
+			((unsigned char*)line)[offs+2] = pixel.blue;
+			if (rp->has_alpha)
+				((unsigned char*)line)[offs+3] = pixel.alpha;
+			break;
+		case 16:
+			((uint16_t*)line)[offs]   = (pixel.red);
+			((uint16_t*)line)[offs+1] = (pixel.green);
+			((uint16_t*)line)[offs+2] = (pixel.blue);
+			if (rp->has_alpha)
+				((uint16_t*)line)[offs+3] = (pixel.alpha);
+			break;
+		case 32:
+			((uint32_t*)line)[offs]   = pixel.red;
+			((uint32_t*)line)[offs+1] = pixel.green;
+			((uint32_t*)line)[offs+2] = pixel.blue;
+			if (rp->has_alpha)
+				((uint32_t*)line)[offs+3] = pixel.alpha;
+			break;
+		default:
+			logerr(rp->log, "Waaaaaaaaaaaaaah!");
+			return FALSE;
+
+		}
+	}
+
+	return TRUE;
+
+truncated:
+	rp->truncated = TRUE;
+	return FALSE;
 }
 
 
