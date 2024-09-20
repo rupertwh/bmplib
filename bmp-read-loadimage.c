@@ -144,7 +144,7 @@ static int s_read_rgb_pixels(BMPREAD_R rp, void* restrict image)
 {
 	int           x,y, padding;
 	union Pixel   pixel;
-	size_t        linelength, offs;
+	size_t        linelength, offs, real_y;
 
 	linelength = (size_t) rp->width * rp->result_channels;
 
@@ -158,7 +158,8 @@ static int s_read_rgb_pixels(BMPREAD_R rp, void* restrict image)
 				/*return feof(rp->file) ? TRUE : FALSE;*/
 			}
 
-			offs = linelength * (size_t) (rp->topdown ? y : rp->height-1-y) + (size_t) x * rp->result_channels;
+			real_y = rp->topdown ? y : rp->height-1-y;
+			offs = linelength * real_y + x * rp->result_channels;
 
 			switch (rp->result_bits_per_channel) {
 			case 8:
@@ -269,12 +270,11 @@ static int s_read_indexed_line(BMPREAD_R rp, unsigned char* restrict line,
 static int s_read_rle24_line(BMPREAD_R rp, unsigned char* restrict line,
                                int* restrict x, int* restrict yoff);
 
-#define TOPDOWN(y, height, topdown) ((topdown) ? (y) : (height)-(y)-1)
 
 static int s_read_indexed_pixels(BMPREAD_R rp, void* restrict image)
 {
 	int          x = 0, y = 0, yoff;
-	size_t       linesize;
+	size_t       linesize, real_y;
 	int          ril = 0;
 
 	linesize = (size_t) rp->width * (size_t) rp->result_bytes_per_pixel;
@@ -289,13 +289,14 @@ static int s_read_indexed_pixels(BMPREAD_R rp, void* restrict image)
 		memset(image, 0, rp->result_size);
 
 	while (y < rp->height) {
+		real_y = rp->topdown ? y : rp->height-1-y;
 		if (rp->ih->compression != BI_OS2_RLE24) {
 			ril = s_read_indexed_line(rp, (unsigned char*)image +
-		                     TOPDOWN(y, rp->height, rp->topdown) * linesize, &x, &yoff);
+		                                  real_y * linesize, &x, &yoff);
 		}
 		else {
 			ril = s_read_rle24_line(rp, (unsigned char*)image +
-			             TOPDOWN(y, rp->height, rp->topdown) * linesize, &x, &yoff);
+			                        real_y * linesize, &x, &yoff);
 		}
 		if (ril != RIL_OK && ril != RIL_CORRUPT)
 			break;

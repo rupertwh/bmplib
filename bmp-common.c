@@ -215,6 +215,13 @@ int read_u32_le(FILE *file, uint32_t *val)
 }
 
 
+int write_s16_le(FILE *file, int16_t val)
+{
+	return (EOF != fputc(val & 0xff, file) &&
+	        EOF != fputc((val >> 8) & 0xff, file));
+}
+
+
 int read_s16_le(FILE *file, int16_t *val)
 {
 	unsigned char buf[2];
@@ -237,5 +244,17 @@ int read_s32_le(FILE *file, int32_t *val)
 
 	*val = (((int32_t)(signed char)buf[3]) << 24) | (buf[2] << 16) | (buf[1] << 8) | buf[0];
 
+	return 1;
+}
+
+
+int write_s32_le(FILE *file, int32_t val)
+{
+	int i;
+
+	for (i = 0; i < 4; i++) {
+		if (EOF == fputc((val >> (i*8)) & 0xff, file))
+			return 0;
+	}
 	return 1;
 }

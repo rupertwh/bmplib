@@ -129,8 +129,8 @@ int write_u32_le(FILE *file, uint32_t val);
 int read_u16_le(FILE *file, uint16_t *val);
 int read_u32_le(FILE *file, uint32_t *val);
 
-#define write_s16_le(f,v) write_u16_le(f,(uint16_t)v)
-#define write_s32_le(f,v) write_u32_le(f,(uint32_t)v)
+int write_s16_le(FILE *file, int16_t val);
+int write_s32_le(FILE *file, int32_t val);
 int read_s16_le(FILE *file, int16_t *val);
 int read_s32_le(FILE *file, int32_t *val);
 
