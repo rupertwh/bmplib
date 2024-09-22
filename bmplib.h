@@ -67,6 +67,7 @@ enum Bmpresult {
         BMP_RESULT_OK = 0,
         BMP_RESULT_ERROR,
         BMP_RESULT_TRUNCATED,
+        BMP_RESULT_INVALID,
         BMP_RESULT_PNG,
         BMP_RESULT_JPEG,
         BMP_RESULT_INSANE,
@@ -110,6 +111,7 @@ int       bmpread_topdown(BMPHANDLE h);
 size_t    bmpread_buffersize(BMPHANDLE h);
 
 BMPRESULT bmpread_load_image(BMPHANDLE h, char **buffer);
+BMPRESULT bmpread_load_line(BMPHANDLE h, char **restrict buffer);
 
 void      bmpread_set_undefined_to_alpha(BMPHANDLE h, int yes);
 void      bmpread_set_insanity_limit(BMPHANDLE h, size_t limit);

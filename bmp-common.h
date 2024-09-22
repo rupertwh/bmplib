@@ -84,18 +84,21 @@ struct Bmpread {
 		LOG      log;
 	};
 	FILE             *file;
-	unsigned long     bytes_read;
+	unsigned long     bytes_read;  /* number of bytes we have read from the file */
 	struct Bmpfile   *fh;
 	struct Bmpinfo   *ih;
 	unsigned int      insanity_limit;
 	int               width;
 	int               height;
 	int               topdown;
-	int               has_alpha;
+	int               has_alpha;   /* original BMP has alpha channel */
 	int               undefined_to_alpha;
+	int               line_by_line;
 	struct Palette   *palette;
 	struct Colormask  colormask;
+	/* result image dimensions */
 	int               we_allocated_buffer;
+	int               dont_clear_buffer;
 	int               result_channels;
 	int               result_bits_per_pixel;
 	int               result_bytes_per_pixel;
@@ -108,10 +111,19 @@ struct Bmpread {
 	int               png;
 	int               dimensions_queried;
 	int               image_loaded;
+	int               idx_state_rle;
+	int               rle_state_eol;
+	int               rle_state_eof;
+	int               lbl_x;  /* remember where we are in the image  */
+	int               lbl_y;  /* for line by line reading            */
+	int               lbl_file_y;  /* RLE files may be ahead of the image y */
 	int               truncated;
 	int               invalid_pixels;
-	int               idx_state_rle;
-	int               idx_state_eol;
+	int               invalid_delta;
+	int               file_err;
+	int               file_eof;
+	int               panic;
+
 };
 
 

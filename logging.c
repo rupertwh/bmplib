@@ -88,9 +88,16 @@ int s_allocate(LOG log, size_t add_chars)
 }
 
 
+
+void logreset(LOG log)
+{
+	if (log && log->buffer)
+		*log->buffer = 0;
+}
+
 const char* logmsg(LOG log)
 {
-	if (log->buffer)
+	if (log && log->buffer)
 		return log->buffer;
 	else
 		return "";

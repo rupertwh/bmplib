@@ -35,5 +35,6 @@ const char* logmsg(LOG log);
 
 LOG logcreate(void);
 void logfree(LOG log);
+void logreset(LOG log);
 
 #endif /* LOGGING_H */

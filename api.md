@@ -18,10 +18,12 @@ of the following values:
 - `BMP_RESULT_OK`
 - `BMP_RESULT_ERROR`
 - `BMP_RESULT_TRUNCATED`
+- `BMP_RESULT_INVALID`
 - `BMP_RESULT_PNG`
 - `BMP_RESULT_JPEG`
 - `BMP_RESULT_INSANE`
 
+`BMP_RESULT_OK` will always have the vaue 0, all other result codes should only be referred to by name, their values might change in the future.
 
 
 ## Functions for reading BMP files
@@ -68,14 +70,14 @@ int       bmpread_bits_per_channel(BMPHANDLE h)
 int       bmpread_topdown(BMPHANDLE h)
 ```
 #### top-down / bottom-up
-`bmpread_topdown()` or the topdown value returned by `bmpread_dimensions()` is currently not relevant. While it does specify the original BMPs orientation, bmplib *always* returns the image top-down, regardless of how the BMP file is oriented. The value will become relevant as soon as bmplib supports line-by-line reading rather than always returning the whole image at once, as then the orientation will be whatever the BMP file is.
+`bmpread_topdown()` or the topdown value returned by `bmpread_dimensions()` is only relevant if you load the BMP file line-by-line. In line-by-line mode (using `bmpread_load_line()`), the image data is always delivered in the order it is in the BMP file. The topdown value will tell you if it's top-down or bottom-up. On the other hand, when the whole image is loaded at once (using `bmpread_load_image()`), bmplib will *always* return the image top-down, regardless of how the BMP file is oriented. The topdown value will still indicate the orientation of the original BMP.
 
 
 ### Required size for buffer to receive image: bmpread_buffersize():
 ```
 size_t    bmpread_buffersize(BMPHANDLE h)
 ```
-Returns the buffer size you have to allocate for the image data.
+Returns the buffer size you have to allocate for the whole image.
 
 
 ### bmpread_load_image()
