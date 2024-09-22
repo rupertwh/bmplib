@@ -1,32 +1,7 @@
-# bmplib API
-
-## Data types and constants
-
-### Data types
-
-`BMPHANDLE`
-
-Returned by `bmpread_new()` and `bmpwrite_new()`.
-Identifies the current operation for all subsequent
-calls to bmplib-functions.
-
-`BMPRESULT`
-
-Many bmplib functions return the success/failure of an operation as a `BMPRESULT`. It can have one
-of the following values:
-
-- `BMP_RESULT_OK`
-- `BMP_RESULT_ERROR`
-- `BMP_RESULT_TRUNCATED`
-- `BMP_RESULT_INVALID`
-- `BMP_RESULT_PNG`
-- `BMP_RESULT_JPEG`
-- `BMP_RESULT_INSANE`
-
-`BMP_RESULT_OK` will always have the vaue 0, all other result codes should only be referred to by name, their values might change in the future.
+# bmplib API -- Rupert's bmplib
 
 
-## Functions for reading BMP files
+## 1. Functions for reading BMP files
 
 ### Getting a handle: bmpread_new()
 ```
@@ -46,6 +21,7 @@ bmplib reads the file header and checks validity. Possible return values are:
 - `BMP_RESULT_ERROR`: The file cannot be read. Either it's not a valid or an unsupported BMP or there was some file error. Use `bmp_errmsg()` to get an idea what went wrong.
 
 Calling `bmpread_load_info()` is optional when you use `bmpread_dimensions()` (see below).
+
 ### Getting information about image dimensions: bmpread_dimensions() et al.
 ```
 BMPRESULT bmpread_dimensions(BMPHANDLE h,
@@ -73,13 +49,11 @@ int       bmpread_topdown(BMPHANDLE h)
 #### top-down / bottom-up
 `bmpread_topdown()` or the topdown value returned by `bmpread_dimensions()` is only relevant if you load the BMP file line-by-line. In line-by-line mode (using `bmpread_load_line()`), the image data is always delivered in the order it is in the BMP file. The topdown value will tell you if it's top-down or bottom-up. On the other hand, when the whole image is loaded at once (using `bmpread_load_image()`), bmplib will *always* return the image top-down, regardless of how the BMP file is oriented. The topdown value will still indicate the orientation of the original BMP.
 
-
 ### Required size for buffer to receive image: bmpread_buffersize():
 ```
 size_t    bmpread_buffersize(BMPHANDLE h)
 ```
 Returns the buffer size you have to allocate for the whole image.
-
 
 ### bmpread_load_image()
 ```
@@ -102,25 +76,45 @@ bmpread_load_image(h, &buffer);   /* bmplib will use the provided buffer */
 
 ```
 
-The image data is written to the buffer according to the returned dimensions (see above). Multi-byte values are always written in host byte order, in the order R-G-B or R-G-B-A. The returned image is always top-down, i.e. data starts in the top left corner. Unlike BMPs which are (almost always) bottom-up.
+The image data is written to the buffer according to the returned dimensions (see above). Multi-byte values are always written in host byte order, in the order R-G-B or R-G-B-A. The returned image is always top-down, i.e. data starts in the top left corner. Unlike BMPs which are (almost always) bottom-up. (See above, "Getting information...")
 
+If bmpread_load_image() return BMP_RESULT_TRUNCATED or BMP_RESULT_INVALID, the file may have been damaged or simply contains invalid image data. Image data is loaded anyway as far as possible and maybe partially usable.
+
+### bmpread_load_line()
+```
+BMPRESULT bmpread_load_line(BMPHANDLE h, char **buffer);
+```
+Loads a single scan line from the BMP file into the buffer pointed to by `pbuffer`.
+You can either allocate a buffer yourself or let `pbuffer` point to a NULL-pointer in which case bmplib will allocate an appropriate buffer. In the latter case, you will have to call `free()` on the buffer, once you are done with it.
+To determine the required buffer size, either divide the value from `bmpread_buffersize()` by the number of scanlines (= `bmpread_height()`), or calculate from the image dimensions returned by bmplib as width * channels * bits_per_channel / 8.
+```
+single_line_buffersize = bmpread_buffersize(h) / bmpread_height(h);
+/* or */
+single_line_buffersize = bmpread_width(h) * bmpread_channels(h) * bmpread_bits_per_channel(h) / 8;
+```
+
+Repeated calls to `bmpread_load_line()` will return each scan line, one after the other.
+
+Important: when reading the image this way, line by line, the orientation (`bmpread_topdown()`) of the original BMP matters! The lines will beturned in whichever order they stored in the BMP. Use the value returned by `bmpread_topdown()` to determine if it is top-down or bottom-up. Almost all BMPs will be bottom-up. (see above)
 
 ### Huge files: bmpread_set_insanity_limit()
-
 bmplib will refuse to load images beyond a certain size (default 500MB) and instead return BMP_RESULT_INSANE. If you want to load the image anyway, call `bmpread_set_insanity_limit()` at any time before
 calling `bmpread_load_image()`. `limit` is the new allowed size in bytes. (not MB!)
 ```
 void bmpread_set_insanity_limit(BMPHANDLE h, size_t limit)
 ```
 
-
-
 ### Undefined and invalid pixels: bmpread_set_undefined_to_alpha()
+#### Undefined pixels
 RLE-encoded BMP files may have undefined pixels, either by using early end-of-line or end-of-file codes, or by using delta codes to skip part of the image. bmplib default is to make such pixels transparent. RLE-encoded BMPs will therefore always be returned with an alpha channel by default, wether the file has such undefined pixels or not (because bmplib doesn't know beforehand if there are any undefined pixels). You can change this behaviour by calling
-`bmpread_set_undefined_to_alpha()`, with the second argument `yes` set to 0. In that case, the returned image will have no alpha channel, and undefined pixels will be whatever was in the buffer you passed to `bmpread_load_image()`. This function has no effect on non-RLE BMPs.
+`bmpread_set_undefined_to_alpha()`, with the second argument `yes` set to 0. In that case, the returned image will have no alpha channel, and undefined pixels will be set to zero. This function has no effect on non-RLE BMPs.
 ```
 void      bmpread_set_undefined_to_alpha(BMPHANDLE h, int yes)
 ```
+
+#### Invalid pixels
+Invalid pixels may occur in indexed BMPs, both RLE and non-RLE. Invalid pixels either point beyond the given color palette, or they try to set pixels outside the image dimensions. Pixels containing an invalid color enty will be set to zero, and attempts to point outside the image will be ignored.
+In both cases, `bmpread_load_image()` and `bmpread_load_line()` will return BMP_RESULT_INVALID, unless the image is also truncated, then BMP_RESULT_TRUNCATED is returned.
 
 ### Query info about the BMP file
 Note: these functions return information about the original BMP file being read. They do *not* describe the format of the returned image data, which may be different!
@@ -135,13 +129,10 @@ BMPRESULT bmpread_info_channel_bits(BMPHANDLE h, int *r, int *g, int *b, int *a)
 ```
 
 
-### bmp_free()
-```
-void bmp_free(BMPHANDLE h);
-```
 
 
-## Writing BMP files
+## 2. Functions for writing BMP files
+
 ### bmpwrite_new()
 ```
 BMPHANDLE bmpwrite_new(FILE *file);
@@ -168,16 +159,22 @@ BMPRESULT bmpwrite_save_image(BMPHANDLE h, void *image);
 
 
 
+## 3. Functions for both reading/writing BMPs
 
 ### bmp_free()
 ```
 void        bmp_free(BMPHANDLE h);
 ```
+Frees all resources associated with the handle `h`. Image data is not affected, so you can call bmp_free() immediately after bmpread_load_image() and still use the returned image data.
+Note: Any error messages returned by `bmp_errmsg()` invalidated by `bmp_free()` and cannot be used anymore.
+
 
 ### bmp_errmsg()
 ```
 const char* bmp_errmsg(BMPHANDLE h);
 ```
+Returns a zero-terminated character string containing the last error description(s). The returned string is safe to use until any other bmplib-function is called.
+
 
 ### bmp_version()
 ```
@@ -185,18 +182,45 @@ const char* bmp_version(void);
 ```
 
 
-## Sample code
+
+
+## 4. Data types and constants
+
+`BMPHANDLE`
+
+Returned by `bmpread_new()` and `bmpwrite_new()`.
+Identifies the current operation for all subsequent
+calls to bmplib-functions.
+
+`BMPRESULT`
+
+Many bmplib functions return the success/failure of an operation as a `BMPRESULT`. It can have one
+of the following values:
+
+- `BMP_RESULT_OK`
+- `BMP_RESULT_ERROR`
+- `BMP_RESULT_TRUNCATED`
+- `BMP_RESULT_INVALID`
+- `BMP_RESULT_PNG`
+- `BMP_RESULT_JPEG`
+- `BMP_RESULT_INSANE`
+
+`BMP_RESULT_OK` will always have the vaue 0, all other result codes should only be referred to by name, their values might change in the future.
+
+
+
+
+## 5. Sample code
 
 ### Reading BMPs
 
 ```
     /* (all error checking left out for clarity) */
 
-    BMPHANDLE read_handle;
+    BMPHANDLE h;
     FILE     *file;
     int       width, height, channels, bitsperchannel, topdown;
-    char     *image_data;
-    size_t    alloc_size;
+    char     *image_buffer;
 
 
     /* open a file and call bmpread_new() to get a BMPHANDLE,
@@ -204,7 +228,7 @@ const char* bmp_version(void);
      */
 
     file = fopen("someimage.bmp", "rb");
-    read_handle = bmpread_new(file);
+    h = bmpread_new(file);
 
 
     /* get image dimensions
@@ -212,28 +236,27 @@ const char* bmp_version(void);
      * that bmplib will return, NOT necessarily the BMP file.
      */
 
-    bmpread_load_info(read_handle);
+    bmpread_load_info(h);
 
-    width = bmpread_width(read_handle);
-    height = bmpread_height(read_handle);
-    channels = bmpread_channels(read_handle);
-    bitsperchannel = bmpread_bits_per_channel(read_handle);
+    width = bmpread_width(h);
+    height = bmpread_height(h);
+    channels = bmpread_channels(h);
+    bitsperchannel = bmpread_bits_per_channel(h);
 
 
     /* get required size for memory buffer and allocate memory */
 
-    alloc_size = bmpread_buffersize(read_handle);
-    image_data = malloc(alloc_size);
+    image_buffer = malloc(bmpread_buffersize(h));
 
 
     /* load the image and clean up: */
 
-    bmpread_load_image(read_handle, image_data);
+    bmpread_load_image(h, image_buffer);
 
-    bmp_free(read_handle);
+    bmp_free(h);
     fclose(file);
 
-    /* ready to use the image written to image_data */
+    /* ready to use the image written to image_buffer */
 
     /* image data is always returned in host byte order as
      * 8, 16, or 32 bits per channel RGB or RGBA data.
@@ -247,10 +270,10 @@ const char* bmp_version(void);
 ```
     BMPHANDLE write_handle;
     FILE     *file;
-    char     *image_data;
+    char     *image_buffer;
     int       width, height, channel, bitsperchannel;
 
-    /* 'image_data' contains the image to be saved as either
+    /* 'image_buffer' contains the image to be saved as either
      * 8, 16, or 32 bits per channel RGBA or RGBA data in
      * host byte order without any padding
      */
@@ -283,7 +306,7 @@ const char* bmp_version(void);
 
     /* save data to file */
 
-    bmpwrite_save_image(write_handle, image_data);
+    bmpwrite_save_image(write_handle, image_buffer);
 
     bmp_free(write_handle);
     fclose(file);

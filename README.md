@@ -1,14 +1,18 @@
 
-# bmplib
+# Rupert's bmplib
 
 ## Goals for bmplib 1.x:
 - Successfully read any half-way sane BMP
 - Write any sensible BMP
-- Robustness! Don't let malformed BMPs crash us
+- Robustness! Don't let malformed BMPs bother us
 
-## Current status (v1.3.0):
+## Current status (v1.3.1):
 ### Reading BMP files:
-  successful results from trying to read sample images from Jason Summers'
+  - 16/24/32 bit RGB(A) with any bits/channel combination (BI_RGB, BI_BITFIELDS, BI_ALPHABITFIELDS)
+  - 4/8/24 bit RLE compressed
+  - 1/2/4/8 bit non-RLE indexed
+
+  successful results from reading sample images from Jason Summers'
   fantastic [BMP Suite](https://entropymine.com/jason/bmpsuite/):
    - all 'good' files
    - most 'questionable' files (see below)
@@ -20,18 +24,39 @@
     to be passed on to either libpng or libjpeg. Works as designed. Don't
     want to create dependency on those libs.
   - Huffman-encoded OS/2 BMPs: see TODO.
-  - 64bit: No plans to implement until officially established. Seems silly
-    anyway, just use 16-bit PNG!
+  - 64bit: No plans to implement until officially established.
   - We currently ignore icc-profiles and chromaticity/gamma
     values. See TODO.
 
 
 ### Writing BMP files:
-  - RGB 8/24/32 only, no indexed files.
+  - RGB 16/24/32 only, no indexed files.
   - any bit-depth combination for the RGBA channels.
-  - write RI_RGB when possible, RI_(ALPHA)BITFIELDS only when
+  - write BI_RGB when possible, BI_(ALPHA)BITFIELDS only when
     necessary.
 
+
+## Installation
+
+### Download and compile bmplib library
+To install the library under the default `/usr/local` prefix:
+```
+sudo apt install build-essential git meson pkg-config
+git clone https://github.com/rupertwh/bmplib.git
+cd bmplib/
+meson setup _build
+cd _build/
+ninja
+ninja install
+```
+
+### Use bmplib in your program
+A minimalistic `meson.build` for a program that uses bmplib:
+```
+project('mytest', 'c')
+bmpdep = dependency('libbmp')
+executable('mytest', 'main.c', dependencies: [bmpdep])
+```
 
 
 ## TODOs:
@@ -39,7 +64,7 @@
    - [ ] write indexed RGBs. (RLE4/RLE8 only. No OS/2 v2 BMPs)
    - [x] read RLE24-encoded BMPs.
    - [ ] read Huffman-encoded BMPs.
-   - [ ] line-by-line reading/writing. Right now, the image can only be
+   - [x] line-by-line reading/writing. Right now, the image can only be
      passed as a whole to/from bmplib.
    - [ ] read/write icc-profile and chromaticity/gamma values
    - [x] sanity checks for size of of image / palette. require confirmation
@@ -58,14 +83,16 @@
      to be read in sequence.
    - [ ] Add a 'not-a-BMP-file' return type instead of just returning error.
    - [ ] icon- and pointer-files ("CI", "CP", "IC", "PT").
+   - [ ] 64-bits BMPs.
 
 ### Unclear:
    - [ ] platforms: I am writing bmplib on Linux/intel (Ubuntu) using meson.
      Suggestions welcome on what is necessary to build on other
-     platforms/cpus. And Windows? (see email address below)
+     platforms/cpus. And Windows?
+
 
 ### Non-feature (internal):
-   - [ ] complete API description (api.md)
+   - [x] complete API description (api.md)
    - [x] bmp-read.c is getting too big, split into several files
 
 
@@ -73,7 +100,7 @@
 
 ## Misc:
 - [x] License: probably LPGL3? That's what I'm going with for now.
--
+
 
 
 Cheers,

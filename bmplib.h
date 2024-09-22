@@ -111,7 +111,7 @@ int       bmpread_topdown(BMPHANDLE h);
 size_t    bmpread_buffersize(BMPHANDLE h);
 
 BMPRESULT bmpread_load_image(BMPHANDLE h, char **buffer);
-BMPRESULT bmpread_load_line(BMPHANDLE h, char **restrict buffer);
+BMPRESULT bmpread_load_line(BMPHANDLE h, char **buffer);
 
 void      bmpread_set_undefined_to_alpha(BMPHANDLE h, int yes);
 void      bmpread_set_insanity_limit(BMPHANDLE h, size_t limit);
