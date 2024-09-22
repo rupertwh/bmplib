@@ -32,6 +32,7 @@ of the following values:
 ```
 BMPHANDLE bmpread_new(FILE *file)
 ```
+`bmpread_new()` returns a handle which is used for all subsequent calls to bmplib. When you are done with the file, call `bmp_free()` to release this handle.
 
 ### Read the file header: bmpread_load_info()
 ```
@@ -109,7 +110,7 @@ The image data is written to the buffer according to the returned dimensions (se
 bmplib will refuse to load images beyond a certain size (default 500MB) and instead return BMP_RESULT_INSANE. If you want to load the image anyway, call `bmpread_set_insanity_limit()` at any time before
 calling `bmpread_load_image()`. `limit` is the new allowed size in bytes. (not MB!)
 ```
-void      bmpread_set_insanity_limit(BMPHANDLE h, size_t limit)
+void bmpread_set_insanity_limit(BMPHANDLE h, size_t limit)
 ```
 
 
@@ -136,7 +137,7 @@ BMPRESULT bmpread_info_channel_bits(BMPHANDLE h, int *r, int *g, int *b, int *a)
 
 ### bmp_free()
 ```
-void        bmp_free(BMPHANDLE h);
+void bmp_free(BMPHANDLE h);
 ```
 
 

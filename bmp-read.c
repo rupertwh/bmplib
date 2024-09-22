@@ -75,6 +75,7 @@ EXPORT_VIS BMPHANDLE bmpread_new(FILE *file)
 	memset(rp, 0, sizeof *rp);
 	rp->magic = HMAGIC_READ;
 	rp->undefined_to_alpha = TRUE;
+	rp->wipe_buffer = TRUE;
 
 	if (!(rp->log = logcreate()))
 		goto abort;
@@ -327,16 +328,24 @@ static int s_single_dim_val(BMPHANDLE h, int dim)
 
 	switch (dim) {
 	case BMPDIM_WIDTH:
+		rp->dim_queried_width = TRUE;
 		return rp->width;
 	case BMPDIM_HEIGHT:
+		rp->dim_queried_height = TRUE;
 		return rp->height;
 	case BMPDIM_CHANNELS:
+		rp->dim_queried_channels = TRUE;
 		return rp->result_channels;
 	case BMPDIM_BITS_PER_CHANNEL:
+		rp->dim_queried_bits_per_channel = TRUE;
 		return rp->result_bits_per_channel;
 	case BMPDIM_TOPDOWN:
 		return rp->topdown;
 	}
+	if (rp->dim_queried_width && rp->dim_queried_height &&
+	    rp->dim_queried_channels &&
+	    rp->dim_queried_bits_per_channel)
+		rp->dimensions_queried = TRUE;
 	return 0;
 }
 
@@ -359,6 +368,7 @@ EXPORT_VIS size_t bmpread_buffersize(BMPHANDLE h)
                        rp->getinfo_return == BMP_RESULT_INSANE)))
 		return 0;
 
+	rp->dimensions_queried = TRUE;
 	return rp->result_size;
 
 }
@@ -425,6 +435,9 @@ EXPORT_VIS void bmpread_set_undefined_to_alpha(BMPHANDLE h, int yes)
 	rp->result_size = (size_t) rp->width *
                           (size_t) rp->height *
                           (size_t) rp->result_bytes_per_pixel;
+
+	rp->dimensions_queried = FALSE;
+	rp->dim_queried_channels = FALSE;
 
         /* we have to redo the insanity-check */
 	if (rp->insanity_limit &&

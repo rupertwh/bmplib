@@ -93,12 +93,12 @@ struct Bmpread {
 	int               topdown;
 	int               has_alpha;   /* original BMP has alpha channel */
 	int               undefined_to_alpha;
+	int               wipe_buffer;
+	int               we_allocated_buffer;
 	int               line_by_line;
 	struct Palette   *palette;
 	struct Colormask  colormask;
 	/* result image dimensions */
-	int               we_allocated_buffer;
-	int               dont_clear_buffer;
 	int               result_channels;
 	int               result_bits_per_pixel;
 	int               result_bytes_per_pixel;
@@ -110,10 +110,14 @@ struct Bmpread {
 	int               jpeg;
 	int               png;
 	int               dimensions_queried;
+	int               dim_queried_width;
+	int               dim_queried_height;
+	int               dim_queried_channels;
+	int               dim_queried_bits_per_channel;
 	int               image_loaded;
-	int               idx_state_rle;
-	int               rle_state_eol;
-	int               rle_state_eof;
+	int               rle;
+	int               rle_eol;
+	int               rle_eof;
 	int               lbl_x;  /* remember where we are in the image  */
 	int               lbl_y;  /* for line by line reading            */
 	int               lbl_file_y;  /* RLE files may be ahead of the image y */
