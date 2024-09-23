@@ -1,4 +1,4 @@
-project('bmplib', 'c', default_options: ['c_std=c11'], version: '1.3.1')
+project('bmplib', 'c', default_options: ['c_std=c11'], version: '1.4.0')
 
 cc = meson.get_compiler('c')
 
@@ -24,6 +24,7 @@ install_headers('bmplib.h')
 bmplib_sources = ['bmp-read.c',
                   'bmp-write.c',
                   'bmp-read-loadimage.c',
+                  'bmp-read-loadindexed.c',
                   'bmp-common.c',
                   'logging.c']
 

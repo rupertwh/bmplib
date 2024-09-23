@@ -100,6 +100,7 @@ struct Bmpread {
 	struct Colormask  colormask;
 	/* result image dimensions */
 	int               result_channels;
+	int               result_indexed;
 	int               result_bits_per_pixel;
 	int               result_bytes_per_pixel;
 	int               result_bits_per_channel;

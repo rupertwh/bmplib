@@ -1,4 +1,4 @@
-# bmplib API -- Rupert's bmplib
+# API -- Rupert's bmplib
 
 
 ## 1. Functions for reading BMP files
@@ -82,10 +82,10 @@ If bmpread_load_image() return BMP_RESULT_TRUNCATED or BMP_RESULT_INVALID, the f
 
 ### bmpread_load_line()
 ```
-BMPRESULT bmpread_load_line(BMPHANDLE h, char **buffer);
+BMPRESULT bmpread_load_line(BMPHANDLE h, char **bufferp);
 ```
-Loads a single scan line from the BMP file into the buffer pointed to by `pbuffer`.
-You can either allocate a buffer yourself or let `pbuffer` point to a NULL-pointer in which case bmplib will allocate an appropriate buffer. In the latter case, you will have to call `free()` on the buffer, once you are done with it.
+Loads a single scan line from the BMP file into the buffer pointed to by `bufferp`.
+You can either allocate a buffer yourself or let `bufferp` point to a NULL-pointer in which case bmplib will allocate an appropriate buffer. In the latter case, you will have to call `free()` on the buffer, once you are done with it.
 To determine the required buffer size, either divide the value from `bmpread_buffersize()` by the number of scanlines (= `bmpread_height()`), or calculate from the image dimensions returned by bmplib as width * channels * bits_per_channel / 8.
 ```
 single_line_buffersize = bmpread_buffersize(h) / bmpread_height(h);
@@ -95,7 +95,41 @@ single_line_buffersize = bmpread_width(h) * bmpread_channels(h) * bmpread_bits_p
 
 Repeated calls to `bmpread_load_line()` will return each scan line, one after the other.
 
-Important: when reading the image this way, line by line, the orientation (`bmpread_topdown()`) of the original BMP matters! The lines will beturned in whichever order they stored in the BMP. Use the value returned by `bmpread_topdown()` to determine if it is top-down or bottom-up. Almost all BMPs will be bottom-up. (see above)
+Important: when reading the image this way, line by line, the orientation (`bmpread_topdown()`) of the original BMP matters! The lines will be returned in whichever order they are stored in the BMP. Use the value returned by `bmpread_topdown()` to determine if it is top-down or bottom-up. Almost all BMPs will be bottom-up. (see above)
+
+### Indexed BMPs
+By default, bmplib will interpret indexed (color palette) BMPs and return the image as 24-bit RGB data.
+
+If instead you want to keep the image as indexed, you have the option do so with these two functions:
+```
+int       bmpread_num_palette_colors(BMPHANDLE h);
+BMPRESULT bmpread_load_palette(BMPHANDLE h, unsigned char **palette);
+```
+`bmpread_num_palette_colors()` will return 0 for non-indexed images, otherwise it will return the number of entries in the color palette.
+
+`bmpread_load_palette()` will retrieve the color palette and store it in the character buffer pointed to by `palette`. The colors are stored 4 bytes per entry: The first three bytes are the red, green, and blue values in that order, the 4th bytes is always set to zero. So the palette buffer will contain "rgb0rgb0rgb0...".
+As with the main image buffer, you can either provide one for the palette or let bmplib allocate it for you (end then call `free()` on it, once you are done):
+
+```
+unsigned char *palette;
+int numcolors;
+
+numcolors = bmpread_num_palette_colors(h);
+
+/* either: */
+palette = NULL;
+bmpread_load_palette(h, &palette);          /* bmplib will allocate the palette buffer */
+
+/* or: */
+palette = malloc(4 * numcolors);
+bmpread_load_palette(h, &palette);          /* bmplib will use the provided buffer */
+
+```
+
+Note: Once you have called `bmpread_load_palette()`, both `bmpread_load_image()` and `bmpread_load_line()` will return the image as 8-bit indexes into the palette, you *cannot go back* to the default of loading the image as 24-bit RGB data. After you loaded the palette, calls to `bmpread_dimensions()`, `bmpread_buffersize()`, etc. will reflect that change.
+Also, `bmpread_set_undefined_to_alpha()` will have no effect.
+
+
 
 ### Huge files: bmpread_set_insanity_limit()
 bmplib will refuse to load images beyond a certain size (default 500MB) and instead return BMP_RESULT_INSANE. If you want to load the image anyway, call `bmpread_set_insanity_limit()` at any time before
@@ -106,11 +140,13 @@ void bmpread_set_insanity_limit(BMPHANDLE h, size_t limit)
 
 ### Undefined and invalid pixels: bmpread_set_undefined_to_alpha()
 #### Undefined pixels
-RLE-encoded BMP files may have undefined pixels, either by using early end-of-line or end-of-file codes, or by using delta codes to skip part of the image. bmplib default is to make such pixels transparent. RLE-encoded BMPs will therefore always be returned with an alpha channel by default, wether the file has such undefined pixels or not (because bmplib doesn't know beforehand if there are any undefined pixels). You can change this behaviour by calling
+RLE-encoded BMP files may have undefined pixels, either by using early end-of-line or end-of-file codes, or by using delta codes to skip part of the image. bmplib default is to make such pixels transparent. RLE-encoded BMPs will therefore always be returned with an alpha channel by default, whether the file has such undefined pixels or not (because bmplib doesn't know beforehand if there are any undefined pixels). You can change this behaviour by calling
 `bmpread_set_undefined_to_alpha()`, with the second argument `yes` set to 0. In that case, the returned image will have no alpha channel, and undefined pixels will be set to zero. This function has no effect on non-RLE BMPs.
 ```
 void      bmpread_set_undefined_to_alpha(BMPHANDLE h, int yes)
 ```
+
+Note: this setting will have no effect if you use `bmpread_load_palette()` to switch to loading the indexed data! (see above)
 
 #### Invalid pixels
 Invalid pixels may occur in indexed BMPs, both RLE and non-RLE. Invalid pixels either point beyond the given color palette, or they try to set pixels outside the image dimensions. Pixels containing an invalid color enty will be set to zero, and attempts to point outside the image will be ignored.

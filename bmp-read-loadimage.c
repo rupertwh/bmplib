@@ -1,4 +1,4 @@
-/* bmplib - bmp-read.c
+/* bmplib - bmp-read-loadimage.c
  *
  * Copyright (c) 2024, Rupert Weber.
  *
@@ -450,11 +450,17 @@ static void s_read_indexed_line(BMPREAD_R rp, unsigned char* restrict line)
 			}
 			else {
 				offs = (size_t) x * (size_t) rp->result_bytes_per_pixel;
-				line[offs]   = rp->palette->color[v].red;
-				line[offs+1] = rp->palette->color[v].green;
-				line[offs+2] = rp->palette->color[v].blue;
-				if (rp->rle && rp->undefined_to_alpha)
-					line[offs+3] = 0xff; /* set alpha to 1.0 for defined pixels */
+				if (rp->result_indexed) {
+					line[offs] = v;
+				}
+				else {
+					line[offs]   = rp->palette->color[v].red;
+					line[offs+1] = rp->palette->color[v].green;
+					line[offs+2] = rp->palette->color[v].blue;
+					if (rp->rle && rp->undefined_to_alpha)
+						line[offs+3] = 0xff; /* set alpha to 1.0
+						                        for defined pixels */
+				}
 			}
 			if (++x == rp->width) {
 				done = TRUE;
@@ -582,13 +588,18 @@ static void s_read_rle_line(BMPREAD_R rp, unsigned char* restrict line,
 					rp->invalid_pixels = TRUE;
 				}
 				else {
-					line[offs]   = rp->palette->color[v].red;
-					line[offs+1] = rp->palette->color[v].green;
-					line[offs+2] = rp->palette->color[v].blue;
+					if (rp->result_indexed) {
+						line[offs] = v;
+					}
+					else {
+						line[offs]   = rp->palette->color[v].red;
+						line[offs+1] = rp->palette->color[v].green;
+						line[offs+2] = rp->palette->color[v].blue;
+					}
 				}
 				break;
 			}
-			if (rp->undefined_to_alpha)
+			if (rp->undefined_to_alpha && !rp->result_indexed)
 				line[offs+3] = 0xff; /* set alpha to 1.0 for defined pixels */
 
 			*x += 1;

@@ -6,7 +6,7 @@
 - Write any sensible BMP
 - Robustness! Don't let malformed BMPs bother us
 
-## Current status (v1.3.1):
+## Current status (v1.4.0):
 ### Reading BMP files:
   - 16/24/32 bit RGB(A) with any bits/channel combination (BI_RGB, BI_BITFIELDS, BI_ALPHABITFIELDS)
   - 1/2/4/8 bit indexed (palette), including RLE4 and RLE8 compressed
@@ -75,8 +75,7 @@ see api.md for the API documentation
 
 
 ### Maybe:
-   - [ ] passing indexed data and palette to user (optionally) instead of
-     RGB-data.
+   - [x] passing indexed data and palette to user (optionally) instead of RGB-data.
    - [ ] interpret icc-profile, to enable giving at least sRGB/not-sRGB info.
      (Like sRGB / probably-sRGB / maybe-sRGB). Torn on that one, would
      need dependency on liblcms2.
@@ -94,7 +93,7 @@ see api.md for the API documentation
 
 
 ### Non-feature (internal):
-   - [x] complete API description (api.md)
+   - [x] complete API description (see API.md)
    - [x] bmp-read.c is getting too big, split into several files
 
 
