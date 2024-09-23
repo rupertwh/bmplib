@@ -67,9 +67,6 @@ static int s_write_bmp_info_header(struct Bmpinfo *bih, FILE *file);
 static int s_check_is_write_handle(BMPHANDLE h);
 static inline unsigned s_scaleint(unsigned long val, int frombits, int tobits);
 
-#define ALL_EQUAL3(a,b,c) ( (a)==(b) && (a)==(c) )
-#define ALL_POSITIVE4(a,b,c,d) ( (a)>=0 && (b)>=0 && (c)>=0 && (d)>=0)
-#define ALL_LESSTHAN4(x,a,b,c,d) ( (a)<(x) && (b)<(x) && (c)<(x) && (d)<(x))
 
 
 
@@ -208,8 +205,8 @@ EXPORT_VIS BMPRESULT bmpwrite_set_output_bits(BMPHANDLE h, int red, int green, i
 		return BMP_RESULT_ERROR;
 	}
 
-	if (!(ALL_POSITIVE4(red, green, blue, alpha) &&
-	      ALL_LESSTHAN4(33, red, green, blue, alpha) &&
+	if (!(cm_all_positive_int(4, red, green, blue, alpha) &&
+	      cm_all_lessoreq_int(32, 4, red, green, blue, alpha) &&
 	      red + green + blue > 0 &&
 	      red + green + blue + alpha <= 32 )) {
 		logerr(wp->log, "Invalid output bit depths specified: %d-%d-%d - %d",
@@ -364,10 +361,13 @@ static int s_create_header(BMPWRITE_R wp)
 	 *      known RI_RGB representation)
 	 */
 
-	if (!ALL_EQUAL3( wp->colormask.bits.red, wp->colormask.bits.green, wp->colormask.bits.blue) ||
-	                 wp->has_alpha ||
-                    (wp->colormask.bits.red > 0 && wp->colormask.bits.red != 5 && wp->colormask.bits.red != 8)
-                            ) {
+	if (!cm_all_equal_int(3, (int) wp->colormask.bits.red,
+	                         (int) wp->colormask.bits.green,
+	                         (int) wp->colormask.bits.blue) ||
+	    wp->has_alpha ||
+            (wp->colormask.bits.red > 0 &&
+             wp->colormask.bits.red != 5 &&
+             wp->colormask.bits.red != 8)    ) {
 
 		wp->ih->version     = BMPINFO_V4;
 		wp->ih->size        = BMPIHSIZE_V4;

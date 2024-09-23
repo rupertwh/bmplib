@@ -22,6 +22,7 @@
 #include <string.h>
 #include <stdio.h>
 #include <stdint.h>
+#include <stdarg.h>
 #include <errno.h>
 
 #include "config.h"
@@ -151,6 +152,72 @@ int cm_count_bits(unsigned long v)
 	}
 	return bits;
 }
+
+
+
+int cm_all_lessoreq_int(int limit, int n, ...)
+{
+	va_list ap;
+	int i, ret = TRUE;
+
+	if (n < 1)
+		return TRUE;
+
+	va_start(ap, n);
+	for (i = 0; i < n; i++) {
+		if (va_arg(ap, int) > limit) {
+			ret = FALSE;
+			break;
+		}
+	}
+	va_end(ap);
+
+	return ret;
+}
+
+
+int cm_all_equal_int(int n, ...)
+{
+	va_list ap;
+	int first, i, ret = TRUE;
+
+	if (n < 2)
+		return TRUE;
+
+	va_start(ap, n);
+	first = va_arg(ap, int);
+	for (i = 1; i < n; i++) {
+		if (va_arg(ap, int) != first) {
+			ret = FALSE;
+			break;
+		}
+	}
+	va_end(ap);
+
+	return ret;
+}
+
+
+int cm_all_positive_int(int n, ...)
+{
+	va_list ap;
+	int i, ret = TRUE;
+
+	if (n < 1)
+		return TRUE;
+
+	va_start(ap, n);
+	for (i = 0; i < n; i++) {
+		if (va_arg(ap, int) < 0) {
+			ret = FALSE;
+			break;
+		}
+	}
+	va_end(ap);
+
+	return ret;
+}
+
 
 
 int cm_align4padding(unsigned long a)
