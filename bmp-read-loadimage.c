@@ -33,7 +33,7 @@
 #include "bmp-read.h"
 
 
-static inline unsigned long s_scaleint(unsigned long val, int frombits, int tobits);
+static inline unsigned long s_scaleint(unsigned long val, int frombits, int tobits) __attribute__((const));
 static void s_set_file_error(BMPREAD_R rp);
 static void s_log_error_from_state(BMPREAD_R rp);
 static int s_stopping_error(BMPREAD_R rp);
@@ -155,11 +155,6 @@ static BMPRESULT s_load_image(BMPREAD_R rp, char **restrict buffer, int line_by_
 		}
 	}
 
-	if (rp->ih->compression == BI_RLE8 ||
-	    rp->ih->compression == BI_RLE4 ||
-	    rp->ih->compression == BI_OS2_RLE24)
-		rp->rle = TRUE;
-
 	if (line_by_line) {
 		rp->line_by_line = TRUE;  /* don't set this earlier, or we won't */
 		                          /* be able to identify first line      */
@@ -199,7 +194,7 @@ static void s_read_indexed_or_rle_image(BMPREAD_R rp, void *restrict image);
 
 static void s_read_whole_image(BMPREAD_R rp, void* restrict image)
 {
-	if (rp->ih->bitcount <= 8 || rp->ih->compression == BI_OS2_RLE24)
+	if (rp->ih->bitcount <= 8 || rp->rle)
 		s_read_indexed_or_rle_image(rp, image);
 	else
 		s_read_rgb_image(rp, image);
@@ -220,7 +215,7 @@ static void s_read_one_line(BMPREAD_R rp, void* restrict line)
 {
 	int yoff = 1;
 
-	if (rp->ih->bitcount <= 8 || rp->ih->compression == BI_OS2_RLE24) {
+	if (rp->ih->bitcount <= 8 || rp->rle) {
 
 		if (rp->lbl_x >= rp->width)
 			rp->lbl_x = 0;
@@ -229,9 +224,7 @@ static void s_read_one_line(BMPREAD_R rp, void* restrict line)
 			; /* nothing to do, RLE skipped line */
 		}
 		else {
-			if (rp->ih->compression == BI_RLE4 ||
-			    rp->ih->compression == BI_RLE8 ||
-			    rp->ih->compression == BI_OS2_RLE24) {
+			if (rp->rle) {
 				s_read_rle_line(rp, (unsigned char*) line,
 				                            &rp->lbl_x, &yoff);
 			}
@@ -399,9 +392,7 @@ static void s_read_indexed_or_rle_image(BMPREAD_R rp, void* restrict image)
 
 	while (y < rp->height) {
 		real_y = rp->topdown ? y : rp->height-1-y;
-		if (rp->ih->compression == BI_RLE4 ||
-		    rp->ih->compression == BI_RLE8 ||
-		    rp->ih->compression == BI_OS2_RLE24) {
+		if (rp->rle) {
 			s_read_rle_line(rp, (unsigned char*)image +
 			                        real_y * linesize, &x, &yoff);
 		}

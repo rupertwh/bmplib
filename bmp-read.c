@@ -152,6 +152,11 @@ EXPORT_VIS BMPRESULT bmpread_load_info(BMPHANDLE h)
 		rp->height = -rp->height;
 	}
 
+	if (rp->ih->compression == BI_RLE4 ||
+	    rp->ih->compression == BI_RLE8 ||
+	    rp->ih->compression == BI_OS2_RLE24)
+	    	rp->rle = TRUE;
+
 	if (rp->ih->compression == BI_JPEG || rp->ih->compression == BI_PNG) {
 		if (!cm_gobble_up(rp->file, rp->fh->offbits - rp->bytes_read, rp->log)) {
 			logerr(rp->log, "while seeking to start of jpeg/png data");
@@ -178,26 +183,22 @@ EXPORT_VIS BMPRESULT bmpread_load_info(BMPHANDLE h)
 	if (rp->ih->bitcount <= 8) { /* indexed */
 		if (!(rp->palette = s_read_palette(rp)))
 			goto abort;
-
-		if (rp->ih->compression != BI_RLE4 &&
-		    rp->ih->compression != BI_RLE8) {
-			rp->result_bits_per_pixel = 24;
-			rp->result_bytes_per_pixel = 3;
-			rp->result_bits_per_channel = 8;
-		}
+		rp->result_bits_per_pixel = 24;
+		rp->result_bytes_per_pixel = 3;
+		rp->result_bits_per_channel = 8;
 	}
-	else if (rp->ih->compression != BI_OS2_RLE24) {  /* RGB  */
+	else if (!rp->rle) {  /* RGB  */
 		memset(&rp->colormask, 0, sizeof rp->colormask);
 		if (!s_read_colormasks(rp))
 			goto abort;
+		/* result bitspp/bytespp/bitspc are set inside s_read_colormasks */
+
 		if (rp->colormask.mask.alpha)
 			rp->result_channels = 4;
 	}
 
-	/* add alpha channel for invalid pixels in RLE bitmaps */
-	if (rp->ih->compression == BI_RLE4 ||
-	    rp->ih->compression == BI_RLE8 ||
-	    rp->ih->compression == BI_OS2_RLE24) {
+	/* add alpha channel for undefined pixels in RLE bitmaps */
+	if (rp->rle) {
 		rp->result_bits_per_pixel = rp->undefined_to_alpha ? 32 : 24;
 		rp->result_bytes_per_pixel = rp->undefined_to_alpha ? 4 : 3;
 		rp->result_bits_per_channel = 8;
@@ -407,9 +408,7 @@ EXPORT_VIS void bmpread_set_undefined_to_alpha(BMPHANDLE h, int yes)
 
 	rp->undefined_to_alpha = !!yes;
 
-	if (!(rp->ih->compression == BI_RLE4 ||
-	      rp->ih->compression == BI_RLE8 ||
-	      rp->ih->compression == BI_OS2_RLE24))
+	if (!rp->rle)
 		return;
 
 	rp->result_bytes_per_pixel = yes ?  4 :  3;
