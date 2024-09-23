@@ -108,13 +108,12 @@ const char* logmsg(LOG log)
  *      logerr_()
  *********************************************************/
 
-void logerr_(LOG log, const char *file, int line, const char *function, ...)
+void logerr_(LOG log, const char *file, int line, const char *function, const char *fmt, ...)
 {
         va_list     args, backup;
-        const char *fmt;
         int         written, len;
 
-        va_start(args, function);
+        va_start(args, fmt);
 
 	if (log->size == (size_t)-1)
 		goto done; /* log is set to a string literal (panic) */
@@ -156,7 +155,6 @@ void logerr_(LOG log, const char *file, int line, const char *function, ...)
         len = strlen(log->buffer);
 
         va_copy(backup, args);
-        fmt = va_arg(args, const char*);
         do {
 
 		written = vsnprintf(log->buffer + len, log->size - len, fmt, args);
@@ -170,7 +168,6 @@ void logerr_(LOG log, const char *file, int line, const char *function, ...)
 				goto done;
 			}
 			va_copy(args, backup);
-			fmt = va_arg(args, const char*);
 		}
 		else
 			break;
@@ -187,14 +184,13 @@ done:
  *********************************************************/
 
 
-void logsyserr_(LOG log, const char *file, int line, const char *function, int eno, ...)
+void logsyserr_(LOG log, const char *file, int line, const char *function, int eno, const char *fmt, ...)
 {
         va_list     args, backup;
-        const char *fmt;
         const char *etxt;
         int         written, len;
 
-        va_start(args, eno);
+        va_start(args, fmt);
 
 	if (log->size == (size_t)-1)
 		return; /* log is set to a string literal (panic) */
@@ -235,7 +231,6 @@ void logsyserr_(LOG log, const char *file, int line, const char *function, int e
 #endif
 
 	va_copy(backup, args);
-        fmt = va_arg(args, const char*);
 
         len = strlen(log->buffer);
 
@@ -251,7 +246,6 @@ void logsyserr_(LOG log, const char *file, int line, const char *function, int e
 				goto done;
 			}
 			va_copy(args, backup);
-			fmt = va_arg(args, const char*);
 		}
 		else
 			break;

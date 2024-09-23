@@ -90,7 +90,7 @@ EXPORT_VIS BMPHANDLE bmpwrite_new(FILE *file)
 
 
 	if (sizeof(int) < 4 || sizeof(unsigned int) < 4) {
-		logerr(wp->log, "code doesn't work on %s-bit platforms!\n", 8 * sizeof(int));
+		logerr(wp->log, "code doesn't work on %d-bit platforms!\n", (int)(8 * sizeof(int)));
 		goto abort;
 	}
 
@@ -148,7 +148,7 @@ EXPORT_VIS BMPRESULT bmpwrite_set_dimensions(BMPHANDLE h,
 	}
 
 	if (source_channels < 3 || source_channels > 4) {
-		logerr(wp->log, "Invalid number of channels: %d", source_channels);
+		logerr(wp->log, "Invalid number of channels: %d", (int) source_channels);
 		return BMP_RESULT_ERROR;
 	}
 
@@ -159,7 +159,7 @@ EXPORT_VIS BMPRESULT bmpwrite_set_dimensions(BMPHANDLE h,
 		/* ok */
 		break;
 	default:
-		logerr(wp->log, "Invalid number of bits per channel: %d", source_bits_per_channel);
+		logerr(wp->log, "Invalid number of bits per channel: %d", (int) source_bits_per_channel);
 		return BMP_RESULT_ERROR;
 	}
 
@@ -172,7 +172,8 @@ EXPORT_VIS BMPRESULT bmpwrite_set_dimensions(BMPHANDLE h,
 	    width < 1 || height < 1 ||
 	    total_bits > 8*sizeof(size_t) ) {
 		logerr(wp->log, "Invalid dimensions %ux%ux%d @ %dbits",
-		                    width, height, source_channels, source_bits_per_channel);
+		                    (unsigned) width, (unsigned) height,
+		                    (int) source_channels, (int) source_bits_per_channel);
 		return BMP_RESULT_ERROR;
 	}
 
@@ -205,8 +206,8 @@ EXPORT_VIS BMPRESULT bmpwrite_set_output_bits(BMPHANDLE h, int red, int green, i
 		return BMP_RESULT_ERROR;
 	}
 
-	if (!(cm_all_positive_int(4, red, green, blue, alpha) &&
-	      cm_all_lessoreq_int(32, 4, red, green, blue, alpha) &&
+	if (!(cm_all_positive_int(4, (int)red, (int)green, (int)blue, (int)alpha) &&
+	      cm_all_lessoreq_int(32, 4, (int)red, (int)green, (int)blue, (int)alpha) &&
 	      red + green + blue > 0 &&
 	      red + green + blue + alpha <= 32 )) {
 		logerr(wp->log, "Invalid output bit depths specified: %d-%d-%d - %d",
@@ -360,7 +361,6 @@ static int s_create_header(BMPWRITE_R wp)
 	 *    - bits per component are not either 5 or 8 (which have
 	 *      known RI_RGB representation)
 	 */
-
 	if (!cm_all_equal_int(3, (int) wp->colormask.bits.red,
 	                         (int) wp->colormask.bits.green,
 	                         (int) wp->colormask.bits.blue) ||
@@ -485,7 +485,7 @@ static inline unsigned long s_set_outpixel_rgb(BMPWRITE_R wp, void* restrict ima
 
 	default:
 		logerr(wp->log, "Panic! Bitdepth (%d) other than 8/16/32", 
-			                     wp->source_bits_per_channel);
+			                     (int) wp->source_bits_per_channel);
 		return (unsigned long)-1;
 	}
 

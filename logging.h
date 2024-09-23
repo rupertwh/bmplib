@@ -23,12 +23,18 @@
 
 typedef struct Log *LOG;
 
+
+#define PRINTF(a,b) __attribute__((format(printf, a, b)))
+
+
 #define logerr(log, ...) logerr_(log, __FILE__, __LINE__, __func__, __VA_ARGS__)
 
 #define logsyserr(log, ...) logsyserr_(log, __FILE__, __LINE__, __func__, errno, __VA_ARGS__)
 
-void logerr_(LOG log, const char *file, int line, const char *function, ...);
-void logsyserr_(LOG log, const char *file, int line, const char *function, int eno, ...);
+void PRINTF(5,6) logerr_(LOG log, const char *file, int line,
+                                                   const char *function, const char *fmt, ...);
+void PRINTF(6,7) logsyserr_(LOG log, const char *file, int line,
+                                              const char *function, int eno, const char *fmt, ...);
 
 
 const char* logmsg(LOG log);

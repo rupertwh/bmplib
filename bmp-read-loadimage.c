@@ -693,7 +693,7 @@ static void s_read_rle_line(BMPREAD_R rp, unsigned char* restrict line,
 			continue;
 		}
 
-		logerr(rp->log, "Should never get here! (x=%d, byte=%d)", x, v);
+		logerr(rp->log, "Should never get here! (x=%d, byte=%d)", (int) *x, (int) v);
 		rp->panic = TRUE;
 		break;
 	}

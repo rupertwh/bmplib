@@ -58,7 +58,7 @@ EXPORT_VIS BMPHANDLE bmpread_new(FILE *file)
 		goto abort;
 
 	if (sizeof(int) < 4 || sizeof(unsigned int) < 4) {
-		logerr(rp->log, "code doesn't work on %s-bit platforms!\n", 8 * sizeof(int));
+		logerr(rp->log, "code doesn't work on %d-bit platforms!\n", (int) (8 * sizeof(int)));
 		goto abort;
 	}
 
@@ -136,7 +136,7 @@ EXPORT_VIS BMPRESULT bmpread_load_info(BMPHANDLE h)
 		goto abort;
 
 	default:
-		logerr(rp->log, "Unkown BMP type 0x%04u\n", rp->fh->type);
+		logerr(rp->log, "Unkown BMP type 0x%04x\n", (unsigned int) rp->fh->type);
 		goto abort;
 	}
 
@@ -464,7 +464,7 @@ static int s_is_bmptype_supported(BMPREAD_R rp)
 {
 	if (rp->ih->planes != 1) {
 		logerr(rp->log, "Unsupported number of planes (%d). "
-			        "Must be 1.", rp->ih->planes);
+			        "Must be 1.", (int) rp->ih->planes);
 		return FALSE;
 	}
 
@@ -496,7 +496,7 @@ static int s_is_bmptype_supported_rgb(BMPREAD_R rp)
 		/*  ok */
 		break;
 	default:
-		logerr(rp->log, "Unsupported bitcount %d for RGB image", rp->ih->bitcount);
+		logerr(rp->log, "Unsupported bitcount %d for RGB image", (int) rp->ih->bitcount);
 		return FALSE;
 	}
 
@@ -508,7 +508,7 @@ static int s_is_bmptype_supported_rgb(BMPREAD_R rp)
 		break;
 	case BI_OS2_RLE24:
 		if (rp->ih->bitcount != 24) {
-			logerr(rp->log, "Invalid bitcount %d for RLE24 compression", rp->ih->bitcount);
+			logerr(rp->log, "Invalid bitcount %d for RLE24 compression", (int) rp->ih->bitcount);
 			return FALSE;
 		}
 		break;
@@ -538,7 +538,7 @@ static int s_is_bmptype_supported_indexed(BMPREAD_R rp)
 		break;
 
 	default:
-		logerr(rp->log, "Unsupported bitcount %d for indexed image", rp->ih->bitcount);
+		logerr(rp->log, "Unsupported bitcount %d for indexed image", (int) rp->ih->bitcount);
 		return FALSE;
 	}
 
@@ -550,7 +550,7 @@ static int s_is_bmptype_supported_indexed(BMPREAD_R rp)
 		     (rp->ih->compression == BI_RLE8 && rp->ih->bitcount != 8) ) {
 			logerr(rp->log, "Unsupported compression %s for %d-bit data",
 			                  s_compression_name(rp->ih->compression),
-			                  rp->ih->bitcount);
+			                  (int) rp->ih->bitcount);
 			return FALSE;
 		}
 		/*  ok */
@@ -612,7 +612,8 @@ static struct Palette* s_read_palette(BMPREAD_R rp)
 
 	if (rp->ih->clrused > INT_MAX || rp->ih->clrimportant > rp->ih->clrused) {
 		logerr(rp->log, "Unreasonable color numbers for palette (%lu/%lu)",
-					  rp->ih->clrused, rp->ih->clrimportant);
+					  (unsigned long) rp->ih->clrused,
+					  (unsigned long) rp->ih->clrimportant);
 		return NULL;
 	}
 	if (rp->fh->offbits - rp->bytes_read > INT_MAX) {
@@ -760,7 +761,7 @@ static int s_read_masks_from_bitfields(BMPREAD_R rp)
 
 	if (!(rp->ih->bitcount == 16 || rp->ih->bitcount == 32)) {
 		logerr(rp->log, "Invalid bitcount (%d) for BI_BITFIELDS. Must be 16 or 32",
-								   (int)rp->ih->bitcount);
+								   (int) rp->ih->bitcount);
 		return FALSE;
 	}
 
