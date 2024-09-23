@@ -33,31 +33,8 @@
 #include "bmp-read.h"
 
 
-static int s_single_dim_val(BMPHANDLE h, int dim);
-
-static int s_is_bmptype_supported(BMPREAD_R rp);
-static int s_is_bmptype_supported_rgb(BMPREAD_R rp);
-static int s_is_bmptype_supported_indexed(BMPREAD_R rp);
-static int s_check_dimensions(BMPREAD_R rp);
-
-static struct Palette* s_read_palette(BMPREAD_R rp);
-
-static int s_read_colormasks(BMPREAD_R rp);
-static int s_read_masks_from_bitfields(BMPREAD_R rp);
-static int s_create_implicit_colormasks(BMPREAD_R rp);
-static inline unsigned long s_calc_bits_for_mask(unsigned long mask);
-static inline unsigned long s_calc_shift_for_mask(unsigned long mask);
-
-static int s_read_file_header(BMPREAD_R rp);
-static int s_read_info_header(BMPREAD_R rp);
-static void s_detect_os2_compression(BMPREAD_R rp);
-
-static int s_info_int(BMPHANDLE h, int info);
-static const char* s_info_str(BMPHANDLE h, int info);
-
 const char* s_infoheader_name(int infoversion);
 const char* s_compression_name(int compression);
-
 
 
 /********************************************************
@@ -119,6 +96,12 @@ abort:
 /********************************************************
  * 	bmpread_load_info
  *******************************************************/
+static int s_read_file_header(BMPREAD_R rp);
+static int s_read_info_header(BMPREAD_R rp);
+static int s_is_bmptype_supported(BMPREAD_R rp);
+static struct Palette* s_read_palette(BMPREAD_R rp);
+static int s_read_colormasks(BMPREAD_R rp);
+static int s_check_dimensions(BMPREAD_R rp);
 
 EXPORT_VIS BMPRESULT bmpread_load_info(BMPHANDLE h)
 {
@@ -293,6 +276,7 @@ EXPORT_VIS BMPRESULT bmpread_dimensions(BMPHANDLE h, int* restrict width,
 #define BMPDIM_BITS_PER_CHANNEL (4)
 #define BMPDIM_TOPDOWN          (5)
 
+static int s_single_dim_val(BMPHANDLE h, int dim);
 
 EXPORT_VIS int bmpread_width(BMPHANDLE h)
 { return s_single_dim_val(h, BMPDIM_WIDTH); }
@@ -473,6 +457,8 @@ void br_free(BMPREAD rp)
 /********************************************************
  * 	s_is_bmptype_supported
  *******************************************************/
+static int s_is_bmptype_supported_rgb(BMPREAD_R rp);
+static int s_is_bmptype_supported_indexed(BMPREAD_R rp);
 
 static int s_is_bmptype_supported(BMPREAD_R rp)
 {
@@ -703,6 +689,11 @@ static struct Palette* s_read_palette(BMPREAD_R rp)
 /********************************************************
  * 	s_read_colormasks
  *******************************************************/
+static int s_read_masks_from_bitfields(BMPREAD_R rp);
+static int s_create_implicit_colormasks(BMPREAD_R rp);
+static inline unsigned long s_calc_bits_for_mask(unsigned long mask);
+static inline unsigned long s_calc_shift_for_mask(unsigned long mask);
+
 static int s_read_colormasks(BMPREAD_R rp)
 {
 	int   i, max_bits = 0, sum_bits = 0;
@@ -939,6 +930,7 @@ static int s_read_file_header(BMPREAD_R rp)
 /********************************************************
  * 	s_read_info_header
  *******************************************************/
+static void s_detect_os2_compression(BMPREAD_R rp);
 
 static int s_read_info_header(BMPREAD_R rp)
 {
@@ -1147,6 +1139,8 @@ static void s_detect_os2_compression(BMPREAD_R rp)
 #define INFO_INT_COMPRESSION    (3)
 #define INFO_INT_BITCOUNT       (4)
 
+static int s_info_int(BMPHANDLE h, int info);
+
 EXPORT_VIS int bmpread_info_header_version(BMPHANDLE h)
 { return s_info_int(h, INFO_INT_HEADER_VERSION); }
 EXPORT_VIS int bmpread_info_header_size(BMPHANDLE h)
@@ -1192,6 +1186,8 @@ static int s_info_int(BMPHANDLE h, int info)
 
 #define INFO_STR_HEADER_NAME      (1)
 #define INFO_STR_COMPRESSION_NAME (2)
+
+static const char* s_info_str(BMPHANDLE h, int info);
 
 EXPORT_VIS const char* bmpread_info_header_name(BMPHANDLE h)
 { return s_info_str(h, INFO_STR_HEADER_NAME); }

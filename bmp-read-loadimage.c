@@ -33,17 +33,6 @@
 #include "bmp-read.h"
 
 
-
-static void s_read_rgb_image(BMPREAD_R rp, char *restrict image);
-static int s_read_rgb_line(BMPREAD_R rp, void* restrict line);
-static inline int s_read_rgb_pixel(BMPREAD_R rp, union Pixel* restrict px);
-
-static void s_read_indexed_or_rle_image(BMPREAD_R rp, void *restrict image);
-static inline unsigned int s_bits_from_buffer(unsigned int buf, int size,
-                                              int nbits, int used_bits);
-
-static inline int s_read_n_bytes(BMPREAD_R rp, int n, unsigned int* restrict buff);
-
 static inline unsigned long s_scaleint(unsigned long val, int frombits, int tobits);
 static void s_set_file_error(BMPREAD_R rp);
 static void s_log_error_from_state(BMPREAD_R rp);
@@ -205,6 +194,8 @@ abort:
 /********************************************************
  * 	s_read_whole_image
  *******************************************************/
+static void s_read_rgb_image(BMPREAD_R rp, char *restrict image);
+static void s_read_indexed_or_rle_image(BMPREAD_R rp, void *restrict image);
 
 static void s_read_whole_image(BMPREAD_R rp, void* restrict image)
 {
@@ -220,6 +211,7 @@ static void s_read_whole_image(BMPREAD_R rp, void* restrict image)
  * 	s_read_one_line
  *******************************************************/
 
+static int s_read_rgb_line(BMPREAD_R rp, void* restrict line);
 static void s_read_indexed_line(BMPREAD_R rp, unsigned char* restrict line);
 static void s_read_rle_line(BMPREAD_R rp, unsigned char* restrict line,
                                int* restrict x, int* restrict yoff);
@@ -296,6 +288,7 @@ static void s_read_rgb_image(BMPREAD_R rp, char* restrict image)
 /********************************************************
  * 	s_read_rgb_line
  *******************************************************/
+static inline int s_read_rgb_pixel(BMPREAD_R rp, union Pixel* restrict px);
 
 static int s_read_rgb_line(BMPREAD_R rp, void* restrict line)
 {
@@ -438,6 +431,9 @@ static void s_read_indexed_or_rle_image(BMPREAD_R rp, void* restrict image)
  * 	s_read_indexed_line
  * - 1/2/4/8 bits non-RLE indexed
  *******************************************************/
+static inline int s_read_n_bytes(BMPREAD_R rp, int n, unsigned int* restrict buff);
+static inline unsigned int s_bits_from_buffer(unsigned int buf, int size,
+                                              int nbits, int used_bits);
 
 static void s_read_indexed_line(BMPREAD_R rp, unsigned char* restrict line)
 {
