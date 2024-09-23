@@ -1,5 +1,5 @@
 wiki
 _debug
 _release
-*.sublime*
+*.sublime-workspace
 *.patch
