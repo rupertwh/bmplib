@@ -9,8 +9,9 @@
 ## Current status (v1.3.1):
 ### Reading BMP files:
   - 16/24/32 bit RGB(A) with any bits/channel combination (BI_RGB, BI_BITFIELDS, BI_ALPHABITFIELDS)
-  - 4/8/24 bit RLE compressed
-  - 1/2/4/8 bit non-RLE indexed
+  - 1/2/4/8 bit indexed (palette), including RLE4 and RLE8 compressed
+  - RLE24 compressed (OS/2)
+  - optional line-by-line reading of BMPs, even RLE
 
   successful results from reading sample images from Jason Summers'
   fantastic [BMP Suite](https://entropymine.com/jason/bmpsuite/):
@@ -30,7 +31,7 @@
 
 
 ### Writing BMP files:
-  - RGB 16/24/32 only, no indexed files.
+  - RGB(A) 16/24/32, no indexed files.
   - any bit-depth combination for the RGBA channels.
   - write BI_RGB when possible, BI_(ALPHA)BITFIELDS only when
     necessary.
@@ -58,16 +59,17 @@ bmpdep = dependency('libbmp')
 executable('mytest', 'main.c', dependencies: [bmpdep])
 ```
 
+see api.md for the API documentation
 
 ## TODOs:
 ### Definitely:
    - [ ] write indexed RGBs. (RLE4/RLE8 only. No OS/2 v2 BMPs)
    - [x] read RLE24-encoded BMPs.
    - [ ] read Huffman-encoded BMPs.
-   - [x] line-by-line reading/writing. Right now, the image can only be
-     passed as a whole to/from bmplib.
+   - [x] line-by-line reading/writing. ~~Right now, the image can only be
+     passed as a whole to/from bmplib.~~
    - [ ] read/write icc-profile and chromaticity/gamma values
-   - [x] sanity checks for size of of image / palette. require confirmation
+   - [x] sanity checks for size of of image / palette. Require confirmation
      above a certain size (~ 500MB?)
    - [x] store undefined pixels (RLE delta and early EOL/EOF) as alpha
 
