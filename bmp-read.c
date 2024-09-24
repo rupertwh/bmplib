@@ -271,28 +271,38 @@ EXPORT_VIS BMPRESULT bmpread_dimensions(BMPHANDLE h, int* restrict width,
  * 	bmpread_* getters for single dimension values
  *******************************************************/
 
-#define BMPDIM_WIDTH            (1)
-#define BMPDIM_HEIGHT           (2)
-#define BMPDIM_CHANNELS         (3)
-#define BMPDIM_BITS_PER_CHANNEL (4)
-#define BMPDIM_TOPDOWN          (5)
+enum Dimint {
+	DIM_WIDTH = 1,
+	DIM_HEIGHT,
+	DIM_CHANNELS,
+	DIM_BITS_PER_CHANNEL,
+	DIM_TOPDOWN,
+	DIM_XDPI,
+	DIM_YDPI,
+};
 
-static int s_single_dim_val(BMPHANDLE h, int dim);
+static int s_single_dim_val(BMPHANDLE h, enum Dimint dim);
 
 EXPORT_VIS int bmpread_width(BMPHANDLE h)
-{ return s_single_dim_val(h, BMPDIM_WIDTH); }
+{ return s_single_dim_val(h, DIM_WIDTH); }
 
 EXPORT_VIS int bmpread_height(BMPHANDLE h)
-{ return s_single_dim_val(h, BMPDIM_HEIGHT); }
+{ return s_single_dim_val(h, DIM_HEIGHT); }
 
 EXPORT_VIS int bmpread_channels(BMPHANDLE h)
-{ return s_single_dim_val(h, BMPDIM_CHANNELS); }
+{ return s_single_dim_val(h, DIM_CHANNELS); }
 
 EXPORT_VIS int bmpread_bits_per_channel(BMPHANDLE h)
-{ return s_single_dim_val(h, BMPDIM_BITS_PER_CHANNEL); }
+{ return s_single_dim_val(h, DIM_BITS_PER_CHANNEL); }
 
 EXPORT_VIS int bmpread_topdown(BMPHANDLE h)
-{ return s_single_dim_val(h, BMPDIM_TOPDOWN); }
+{ return s_single_dim_val(h, DIM_TOPDOWN); }
+
+EXPORT_VIS int bmpread_resolution_xdpi(BMPHANDLE h)
+{ return s_single_dim_val(h, DIM_XDPI); }
+
+EXPORT_VIS int bmpread_resolution_ydpi(BMPHANDLE h)
+{ return s_single_dim_val(h, DIM_YDPI); }
 
 
 
@@ -300,7 +310,7 @@ EXPORT_VIS int bmpread_topdown(BMPHANDLE h)
  * 	s_single_dim_val
  *******************************************************/
 
-static int s_single_dim_val(BMPHANDLE h, int dim)
+static int s_single_dim_val(BMPHANDLE h, enum Dimint dim)
 {
 	BMPREAD rp;
 
@@ -312,20 +322,24 @@ static int s_single_dim_val(BMPHANDLE h, int dim)
 		return 0;
 
 	switch (dim) {
-	case BMPDIM_WIDTH:
+	case DIM_WIDTH:
 		rp->dim_queried_width = TRUE;
 		return rp->width;
-	case BMPDIM_HEIGHT:
+	case DIM_HEIGHT:
 		rp->dim_queried_height = TRUE;
 		return rp->height;
-	case BMPDIM_CHANNELS:
+	case DIM_CHANNELS:
 		rp->dim_queried_channels = TRUE;
 		return rp->result_channels;
-	case BMPDIM_BITS_PER_CHANNEL:
+	case DIM_BITS_PER_CHANNEL:
 		rp->dim_queried_bits_per_channel = TRUE;
 		return rp->result_bits_per_channel;
-	case BMPDIM_TOPDOWN:
+	case DIM_TOPDOWN:
 		return rp->topdown;
+	case DIM_XDPI:
+		return rp->ih->xpelspermeter / 39.37 + 0.5;
+	case DIM_YDPI:
+		return rp->ih->ypelspermeter / 39.37 + 0.5;
 	}
 	if (rp->dim_queried_width && rp->dim_queried_height &&
 	    rp->dim_queried_channels &&
@@ -1134,12 +1148,14 @@ static void s_detect_os2_compression(BMPREAD_R rp)
  * 	bmpread_info_*  int
  *******************************************************/
 
-#define INFO_INT_HEADER_VERSION (1)
-#define INFO_INT_HEADER_SIZE    (2)
-#define INFO_INT_COMPRESSION    (3)
-#define INFO_INT_BITCOUNT       (4)
+enum Infoint {
+	INFO_INT_HEADER_VERSION,
+	INFO_INT_HEADER_SIZE,
+	INFO_INT_COMPRESSION,
+	INFO_INT_BITCOUNT,
+};
 
-static int s_info_int(BMPHANDLE h, int info);
+static int s_info_int(BMPHANDLE h, enum Infoint info);
 
 EXPORT_VIS int bmpread_info_header_version(BMPHANDLE h)
 { return s_info_int(h, INFO_INT_HEADER_VERSION); }
@@ -1154,7 +1170,7 @@ EXPORT_VIS int bmpread_info_bitcount(BMPHANDLE h)
 /********************************************************
  * 	s_info_int
  *******************************************************/
-static int s_info_int(BMPHANDLE h, int info)
+static int s_info_int(BMPHANDLE h, enum Infoint info)
 {
 	BMPREAD rp;
 
@@ -1184,10 +1200,12 @@ static int s_info_int(BMPHANDLE h, int info)
  * 	bmpread_info_*  str
  *******************************************************/
 
-#define INFO_STR_HEADER_NAME      (1)
-#define INFO_STR_COMPRESSION_NAME (2)
+enum Infostr {
+	INFO_STR_HEADER_NAME,
+	INFO_STR_COMPRESSION_NAME,
+};
 
-static const char* s_info_str(BMPHANDLE h, int info);
+static const char* s_info_str(BMPHANDLE h, enum Infostr info);
 
 EXPORT_VIS const char* bmpread_info_header_name(BMPHANDLE h)
 { return s_info_str(h, INFO_STR_HEADER_NAME); }
@@ -1198,7 +1216,7 @@ EXPORT_VIS const char* bmpread_info_compression_name(BMPHANDLE h)
 /********************************************************
  * 	s_info_str
  *******************************************************/
-static const char* s_info_str(BMPHANDLE h, int info)
+static const char* s_info_str(BMPHANDLE h, enum Infostr info)
 {
 	BMPREAD rp;
 

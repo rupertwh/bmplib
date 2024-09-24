@@ -309,6 +309,28 @@ EXPORT_VIS BMPRESULT bmpwrite_set_palette(BMPHANDLE h, int numcolors,
 
 
 
+
+
+/********************************************************
+ * 	bmpwrite_set_resolution
+ *******************************************************/
+
+EXPORT_VIS BMPRESULT bmpwrite_set_resolution(BMPHANDLE h, int xdpi, int ydpi)
+{
+	BMPWRITE wp;
+
+	if (!(h && s_check_is_write_handle(h)))
+		return BMP_RESULT_ERROR;
+	wp = (BMPWRITE)(void*)h;
+
+	wp->ih->xpelspermeter = 39.37 * xdpi + 0.5;
+	wp->ih->ypelspermeter = 39.37 * ydpi + 0.5;
+
+	return BMP_RESULT_OK;
+}
+
+
+
 /********************************************************
  * 	bmpwrite_allow_2bit
  *******************************************************/
@@ -566,8 +588,6 @@ static void s_create_header(BMPWRITE_R wp)
 	wp->ih->height = wp->height;
 	wp->ih->planes = 1;
 	wp->ih->sizeimage = 0;
-	wp->ih->xpelspermeter = 72 * 39.37;
-	wp->ih->ypelspermeter = 72 * 39.37;
 }
 
 

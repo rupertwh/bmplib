@@ -107,6 +107,9 @@ int       bmpread_channels(BMPHANDLE h);
 int       bmpread_bits_per_channel(BMPHANDLE h);
 int       bmpread_topdown(BMPHANDLE h);
 
+int       bmpread_resolution_xdpi(BMPHANDLE h);
+int       bmpread_resolution_ydpi(BMPHANDLE h);
+
 size_t    bmpread_buffersize(BMPHANDLE h);
 
 BMPRESULT bmpread_load_image(BMPHANDLE h, char **buffer);
@@ -140,7 +143,7 @@ BMPRESULT bmpwrite_set_dimensions(BMPHANDLE h,
                                   unsigned  height,
                                   unsigned  channels,
                                   unsigned  bits_per_channel);
-
+BMPRESULT bmpwrite_set_resolution(BMPHANDLE h, int xdpi, int ydpi);
 BMPRESULT bmpwrite_set_output_bits(BMPHANDLE h, int red, int green, int blue, int alpha);
 BMPRESULT bmpwrite_set_palette(BMPHANDLE h, int numcolors, unsigned char *palette);
 BMPRESULT bmpwrite_allow_2bit(BMPHANDLE h);
