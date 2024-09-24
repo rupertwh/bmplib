@@ -166,9 +166,9 @@ typedef struct Bmpwrite *BMPWRITE;
 
 
 
-/* There seems to be ambiguity about wether the 40-byte
+/* There seems to be ambiguity about whether the 40-byte
  * BITMAPINFOHEADER is version 1 or version 3. Both make
- * sense, depending on wether you consider the
+ * sense, depending on whether you consider the
  * BITMAPCORE/OS2 versions v1 and v2, or if you consider
  * the Adobe-extensions (supposedly at one time
  * MS-'official') v2 and v3.

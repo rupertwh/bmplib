@@ -22,8 +22,7 @@
 #ifndef BMPLIB_H
 #define BMPLIB_H
 #ifdef __cplusplus
-extern "C"
-{
+extern "C" {
 #endif
 
 
@@ -143,6 +142,7 @@ BMPRESULT bmpwrite_set_dimensions(BMPHANDLE h,
                                   unsigned  bits_per_channel);
 
 BMPRESULT bmpwrite_set_output_bits(BMPHANDLE h, int red, int green, int blue, int alpha);
+BMPRESULT bmpwrite_set_palette(BMPHANDLE h, int numcolors, unsigned char *palette);
 
 BMPRESULT bmpwrite_save_image(BMPHANDLE h, void *image);
 

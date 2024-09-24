@@ -49,10 +49,15 @@ struct Bmpwrite {
 	int              source_channels;
 	int              source_bits_per_channel;
 	int              source_bytes_per_pixel;
+	int              indexed;
+	struct Palette  *palette;
 	/* output */
 	int              has_alpha;
-	int              outbytes_per_pixel;
 	struct Colormask colormask;
+	int              palette_size;
+	int              outbytes_per_pixel;
+	int              outpixels_per_byte;
+	int              padding;
 	/* state */
 	int              outbits_set;
 	int              dimensions_set;
@@ -60,7 +65,8 @@ struct Bmpwrite {
 };
 
 
-static int s_create_header(BMPWRITE_R wp);
+static void s_create_header(BMPWRITE_R wp);
+static int s_write_palette(BMPWRITE_R wp);
 static inline unsigned long s_set_outpixel_rgb(BMPWRITE_R wp, void* restrict image, size_t offs);
 static int s_write_bmp_file_header(struct Bmpfile *bfh, FILE *file);
 static int s_write_bmp_info_header(struct Bmpinfo *bih, FILE *file);
@@ -147,19 +153,27 @@ EXPORT_VIS BMPRESULT bmpwrite_set_dimensions(BMPHANDLE h,
 		return BMP_RESULT_ERROR;
 	}
 
-	if (source_channels < 3 || source_channels > 4) {
-		logerr(wp->log, "Invalid number of channels: %d", (int) source_channels);
+	switch (source_bits_per_channel) {
+	case 8:
+		/* ok */
+		break;
+
+	case 16:
+	case 32:
+		if (wp->palette) {
+			logerr(wp->log, "Invalid bits (%d) set for indexed image",
+						        source_bits_per_channel);
+			return BMP_RESULT_ERROR;
+		}
+		break;
+
+	default:
+		logerr(wp->log, "Invalid number of bits per channel: %d", (int) source_bits_per_channel);
 		return BMP_RESULT_ERROR;
 	}
 
-	switch (source_bits_per_channel) {
-	case 8:
-	case 16:
-	case 32:
-		/* ok */
-		break;
-	default:
-		logerr(wp->log, "Invalid number of bits per channel: %d", (int) source_bits_per_channel);
+	if (source_channels != 1 && (source_channels < 3 || source_channels > 4)) {
+		logerr(wp->log, "Invalid number of channels: %d", (int) source_channels);
 		return BMP_RESULT_ERROR;
 	}
 
@@ -206,6 +220,11 @@ EXPORT_VIS BMPRESULT bmpwrite_set_output_bits(BMPHANDLE h, int red, int green, i
 		return BMP_RESULT_ERROR;
 	}
 
+	if (wp->palette) {
+		logerr(wp->log, "Cannot set output bits for indexed images");
+		return BMP_RESULT_ERROR;
+	}
+
 	if (!(cm_all_positive_int(4, (int)red, (int)green, (int)blue, (int)alpha) &&
 	      cm_all_lessoreq_int(32, 4, (int)red, (int)green, (int)blue, (int)alpha) &&
 	      red + green + blue > 0 &&
@@ -229,15 +248,75 @@ EXPORT_VIS BMPRESULT bmpwrite_set_output_bits(BMPHANDLE h, int red, int green, i
 
 
 /********************************************************
+ * 	bmpwrite_set_palette
+ *******************************************************/
+
+EXPORT_VIS BMPRESULT bmpwrite_set_palette(BMPHANDLE h, int numcolors,
+	                                  unsigned char *palette)
+{
+	BMPWRITE wp;
+	int      i, c;
+	size_t   memsize;
+
+	if (!(h && s_check_is_write_handle(h)))
+		return BMP_RESULT_ERROR;
+	wp = (BMPWRITE)(void*)h;
+
+	if (wp->saveimage_done) {
+		logerr(wp->log, "Image already saved.");
+		return BMP_RESULT_ERROR;
+	}
+
+	if (wp->palette) {
+		logerr(wp->log, "Palette already set. Cannot set twice");
+		return BMP_RESULT_ERROR;
+	}
+
+	if (wp->dimensions_set) {
+		if (!(wp->source_channels == 1 &&
+		      wp->source_bits_per_channel == 8)) {
+			logerr(wp->log, "Invalid channels/bits (%d/%d)"
+			        " set for indexed image", wp->source_channels,
+			        wp->source_bits_per_channel);
+			return BMP_RESULT_ERROR;
+		}
+	}
+
+	if (numcolors < 0 || numcolors > 255) {
+		logerr(wp->log, "Invalid number of colors for palette (%d)",
+		                                          numcolors);
+		return BMP_RESULT_ERROR;
+	}
+
+	memsize = sizeof *wp->palette + numcolors * sizeof wp->palette->color[0];
+	if (!(wp->palette = malloc(memsize))) {
+		logsyserr(wp->log, "Allocating palette");
+		return BMP_RESULT_ERROR;
+	}
+	memset(wp->palette, 0, memsize);
+
+	wp->palette->numcolors = numcolors;
+	for (i = 0; i < numcolors; i++) {
+		for (c = 0; c < 3; c++) {
+			wp->palette->color[i].value[c] = palette[4*i + c];
+		}
+	}
+	wp->palette_size = 4 * numcolors;
+	return BMP_RESULT_OK;
+}
+
+
+
+/********************************************************
  * 	bmpwrite_save_image
  *******************************************************/
 
 EXPORT_VIS BMPRESULT bmpwrite_save_image(BMPHANDLE h, void *image)
 {
 	size_t        offs, linelength;
-	unsigned long bytes;
+	unsigned long bytes = 0;
 	unsigned char padding[4] = {0,0,0,0};
-	int           pad, i, x, y;
+	int           i, x, y, bits_used = 0;
 	BMPWRITE wp;
 
 	if (!(h && s_check_is_write_handle(h)))
@@ -257,7 +336,7 @@ EXPORT_VIS BMPRESULT bmpwrite_save_image(BMPHANDLE h, void *image)
 
 	wp->saveimage_done = TRUE;
 
-	pad = s_create_header(wp);
+	s_create_header(wp);
 
 	if (!s_write_bmp_file_header(wp->fh, wp->file)) {
 		logsyserr(wp->log, "Writing BMP file header");
@@ -269,33 +348,64 @@ EXPORT_VIS BMPRESULT bmpwrite_save_image(BMPHANDLE h, void *image)
 		goto abort;
 	}
 
+	if (wp->palette) {
+		if (!s_write_palette(wp)) {
+			logsyserr(wp->log, "Couldn't write palette");
+			goto abort;
+		}
+	}
+
+
 #ifdef DEBUG
 	printf("RGB format: %d-%d-%d - %d\n", wp->colormask.bits.red, wp->colormask.bits.green,
 		                         wp->colormask.bits.blue, wp->colormask.bits.alpha);
 	printf("masks: 0x%04lx 0x%04lx 0x%04lx \nshift: 0x%04lx 0x%04lx 0x%04lx \n", 
 	              wp->colormask.mask.red, wp->colormask.mask.green, wp->colormask.mask.blue,
 	              wp->colormask.shift.red, wp->colormask.shift.green, wp->colormask.shift.blue);
-	printf("bmpinfo: %d\nBits: %d bytes: %d\n", wp->ih->version,
-		                          (int) wp->ih->bitcount, wp->outbytes_per_pixel);
+	printf("bmpinfo: %d\nBits: %d\n", wp->ih->version,
+		                          (int) wp->ih->bitcount);
 #endif
 
 	linelength = (size_t) wp->width * (size_t) wp->source_channels;
 	for (y = wp->height - 1; y >= 0; y--) {
 		for (x = 0; x < wp->width; x++) {
 			offs = (size_t) y * linelength + (size_t) x * (size_t) wp->source_channels;
-			bytes = s_set_outpixel_rgb(wp, image, offs);
-			if (bytes == (unsigned long)-1)
-				return BMP_RESULT_ERROR;
+			if (wp->palette) {
+				bytes <<= wp->ih->bitcount;
+				bytes |= ((unsigned char*)image)[offs];
+				bits_used += wp->ih->bitcount;
+				if (bits_used == 8) {
+					if (EOF == putc((int)bytes, wp->file)) {
+						logsyserr(wp->log, "Writing image to BMP file");
+						goto abort;
+					}
+					bytes = 0;
+					bits_used = 0;
+				}
+			}
+			else {
+				bytes = s_set_outpixel_rgb(wp, image, offs);
+				if (bytes == (unsigned long)-1)
+					return BMP_RESULT_ERROR;
 
-			for (i = 0; i < wp->outbytes_per_pixel; i++) {
-				if (EOF == fputc((bytes >> (8*i)) & 0xff, wp->file)) {
-					logsyserr(wp->log, "Writing image to BMP file");
-					goto abort;
+				for (i = 0; i < wp->outbytes_per_pixel; i++) {
+					if (EOF == putc((bytes >> (8*i)) & 0xff, wp->file)) {
+						logsyserr(wp->log, "Writing image to BMP file");
+						goto abort;
+					}
 				}
 			}
 		}
 
-		if (pad != fwrite(padding, 1, pad, wp->file)) {
+		if (wp->palette && bits_used != 0) {
+			bytes <<= 8 - bits_used;
+			if (EOF == putc((int)bytes, wp->file)) {
+				logsyserr(wp->log, "Writing image to BMP file");
+				goto abort;
+			}
+			bits_used = 0;
+		}
+		if (wp->padding != fwrite(padding, 1, wp->padding, wp->file)) {
 			logsyserr(wp->log, "Writing padding bytes to BMP file");
 			goto abort;
 		}
@@ -315,6 +425,8 @@ abort:
 
 void bw_free(BMPWRITE wp)
 {
+	if (wp->palette)
+		free(wp->palette);
 	if (wp->ih)
 		free(wp->ih);
 	if (wp->fh)
@@ -331,9 +443,9 @@ void bw_free(BMPWRITE wp)
  * 	s_create_header
  *******************************************************/
 
-static int s_create_header(BMPWRITE_R wp)
+static void s_create_header(BMPWRITE_R wp)
 {
-	int   bitsum, i, pad;
+	int   bitsum, i, bytes_per_line;
 
 	if ((wp->source_channels == 4 || wp->source_channels == 2) &&
 	    ((wp->outbits_set && wp->colormask.bits.alpha) || !wp->outbits_set) ) {
@@ -380,41 +492,52 @@ static int s_create_header(BMPWRITE_R wp)
 			wp->ih->bitcount = 32;
 	}
 	/* otherwise, use BI_RGB with either 5 or 8 bits per component
-	 * resulting in bitcount of 16 or 24.
-	 * (No indexed images yet!)
+	 * resulting in bitcount of 16 or 24, or indexed.
+	 * Or indexed.
 	 */
 	else {
 		wp->ih->version     = BMPINFO_V3;
 		wp->ih->size        = BMPIHSIZE_V3;
 		wp->ih->compression = BI_RGB;
-
-		wp->ih->bitcount = (bitsum + 7) / 8 * 8;
+		if (wp->palette) {
+			wp->ih->bitcount = 1;
+			while ((1<<wp->ih->bitcount) < wp->palette->numcolors)
+				wp->ih->bitcount *= 2;
+		}
+		else
+			wp->ih->bitcount = (bitsum + 7) / 8 * 8;
 	}
 
-	wp->outbytes_per_pixel = wp->ih->bitcount / 8;
+	if (wp->palette) {
+		wp->outpixels_per_byte = 8 / wp->ih->bitcount;
+		wp->ih->clrused = wp->palette->numcolors;
+	}
+	else {
+		wp->outbytes_per_pixel = wp->ih->bitcount / 8;
+		wp->colormask.mask.red    = (1<<wp->colormask.bits.red) - 1;
+		wp->colormask.shift.red   = wp->colormask.bits.green + wp->colormask.bits.blue + wp->colormask.bits.alpha;
+		wp->colormask.mask.green  = (1<<wp->colormask.bits.green) - 1;
+		wp->colormask.shift.green = wp->colormask.bits.blue + wp->colormask.bits.alpha;
+		wp->colormask.mask.blue   = (1<<wp->colormask.bits.blue) - 1;
+		wp->colormask.shift.blue  = wp->colormask.bits.alpha;
+		wp->colormask.mask.alpha  = (1<<wp->colormask.bits.alpha) - 1;
+		wp->colormask.shift.alpha = 0;
 
-	wp->colormask.mask.red    = (1<<wp->colormask.bits.red) - 1;
-	wp->colormask.shift.red   = wp->colormask.bits.green + wp->colormask.bits.blue + wp->colormask.bits.alpha;
-	wp->colormask.mask.green  = (1<<wp->colormask.bits.green) - 1;
-	wp->colormask.shift.green = wp->colormask.bits.blue + wp->colormask.bits.alpha;
-	wp->colormask.mask.blue   = (1<<wp->colormask.bits.blue) - 1;
-	wp->colormask.shift.blue  = wp->colormask.bits.alpha;
-	wp->colormask.mask.alpha  = (1<<wp->colormask.bits.alpha) - 1;
-	wp->colormask.shift.alpha = 0;
 
-
-	if (wp->ih->version >= BMPINFO_V4) {
-		wp->ih->redmask   = wp->colormask.mask.red   << wp->colormask.shift.red;
-		wp->ih->greenmask = wp->colormask.mask.green << wp->colormask.shift.green;
-		wp->ih->bluemask  = wp->colormask.mask.blue  << wp->colormask.shift.blue;
-		wp->ih->alphamask = wp->colormask.mask.alpha << wp->colormask.shift.alpha;
+		if (wp->ih->version >= BMPINFO_V4) {
+			wp->ih->redmask   = wp->colormask.mask.red   << wp->colormask.shift.red;
+			wp->ih->greenmask = wp->colormask.mask.green << wp->colormask.shift.green;
+			wp->ih->bluemask  = wp->colormask.mask.blue  << wp->colormask.shift.blue;
+			wp->ih->alphamask = wp->colormask.mask.alpha << wp->colormask.shift.alpha;
+		}
 	}
 
-	pad = cm_align4padding(wp->outbytes_per_pixel * wp->width);
+	bytes_per_line = (wp->ih->bitcount * wp->width + 7) / 8;
+	wp->padding = cm_align4padding(bytes_per_line);
 
 	wp->fh->type = 0x4d42; /* "BM" */
-	wp->fh->size = BMPFHSIZE + wp->ih->size + (wp->width * wp->outbytes_per_pixel + pad) * wp->height;
-	wp->fh->offbits = BMPFHSIZE + wp->ih->size;
+	wp->fh->size = BMPFHSIZE + wp->ih->size + wp->palette_size + (bytes_per_line + wp->padding) * wp->height;
+	wp->fh->offbits = BMPFHSIZE + wp->ih->size + wp->palette_size;
 
 	wp->ih->width = wp->width;
 	wp->ih->height = wp->height;
@@ -422,8 +545,6 @@ static int s_create_header(BMPWRITE_R wp)
 	wp->ih->sizeimage = 0;
 	wp->ih->xpelspermeter = 72 * 39.37;
 	wp->ih->ypelspermeter = 72 * 39.37;
-
-	return pad;
 }
 
 
@@ -503,6 +624,28 @@ static inline unsigned long s_set_outpixel_rgb(BMPWRITE_R wp, void* restrict ima
 		bytes |= a << wp->colormask.shift.alpha;
 
 	return bytes;
+}
+
+
+
+
+/********************************************************
+ * 	s_write_palette
+ *******************************************************/
+
+static int s_write_palette(BMPWRITE_R wp)
+{
+	int i, c;
+
+	for (i = 0; i < wp->palette->numcolors; i++) {
+		for (c = 0; c < 3; c++) {
+			if (EOF == putc(wp->palette->color[i].value[2-c], wp->file))
+				return FALSE;
+		}
+		if (EOF == putc(0, wp->file))
+			return FALSE;
+	}
+	return TRUE;
 }
 
 
