@@ -35,7 +35,7 @@ Use `bmpread_dimensions()` to get all dimensions with one call. It is not necess
 
 The dimensions describe the image returned by bmplib, *not* necesarily the original BMP file.
 
-Alternatively, you can use the following functions to receive the values one at a time, each returned as an `int`.
+Alternatively, you can use the following functions to receive the values one at a time, each returned as an `int`. Getting the horizontal and vertical resolutions in DPI is only available via these single functions.
 
 Note, in order to use these functions, -- unlike with `bmpread_dimensions()` -- you must first (successfully) call `bmpread_load_info()`, otherwise they will all return 0!
 
@@ -45,6 +45,10 @@ int       bmpread_height(BMPHANDLE h)
 int       bmpread_channels(BMPHANDLE h)
 int       bmpread_bits_per_channel(BMPHANDLE h)
 int       bmpread_topdown(BMPHANDLE h)
+
+int       bmpread_resolution_xdpi(BMPHANDLE h)
+int       bmpread_resolution_ydpi(BMPHANDLE h)
+
 ```
 #### top-down / bottom-up
 `bmpread_topdown()` or the topdown value returned by `bmpread_dimensions()` is only relevant if you load the BMP file line-by-line. In line-by-line mode (using `bmpread_load_line()`), the image data is always delivered in the order it is in the BMP file. The topdown value will tell you if it's top-down or bottom-up. On the other hand, when the whole image is loaded at once (using `bmpread_load_image()`), bmplib will *always* return the image top-down, regardless of how the BMP file is oriented. The topdown value will still indicate the orientation of the original BMP.
@@ -82,7 +86,7 @@ If bmpread_load_image() return BMP_RESULT_TRUNCATED or BMP_RESULT_INVALID, the f
 
 ### bmpread_load_line()
 ```
-BMPRESULT bmpread_load_line(BMPHANDLE h, char **bufferp);
+BMPRESULT bmpread_load_line(BMPHANDLE h, char **bufferp)
 ```
 Loads a single scan line from the BMP file into the buffer pointed to by `bufferp`.
 You can either allocate a buffer yourself or let `bufferp` point to a NULL-pointer in which case bmplib will allocate an appropriate buffer. In the latter case, you will have to call `free()` on the buffer, once you are done with it.
@@ -102,12 +106,12 @@ By default, bmplib will interpret indexed (color palette) BMPs and return the im
 
 If instead you want to keep the image as indexed, you have the option do so with these two functions:
 ```
-int       bmpread_num_palette_colors(BMPHANDLE h);
-BMPRESULT bmpread_load_palette(BMPHANDLE h, unsigned char **palette);
+int       bmpread_num_palette_colors(BMPHANDLE h)
+BMPRESULT bmpread_load_palette(BMPHANDLE h, unsigned char **palette)
 ```
 `bmpread_num_palette_colors()` will return 0 for non-indexed images, otherwise it will return the number of entries in the color palette.
 
-`bmpread_load_palette()` will retrieve the color palette and store it in the character buffer pointed to by `palette`. The colors are stored 4 bytes per entry: The first three bytes are the red, green, and blue values in that order, the 4th bytes is always set to zero. So the palette buffer will contain "rgb0rgb0rgb0...".
+`bmpread_load_palette()` will retrieve the color palette and store it in the character buffer pointed to by `palette`. The colors are stored 4 bytes per entry: The first three bytes are the red, green, and blue values in that order, the 4th byte is always set to zero. So the palette buffer will contain "rgb0rgb0rgb0...".
 As with the main image buffer, you can either provide one for the palette or let bmplib allocate it for you (end then call `free()` on it, once you are done):
 
 ```
@@ -174,24 +178,56 @@ BMPRESULT bmpread_info_channel_bits(BMPHANDLE h, int *r, int *g, int *b, int *a)
 BMPHANDLE bmpwrite_new(FILE *file);
 ```
 
-### bmpwrite_set_dimensions()
+### Setting image dimensions
 ```
 BMPRESULT bmpwrite_set_dimensions(BMPHANDLE h,
                                   unsigned  width,
                                   unsigned  height,
                                   unsigned  channels,
-                                  unsigned  bits_per_channel);
+                                  unsigned  bits_per_channel)
+
+BMPRESULT bmpwrite_set_resolution(BMPHANDLE h, int xdpi, int ydpi)
+
 ```
 
-### bmpwrite_set_output_bits()
+Note: the dimensions set with `bmpwrite_set_dimensions()` describe the source data that you pass to bmplib, *not* the output BMP format. Use `bmpwrite_set_output_bits()` and `bmpwrite_set_palette()` to modify the format written to the BMP file.
+
+
+### Set the output format
+Optional: set the bit-depth for each output channel. bmplib will otherwise choose appropriate bit-depths for your image.
+The bit-depth per channel can be anywhere between 0 and 32, inclusive. In sum, the bits must be at least 1 and must not exceed 32.
+
 ```
-BMPRESULT bmpwrite_set_output_bits(BMPHANDLE h, int red, int green, int blue, int alpha);
+BMPRESULT bmpwrite_set_output_bits(BMPHANDLE h, int red, int green, int blue, int alpha)
 ```
 
-### bmpwrite_save_image()
+### Indexed images
+
 ```
-BMPRESULT bmpwrite_save_image(BMPHANDLE h, void *image);
+BMPRESULT bmpwrite_set_palette(BMPHANDLE h, int numcolors, unsigned char *palette);
+BMPRESULT bmpwrite_allow_2bit(BMPHANDLE h);
 ```
+You can write 1/2/4/8-bit indexed images by providing a color palette with `bmpwrite_set_palette()`. The palette entries must be 4 bytes each, the first three bytes are the red, green, and blue values in that order, the 4th byte is padding and will be ignored.
+
+If you provide a palette, the image data you provide has to be 1 channel, 8 bits per pixel.
+bmplib will choose the appropriate bit-depth for the BMP according to the number of color-entries in your palette.
+By default, bmplib will not write 2-bit indexed BMPs (supposedly a Windows CE relict), as many readers will refuse to open these. If you do want a 2-bit BMP for 3- or 4-color images, call `bmpwrite_allow_2bit()` before calling `bmpwrite_save_image()`.
+
+RLE compression is not supported yet.
+
+
+
+
+### Write the image
+```
+BMPRESULT bmpwrite_save_image(BMPHANDLE h, void *image)
+
+```
+
+
+
+
+
 
 
 
@@ -199,7 +235,7 @@ BMPRESULT bmpwrite_save_image(BMPHANDLE h, void *image);
 
 ### bmp_free()
 ```
-void        bmp_free(BMPHANDLE h);
+void        bmp_free(BMPHANDLE h)
 ```
 Frees all resources associated with the handle `h`. Image data is not affected, so you can call bmp_free() immediately after bmpread_load_image() and still use the returned image data.
 Note: Any error messages returned by `bmp_errmsg()` invalidated by `bmp_free()` and cannot be used anymore.
@@ -207,14 +243,14 @@ Note: Any error messages returned by `bmp_errmsg()` invalidated by `bmp_free()` 
 
 ### bmp_errmsg()
 ```
-const char* bmp_errmsg(BMPHANDLE h);
+const char* bmp_errmsg(BMPHANDLE h)
 ```
 Returns a zero-terminated character string containing the last error description(s). The returned string is safe to use until any other bmplib-function is called.
 
 
 ### bmp_version()
 ```
-const char* bmp_version(void);
+const char* bmp_version(void)
 ```
 
 
@@ -304,13 +340,13 @@ of the following values:
 ### Writing BMPs
 
 ```
-    BMPHANDLE write_handle;
+    BMPHANDLE h;
     FILE     *file;
     char     *image_buffer;
     int       width, height, channel, bitsperchannel;
 
     /* 'image_buffer' contains the image to be saved as either
-     * 8, 16, or 32 bits per channel RGBA or RGBA data in
+     * 8, 16, or 32 bits per channel RGB or RGBA data in
      * host byte order without any padding
      */
 
@@ -318,7 +354,7 @@ of the following values:
     /* open a file for writing and get a BMPHANDLE */
 
     file = fopen("image.bmp", "wb");
-    write_handle = bmpwrite_new(file);
+    h = bmpwrite_new(file);
 
 
     /* inform bmplib of the image dimensions.
@@ -327,24 +363,23 @@ of the following values:
      * be written in.
      */
 
-    bmpwrite_set_dimensions(write_handle, width, height,
-                                          channels, bits_per_channel);
+    bmpwrite_set_dimensions(h, width, height, channels, bits_per_channel);
 
 
 
-   /* Optional: choose bit-depths (independantly for each channel)
-    * for the BMP file. bmplib will choose an appropriate BMP file
-    * format to accomodate those bitdepths.
+   /* Optional: choose bit-depths (independantly for each channel,
+    * in the order R,G,B,A) for the BMP file. bmplib will choose
+    * an appropriate BMP file format to accomodate those bitdepths.
     */
 
-    bmpwrite_set_output_bits(write_handle, 5, 6, 5, 0);
+    bmpwrite_set_output_bits(h, 5, 6, 5, 0);
 
 
     /* save data to file */
 
-    bmpwrite_save_image(write_handle, image_buffer);
+    bmpwrite_save_image(h, image_buffer);
 
-    bmp_free(write_handle);
+    bmp_free(h);
     fclose(file);
 ```
 

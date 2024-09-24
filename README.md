@@ -31,8 +31,9 @@
 
 
 ### Writing BMP files:
-  - RGB(A) 16/24/32, no indexed files.
+  - RGB(A) 16/24/32 bit.
   - any bit-depth combination for the RGBA channels.
+  - Indexed 1/2/4/8 bit, no RLE-compression.
   - write BI_RGB when possible, BI_(ALPHA)BITFIELDS only when
     necessary.
 
@@ -63,7 +64,8 @@ see api.md for the API documentation
 
 ## TODOs:
 ### Definitely:
-   - [ ] write indexed RGBs. (RLE4/RLE8 only. No OS/2 v2 BMPs)
+   - [x] write indexed images.
+   - [ ] write RLE-compressed images (RLE4/RLE8 only. No OS/2 v2 BMPs).
    - [x] read RLE24-encoded BMPs.
    - [ ] read Huffman-encoded BMPs.
    - [x] line-by-line reading/writing. ~~Right now, the image can only be
