@@ -55,6 +55,7 @@ struct Bmpwrite {
 	int              has_alpha;
 	struct Colormask colormask;
 	int              palette_size;
+	int              allow_2bit; /* Windows CE, but many will not read it */
 	int              outbytes_per_pixel;
 	int              outpixels_per_byte;
 	int              padding;
@@ -307,6 +308,26 @@ EXPORT_VIS BMPRESULT bmpwrite_set_palette(BMPHANDLE h, int numcolors,
 
 
 
+
+/********************************************************
+ * 	bmpwrite_allow_2bit
+ *******************************************************/
+
+EXPORT_VIS BMPRESULT bmpwrite_allow_2bit(BMPHANDLE h)
+{
+	BMPWRITE wp;
+
+	if (!(h && s_check_is_write_handle(h)))
+		return BMP_RESULT_ERROR;
+	wp = (BMPWRITE)(void*)h;
+
+	wp->allow_2bit = TRUE;
+
+	return BMP_RESULT_OK;
+}
+
+
+
 /********************************************************
  * 	bmpwrite_save_image
  *******************************************************/
@@ -503,6 +524,8 @@ static void s_create_header(BMPWRITE_R wp)
 			wp->ih->bitcount = 1;
 			while ((1<<wp->ih->bitcount) < wp->palette->numcolors)
 				wp->ih->bitcount *= 2;
+			if (wp->ih->bitcount == 2 && !wp->allow_2bit)
+				wp->ih->bitcount = 4;
 		}
 		else
 			wp->ih->bitcount = (bitsum + 7) / 8 * 8;

@@ -143,6 +143,7 @@ BMPRESULT bmpwrite_set_dimensions(BMPHANDLE h,
 
 BMPRESULT bmpwrite_set_output_bits(BMPHANDLE h, int red, int green, int blue, int alpha);
 BMPRESULT bmpwrite_set_palette(BMPHANDLE h, int numcolors, unsigned char *palette);
+BMPRESULT bmpwrite_allow_2bit(BMPHANDLE h);
 
 BMPRESULT bmpwrite_save_image(BMPHANDLE h, void *image);
 
