@@ -23,7 +23,6 @@
 #include <stdio.h>
 #include <stdint.h>
 #include <stdarg.h>
-#include <errno.h>
 
 #include "config.h"
 #include "bmplib.h"

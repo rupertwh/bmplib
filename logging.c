@@ -24,9 +24,9 @@
 #include <stdarg.h>
 #include <stdint.h>
 #include <math.h>
+#include <errno.h>
 
 #include "config.h"
-
 #include "logging.h"
 
 
@@ -36,10 +36,32 @@ struct Log {
 };
 
 
+/* logerr(log, fmt, ...) and logsyserr(log, fmt, ...) are
+ * printf-style logging functions.
+ * Use logsyserr() where perror() would be used, logerr()
+ * otherwise.
+ * 'separator' and 'inter' can have any length
+ * 'air' is just there so we don't need to realloc every
+ * single time.
+ */
+
+
+static const char separator[]="\n"; /* separator between log entries */
+static const char inter[]=": ";     /* between own message and sys err text */
+static const int air = 80;          /* how much more than required we allocate */
+
+static int s_allocate(LOG log, size_t add_chars);
+static void s_log(LOG log, const char *file, int line, const char *function,
+                  const char *etxt, const char *fmt, va_list args);
 static void panic(LOG log);
+#ifdef DEBUG
+static int s_add_file_etc(LOG log, const char *file, int line, const char *function);
+#endif
+
+
 
 /*********************************************************
- *      logcreate()
+ *      logcreate / logfree / etc.
  *********************************************************/
 
 LOG logcreate(void)
@@ -48,12 +70,9 @@ LOG logcreate(void)
 
 	if (!(log = malloc(sizeof *log)))
 		return NULL;
-
 	memset(log, 0, sizeof *log);
-
 	return log;
 }
-
 
 void logfree(LOG log)
 {
@@ -64,7 +83,140 @@ void logfree(LOG log)
 	}
 }
 
-int s_allocate(LOG log, size_t add_chars)
+void logreset(LOG log)
+{
+	if (log && log->buffer)
+		*log->buffer = 0;
+}
+
+
+
+/*********************************************************
+ *      logmsg()
+ *********************************************************/
+
+const char* logmsg(LOG log)
+{
+	if (log && log->buffer)
+		return log->buffer;
+	else
+		return "";
+}
+
+
+
+/*********************************************************
+ *      logerr()
+ *********************************************************/
+
+#ifdef DEBUG
+void logerr_(LOG log, const char *file, int line, const char *function, const char *fmt, ...)
+#else
+void logerr(LOG log, const char *fmt, ...)
+#endif
+{
+	va_list     args;
+
+        va_start(args, fmt);
+
+#ifdef DEBUG
+        s_log(log, file, line, function, NULL, fmt, args);
+#else
+        s_log(log, NULL, 0, NULL, NULL, fmt, args);
+#endif
+
+        va_end(args);
+}
+
+
+
+/*********************************************************
+ *      logsyserr()
+ *********************************************************/
+
+#ifdef DEBUG
+void logsyserr_(LOG log, const char *file, int line, const char *function, const char *fmt, ...)
+#else
+void logsyserr(LOG log, const char *fmt, ...)
+#endif
+{
+	va_list     args;
+        const char *etxt;
+
+        va_start(args, fmt);
+        etxt = strerror(errno);
+
+#ifdef DEBUG
+        s_log(log, file, line, function, etxt, fmt, args);
+#else
+        s_log(log, NULL, 0, NULL, etxt, fmt, args);
+#endif
+
+        va_end(args);
+}
+
+
+
+/*********************************************************
+ *      s_log()
+ *********************************************************/
+
+static void s_log(LOG log, const char *file, int line, const char *function,
+                  const char *etxt, const char *fmt, va_list args)
+{
+	va_list     argsdup;
+        int         len = 0,addl_len, required_len;
+
+	if (log->size == (size_t)-1)
+		return; /* log is set to a string literal (panic) */
+
+#ifdef DEBUG
+	if (!s_add_file_etc(log, file, line, function))
+		return;
+#endif
+
+	if (log->buffer)
+	        len = strlen(log->buffer);
+
+	va_copy(argsdup, args);
+	addl_len = vsnprintf(NULL, 0, fmt, argsdup);
+	va_end(argsdup);
+
+	required_len = len + strlen(separator) +
+	               addl_len + (etxt ? strlen(inter) + strlen (etxt) : 0) + 1;
+	if (required_len > log->size) {
+		if (!s_allocate(log, required_len - log->size)) {
+			panic(log);
+			return;
+		}
+	}
+
+#ifndef DEBUG   /*  <-- if NOT defined */
+	if (*log->buffer) {
+		strcat(log->buffer, separator);
+		len += strlen(separator);
+	}
+#endif
+
+	if (log->size - len <= vsnprintf(log->buffer + len, log->size - len,
+	                                 fmt, args)) {
+		panic(log);
+		return;
+	}
+
+	if (etxt) {
+		strcat(log->buffer, inter);
+		strcat(log->buffer, etxt);
+	}
+}
+
+
+
+/*********************************************************
+ *      s_allocate()
+ *********************************************************/
+
+static int s_allocate(LOG log, size_t add_chars)
 {
 	char   *tmp;
 	size_t  newsize;
@@ -72,8 +224,9 @@ int s_allocate(LOG log, size_t add_chars)
 	if (log->size == (size_t)-1)
 		return 0; /* log is set to a string literal (panic) */
 
-	newsize = log->size + add_chars;
+	add_chars += air;
 
+	newsize = log->size + add_chars;
 	tmp = realloc(log->buffer, newsize);
 	if (tmp) {
 		log->buffer = tmp;
@@ -89,191 +242,9 @@ int s_allocate(LOG log, size_t add_chars)
 
 
 
-void logreset(LOG log)
-{
-	if (log && log->buffer)
-		*log->buffer = 0;
-}
-
-const char* logmsg(LOG log)
-{
-	if (log && log->buffer)
-		return log->buffer;
-	else
-		return "";
-}
-
-
 /*********************************************************
- *      logerr_()
+ *      panic()
  *********************************************************/
-
-void logerr_(LOG log, const char *file, int line, const char *function, const char *fmt, ...)
-{
-        va_list     args, backup;
-        int         written, len;
-
-        va_start(args, fmt);
-
-	if (log->size == (size_t)-1)
-		goto done; /* log is set to a string literal (panic) */
-
-        if (!log->size || log->size - strlen(log->buffer) < 5) {
-        	if (!s_allocate(log, 100)) {
-        		panic(log);
-        		goto done;
-        	}
-        }
-
-        len = strlen(log->buffer);
-        if (len) {
-        	strcat(log->buffer, "\n");
-        	len++;
-        }
-
-#ifdef DEBUG
-        do {
-	       	written = snprintf(log->buffer + len, log->size - len,
-	       		              "[%s, line %d, %s()] ", file, line, function);
-		if (written < 0) {
-			panic(log);
-			goto done;
-	       	}
-	       	if (written >= log->size - len) {
-	       		if (!s_allocate(log, written - (log->size - len) + 5)) {
-	       			panic(log);
-	       			goto done;
-	       		}
-	       	}
-	       	else
-	       		break;
-
-	} while(1);
-
-#endif
-
-        len = strlen(log->buffer);
-
-        va_copy(backup, args);
-        do {
-
-		written = vsnprintf(log->buffer + len, log->size - len, fmt, args);
-		if (written < 0) {
-			panic(log);
-			goto done;
-		}
-		if (written >= log->size - len) {
-			if (!s_allocate(log, written - (log->size - len) + 5)) {
-				panic(log);
-				goto done;
-			}
-			va_copy(args, backup);
-		}
-		else
-			break;
-	} while (1);
-
-done:
-        va_end(args);
-}
-
-
-
-/*********************************************************
- *      logsyserr_()
- *********************************************************/
-
-
-void logsyserr_(LOG log, const char *file, int line, const char *function, int eno, const char *fmt, ...)
-{
-        va_list     args, backup;
-        const char *etxt;
-        int         written, len;
-
-        va_start(args, fmt);
-
-	if (log->size == (size_t)-1)
-		return; /* log is set to a string literal (panic) */
-
-        etxt = strerror(eno);
-
-        if (!log->size || log->size - strlen(log->buffer) < 5) {
-        	if (!s_allocate(log, 100 + strlen(etxt))) {
-        		panic(log);
-        		return;
-        	}
-        }
-
-        len = strlen(log->buffer);
-        if (len) {
-        	strcat(log->buffer, "\n");
-        	len++;
-        }
-
-#ifdef DEBUG
-        do {
-	       	written = snprintf(log->buffer + len, log->size - len,
-	       		              "[%s, line %d, %s()] ", file, line, function);
-		if (written < 0) {
-			panic(log);
-			goto done;
-	       	}
-	       	if (written >= log->size - len) {
-	       		if (!s_allocate(log, written - (log->size - len) + 5)) {
-	       			panic(log);
-	       			goto done;
-	       		}
-	       	}
-	       	else
-	       		break;
-
-	} while(1);
-#endif
-
-	va_copy(backup, args);
-
-        len = strlen(log->buffer);
-
-        do {
-	       	written = vsnprintf(log->buffer + len, log->size - len, fmt, args);
-		if (written < 0) {
-			panic(log);
-			goto done;
-		}
-		if (written >= log->size - len) {
-			if (!s_allocate(log, written - (log->size - len) + 5)) {
-				panic(log);
-				goto done;
-			}
-			va_copy(args, backup);
-		}
-		else
-			break;
-	} while (1);
-
-        len = strlen(log->buffer);
-
-        do {
-	       	written = snprintf(log->buffer + len, log->size - len, ": %s", etxt);
-		if (written < 0) {
-			panic(log);
-			goto done;
-		}
-		if (written >= log->size - len) {
-			if (!s_allocate(log, written - (log->size - len) + 5)) {
-				panic(log);
-				goto done;
-			}
-		}
-		else
-			break;
-	} while (1);
-
-done:
-        va_end(args);
-
-}
-
 
 static void panic(LOG log)
 {
@@ -281,3 +252,42 @@ static void panic(LOG log)
 	log->buffer = "PANIC! bmplib encountered an error while trying to set "
 	              "an error message";
 }
+
+
+
+/*********************************************************
+ *      s_add_file_etc()
+ *********************************************************/
+
+#ifdef DEBUG
+static int s_add_file_etc(LOG log, const char *file, int line, const char *function)
+{
+	int len = 0, addl_len, required_len;
+
+	if (log->buffer)
+		len = strlen(log->buffer);
+
+	addl_len = snprintf(NULL, 0, "[%s, line %d, %s()] ", file, line, function);
+
+	required_len = len + strlen(separator) + addl_len + 1;
+	if (required_len > log->size) {
+		if (!s_allocate(log, required_len - log->size)) {
+			panic(log);
+			return 0;
+		}
+	}
+
+	if (*log->buffer) {
+		strcat(log->buffer, separator);
+		addl_len += strlen(separator);
+		len += strlen(separator);
+	}
+
+	if (log->size - len <= snprintf(log->buffer + len, log->size - len,
+	       		              "[%s, line %d, %s()] ", file, line, function)) {
+		panic(log);
+		return 0;
+	}
+	return addl_len;
+}
+#endif

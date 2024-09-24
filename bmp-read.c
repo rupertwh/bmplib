@@ -24,7 +24,6 @@
 #include <stdint.h>
 #include <limits.h>
 #include <stdarg.h>
-#include <errno.h>
 
 #include "config.h"
 #include "bmplib.h"
@@ -225,7 +224,6 @@ EXPORT_VIS BMPRESULT bmpread_load_info(BMPHANDLE h)
 	return rp->getinfo_return;
 
 abort:
-
 	rp->getinfo_return = BMP_RESULT_ERROR;
 	return BMP_RESULT_ERROR;
 }

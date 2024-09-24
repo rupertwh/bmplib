@@ -24,7 +24,6 @@
 #include <stdint.h>
 #include <limits.h>
 #include <stdarg.h>
-#include <errno.h>
 
 #include "config.h"
 #include "bmplib.h"

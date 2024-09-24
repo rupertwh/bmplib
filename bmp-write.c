@@ -24,7 +24,6 @@
 #include <stdint.h>
 #include <limits.h>
 #include <stdarg.h>
-#include <errno.h>
 
 #include "config.h"
 #include "bmplib.h"
@@ -536,7 +535,6 @@ static void s_create_header(BMPWRITE_R wp)
 	}
 	/* otherwise, use BI_RGB with either 5 or 8 bits per component
 	 * resulting in bitcount of 16 or 24, or indexed.
-	 * Or indexed.
 	 */
 	else {
 		wp->ih->version     = BMPINFO_V3;
@@ -567,7 +565,6 @@ static void s_create_header(BMPWRITE_R wp)
 		wp->colormask.shift.blue  = wp->colormask.bits.alpha;
 		wp->colormask.mask.alpha  = (1<<wp->colormask.bits.alpha) - 1;
 		wp->colormask.shift.alpha = 0;
-
 
 		if (wp->ih->version >= BMPINFO_V4) {
 			wp->ih->redmask   = wp->colormask.mask.red   << wp->colormask.shift.red;
