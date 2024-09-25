@@ -6,7 +6,7 @@
 - Write any sensible BMP
 - Robustness! Don't let malformed BMPs bother us
 
-## Current status (v1.4.0):
+## Current status (v1.4.1):
 ### Reading BMP files:
   - 16/24/32 bit RGB(A) with any bits/channel combination (BI_RGB, BI_BITFIELDS, BI_ALPHABITFIELDS).
   - 1/2/4/8 bit indexed (palette), including RLE4 and RLE8 compressed.
