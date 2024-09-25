@@ -23,7 +23,6 @@
 #include <string.h>
 #include <stdint.h>
 #include <limits.h>
-#include <stdarg.h>
 
 #include "config.h"
 #include "bmplib.h"
@@ -62,16 +61,23 @@ struct Bmpwrite {
 	int              outbits_set;
 	int              dimensions_set;
 	int              saveimage_done;
+	int              line_by_line;
+	int              lbl_y;
 };
 
 
 static void s_create_header(BMPWRITE_R wp);
 static int s_write_palette(BMPWRITE_R wp);
-static inline unsigned long s_set_outpixel_rgb(BMPWRITE_R wp, void* restrict image, size_t offs);
+static int s_save_line(BMPWRITE_R wp, const unsigned char *line);
+static inline unsigned long s_set_outpixel_rgb(BMPWRITE_R wp, const unsigned char *restrict buffer, size_t offs);
 static int s_write_bmp_file_header(struct Bmpfile *bfh, FILE *file);
 static int s_write_bmp_info_header(struct Bmpinfo *bih, FILE *file);
 static int s_check_is_write_handle(BMPHANDLE h);
 static inline unsigned s_scaleint(unsigned long val, int frombits, int tobits);
+
+static int s_save_info(BMPWRITE_R wp);
+static int s_save_line(BMPWRITE_R wp, const unsigned char *line);
+
 
 
 
@@ -80,7 +86,7 @@ static inline unsigned s_scaleint(unsigned long val, int frombits, int tobits);
  * 	bmpwrite_new
  *******************************************************/
 
-EXPORT_VIS BMPHANDLE bmpwrite_new(FILE *file)
+API BMPHANDLE bmpwrite_new(FILE *file)
 {
 	BMPWRITE wp = NULL;
 
@@ -135,7 +141,7 @@ abort:
  * 	bmpwrite_set_dimensions
  *******************************************************/
 
-EXPORT_VIS BMPRESULT bmpwrite_set_dimensions(BMPHANDLE h,
+API BMPRESULT bmpwrite_set_dimensions(BMPHANDLE h,
                                        unsigned  width,
                                        unsigned  height,
                                        unsigned  source_channels,
@@ -144,7 +150,7 @@ EXPORT_VIS BMPRESULT bmpwrite_set_dimensions(BMPHANDLE h,
 	int total_bits;
 	BMPWRITE wp;
 
-	if (!(h && s_check_is_write_handle(h)))
+	if (!s_check_is_write_handle(h))
 		return BMP_RESULT_ERROR;
 	wp = (BMPWRITE)(void*)h;
 
@@ -161,7 +167,7 @@ EXPORT_VIS BMPRESULT bmpwrite_set_dimensions(BMPHANDLE h,
 	case 16:
 	case 32:
 		if (wp->palette) {
-			logerr(wp->log, "Invalid bits (%d) set for indexed image",
+			logerr(wp->log, "Indexed images must be 8-bit (not %d)",
 						        source_bits_per_channel);
 			return BMP_RESULT_ERROR;
 		}
@@ -172,8 +178,12 @@ EXPORT_VIS BMPRESULT bmpwrite_set_dimensions(BMPHANDLE h,
 		return BMP_RESULT_ERROR;
 	}
 
-	if (source_channels != 1 && (source_channels < 3 || source_channels > 4)) {
+	if (source_channels < 1 || source_channels > 4) {
 		logerr(wp->log, "Invalid number of channels: %d", (int) source_channels);
+		return BMP_RESULT_ERROR;
+	}
+	if (wp->palette && source_channels != 1) {
+		logerr(wp->log, "Indexed images must have 1 channel (not %d)", (int) source_channels);
 		return BMP_RESULT_ERROR;
 	}
 
@@ -207,11 +217,11 @@ EXPORT_VIS BMPRESULT bmpwrite_set_dimensions(BMPHANDLE h,
  * 	bmpwrite_set_output_bits
  *******************************************************/
 
-EXPORT_VIS BMPRESULT bmpwrite_set_output_bits(BMPHANDLE h, int red, int green, int blue, int alpha)
+API BMPRESULT bmpwrite_set_output_bits(BMPHANDLE h, int red, int green, int blue, int alpha)
 {
 	BMPWRITE wp;
 
-	if (!(h && s_check_is_write_handle(h)))
+	if (!s_check_is_write_handle(h))
 		return BMP_RESULT_ERROR;
 	wp = (BMPWRITE)(void*)h;
 
@@ -251,14 +261,14 @@ EXPORT_VIS BMPRESULT bmpwrite_set_output_bits(BMPHANDLE h, int red, int green, i
  * 	bmpwrite_set_palette
  *******************************************************/
 
-EXPORT_VIS BMPRESULT bmpwrite_set_palette(BMPHANDLE h, int numcolors,
-	                                  unsigned char *palette)
+API BMPRESULT bmpwrite_set_palette(BMPHANDLE h, int numcolors,
+                                   const unsigned char *palette)
 {
 	BMPWRITE wp;
 	int      i, c;
 	size_t   memsize;
 
-	if (!(h && s_check_is_write_handle(h)))
+	if (!s_check_is_write_handle(h))
 		return BMP_RESULT_ERROR;
 	wp = (BMPWRITE)(void*)h;
 
@@ -282,7 +292,7 @@ EXPORT_VIS BMPRESULT bmpwrite_set_palette(BMPHANDLE h, int numcolors,
 		}
 	}
 
-	if (numcolors < 0 || numcolors > 255) {
+	if (numcolors < 0 || numcolors > 256) {
 		logerr(wp->log, "Invalid number of colors for palette (%d)",
 		                                          numcolors);
 		return BMP_RESULT_ERROR;
@@ -307,20 +317,22 @@ EXPORT_VIS BMPRESULT bmpwrite_set_palette(BMPHANDLE h, int numcolors,
 
 
 
-
-
-
 /********************************************************
  * 	bmpwrite_set_resolution
  *******************************************************/
 
-EXPORT_VIS BMPRESULT bmpwrite_set_resolution(BMPHANDLE h, int xdpi, int ydpi)
+API BMPRESULT bmpwrite_set_resolution(BMPHANDLE h, int xdpi, int ydpi)
 {
 	BMPWRITE wp;
 
-	if (!(h && s_check_is_write_handle(h)))
+	if (!s_check_is_write_handle(h))
 		return BMP_RESULT_ERROR;
 	wp = (BMPWRITE)(void*)h;
+
+	if (wp->saveimage_done) {
+		logerr(wp->log, "Image already saved.");
+		return BMP_RESULT_ERROR;
+	}
 
 	wp->ih->xpelspermeter = 39.37 * xdpi + 0.5;
 	wp->ih->ypelspermeter = 39.37 * ydpi + 0.5;
@@ -334,13 +346,18 @@ EXPORT_VIS BMPRESULT bmpwrite_set_resolution(BMPHANDLE h, int xdpi, int ydpi)
  * 	bmpwrite_allow_2bit
  *******************************************************/
 
-EXPORT_VIS BMPRESULT bmpwrite_allow_2bit(BMPHANDLE h)
+API BMPRESULT bmpwrite_allow_2bit(BMPHANDLE h)
 {
 	BMPWRITE wp;
 
-	if (!(h && s_check_is_write_handle(h)))
+	if (!s_check_is_write_handle(h))
 		return BMP_RESULT_ERROR;
 	wp = (BMPWRITE)(void*)h;
+
+	if (wp->saveimage_done) {
+		logerr(wp->log, "Image already saved.");
+		return BMP_RESULT_ERROR;
+	}
 
 	wp->allow_2bit = TRUE;
 
@@ -353,110 +370,180 @@ EXPORT_VIS BMPRESULT bmpwrite_allow_2bit(BMPHANDLE h)
  * 	bmpwrite_save_image
  *******************************************************/
 
-EXPORT_VIS BMPRESULT bmpwrite_save_image(BMPHANDLE h, void *image)
+API BMPRESULT bmpwrite_save_image(BMPHANDLE h, const unsigned char *image)
 {
-	size_t        offs, linelength;
-	unsigned long bytes = 0;
-	unsigned char padding[4] = {0,0,0,0};
-	int           i, x, y, bits_used = 0;
+	size_t        offs, linesize;
+	int           y;
 	BMPWRITE wp;
 
-	if (!(h && s_check_is_write_handle(h)))
+	if (!s_check_is_write_handle(h))
+		return BMP_RESULT_ERROR;
+	wp = (BMPWRITE)(void*)h;
+
+	if (wp->line_by_line) {
+		logerr(wp->log, "Cannot switch from line-by-line to saving full image");
+		return BMP_RESULT_ERROR;
+	}
+
+	if  (!s_save_info(wp))
+		return BMP_RESULT_ERROR;
+
+	wp->saveimage_done = TRUE;
+
+	linesize = (size_t) wp->width * (size_t) wp->source_bytes_per_pixel;
+	for (y = wp->height - 1; y >= 0; y--) {
+		offs = (size_t) y * linesize;
+		if (!s_save_line(wp, image + offs)) {
+			logerr(wp->log, "failed saving line %d", y);
+			return BMP_RESULT_ERROR;
+		}
+	}
+
+	return BMP_RESULT_OK;
+}
+
+/********************************************************
+ * 	bmpwrite_save_line
+ *******************************************************/
+
+API BMPRESULT bmpwrite_save_line(BMPHANDLE h, const unsigned char *line)
+{
+	BMPWRITE wp;
+
+	if (!s_check_is_write_handle(h))
 		return BMP_RESULT_ERROR;
 	wp = (BMPWRITE)(void*)h;
 
 	if (wp->saveimage_done) {
-		logerr(wp->log, "Cannot call bmp_write_saveimage more than once");
+		logerr(wp->log, "Image already saved.");
 		return BMP_RESULT_ERROR;
 	}
 
+	if (!wp->line_by_line) {  /* first line */
+		if  (!s_save_info(wp)) {
+			wp->saveimage_done = TRUE;
+			return BMP_RESULT_ERROR;
+		}
+		wp->line_by_line = TRUE;
+	}
+
+	if (!s_save_line(wp, line)) {
+		wp->saveimage_done = TRUE;
+		return BMP_RESULT_ERROR;
+	}
+
+	if (++wp->lbl_y >= wp->height)
+		wp->saveimage_done = TRUE;
+
+	return BMP_RESULT_OK;
+}
+
+
+
+/********************************************************
+ * 	s_save_info
+ *******************************************************/
+
+static int s_save_info(BMPWRITE_R wp)
+{
+	if (wp->saveimage_done || wp->line_by_line) {
+		logerr(wp->log, "Image already saved.");
+		return FALSE;
+	}
 
 	if (!wp->dimensions_set) {
 		logerr(wp->log, "Must set dimensions before saving");
-		return BMP_RESULT_ERROR;
+		return FALSE;
 	}
-
-	wp->saveimage_done = TRUE;
 
 	s_create_header(wp);
 
 	if (!s_write_bmp_file_header(wp->fh, wp->file)) {
 		logsyserr(wp->log, "Writing BMP file header");
-		goto abort;
+		return FALSE;
 	}
 
 	if (!s_write_bmp_info_header(wp->ih, wp->file)) {
 		logsyserr(wp->log, "Writing BMP info header");
-		goto abort;
+		return FALSE;
 	}
 
 	if (wp->palette) {
 		if (!s_write_palette(wp)) {
 			logsyserr(wp->log, "Couldn't write palette");
-			goto abort;
+			return FALSE;
 		}
 	}
-
 
 #ifdef DEBUG
 	printf("RGB format: %d-%d-%d - %d\n", wp->colormask.bits.red, wp->colormask.bits.green,
 		                         wp->colormask.bits.blue, wp->colormask.bits.alpha);
-	printf("masks: 0x%04lx 0x%04lx 0x%04lx \nshift: 0x%04lx 0x%04lx 0x%04lx \n", 
+	printf("masks: 0x%04lx 0x%04lx 0x%04lx \nshift: 0x%04lx 0x%04lx 0x%04lx \n",
 	              wp->colormask.mask.red, wp->colormask.mask.green, wp->colormask.mask.blue,
 	              wp->colormask.shift.red, wp->colormask.shift.green, wp->colormask.shift.blue);
 	printf("bmpinfo: %d\nBits: %d\n", wp->ih->version,
 		                          (int) wp->ih->bitcount);
 #endif
+	return TRUE;
+}
 
-	linelength = (size_t) wp->width * (size_t) wp->source_channels;
-	for (y = wp->height - 1; y >= 0; y--) {
-		for (x = 0; x < wp->width; x++) {
-			offs = (size_t) y * linelength + (size_t) x * (size_t) wp->source_channels;
-			if (wp->palette) {
-				bytes <<= wp->ih->bitcount;
-				bytes |= ((unsigned char*)image)[offs];
-				bits_used += wp->ih->bitcount;
-				if (bits_used == 8) {
-					if (EOF == putc((int)bytes, wp->file)) {
-						logsyserr(wp->log, "Writing image to BMP file");
-						goto abort;
-					}
-					bytes = 0;
-					bits_used = 0;
-				}
-			}
-			else {
-				bytes = s_set_outpixel_rgb(wp, image, offs);
-				if (bytes == (unsigned long)-1)
-					return BMP_RESULT_ERROR;
 
-				for (i = 0; i < wp->outbytes_per_pixel; i++) {
-					if (EOF == putc((bytes >> (8*i)) & 0xff, wp->file)) {
-						logsyserr(wp->log, "Writing image to BMP file");
-						goto abort;
-					}
+
+/********************************************************
+ * 	s_save_line
+ *******************************************************/
+
+static int s_save_line(BMPWRITE_R wp, const unsigned char *line)
+{
+	size_t        offs;
+	unsigned long bytes = 0;
+	int           i, x, bits_used = 0;
+
+	for (x = 0; x < wp->width; x++) {
+		offs = (size_t) x * (size_t) wp->source_channels;
+		if (wp->palette) {
+			bytes <<= wp->ih->bitcount;
+			bytes |= line[offs];
+			bits_used += wp->ih->bitcount;
+			if (bits_used == 8) {
+				if (EOF == putc((int)bytes, wp->file)) {
+					logsyserr(wp->log, "Writing image to BMP file");
+					return FALSE;
 				}
+				bytes = 0;
+				bits_used = 0;
 			}
 		}
+		else {
+			bytes = s_set_outpixel_rgb(wp, line, offs);
+			if (bytes == (unsigned long)-1)
+				return BMP_RESULT_ERROR;
 
-		if (wp->palette && bits_used != 0) {
-			bytes <<= 8 - bits_used;
-			if (EOF == putc((int)bytes, wp->file)) {
-				logsyserr(wp->log, "Writing image to BMP file");
-				goto abort;
+			for (i = 0; i < wp->outbytes_per_pixel; i++) {
+				if (EOF == putc((bytes >> (8*i)) & 0xff, wp->file)) {
+					logsyserr(wp->log, "Writing image to BMP file");
+					return FALSE;
+				}
 			}
-			bits_used = 0;
-		}
-		if (wp->padding != fwrite(padding, 1, wp->padding, wp->file)) {
-			logsyserr(wp->log, "Writing padding bytes to BMP file");
-			goto abort;
 		}
 	}
 
-	return BMP_RESULT_OK;
+	if (wp->palette && bits_used != 0) {
+		bytes <<= 8 - bits_used;
+		if (EOF == putc((int)bytes, wp->file)) {
+			logsyserr(wp->log, "Writing image to BMP file");
+			return FALSE;
+		}
+		bits_used = 0;
+	}
 
-abort:
-	return BMP_RESULT_TRUNCATED;
+	for (i = 0; i < wp->padding; i++) {
+		if (EOF == putc(0, wp->file)) {
+			logsyserr(wp->log, "Writing padding bytes to BMP file");
+			return FALSE;
+		}
+	}
+	return TRUE;
 }
 
 
@@ -593,7 +680,7 @@ static void s_create_header(BMPWRITE_R wp)
  * 	s_set_outpixel_rgb
  *******************************************************/
 
-static inline unsigned long s_set_outpixel_rgb(BMPWRITE_R wp, void* restrict image, size_t offs)
+static inline unsigned long s_set_outpixel_rgb(BMPWRITE_R wp, const unsigned char *restrict buffer, size_t offs)
 {
 	unsigned long bytes, r,g,b, a = 0;
 	int           alpha_offs, rgb = TRUE;
@@ -606,42 +693,42 @@ static inline unsigned long s_set_outpixel_rgb(BMPWRITE_R wp, void* restrict ima
 
 	switch(wp->source_bits_per_channel) {
 	case 8:
-		r = ((unsigned char*)image)[offs];
+		r = ((unsigned char*)buffer)[offs];
 		if (rgb) {
-			g = ((unsigned char*)image)[offs+1];
-			b = ((unsigned char*)image)[offs+2];
+			g = ((const unsigned char*)buffer)[offs+1];
+			b = ((const unsigned char*)buffer)[offs+2];
 		}
 		else {
 			g = b = r;
 		}
 
 		if (wp->has_alpha)
-			a = ((unsigned char*)image)[offs+alpha_offs];
+			a = ((const unsigned char*)buffer)[offs+alpha_offs];
 		break;
 	case 16:
-		r = ((uint16_t*)image)[offs];
+		r = ((uint16_t*)buffer)[offs];
 		if (rgb) {
-			g = ((uint16_t*)image)[offs+1];
-			b = ((uint16_t*)image)[offs+2];
+			g = ((const uint16_t*)buffer)[offs+1];
+			b = ((const uint16_t*)buffer)[offs+2];
 		}
 		else {
 			g = b = r;
 		}
 		if (wp->has_alpha)
-			a = ((uint16_t*)image)[offs+alpha_offs];
+			a = ((const uint16_t*)buffer)[offs+alpha_offs];
 		break;
 
 	case 32:
-		r = ((uint32_t*)image)[offs];
+		r = ((uint32_t*)buffer)[offs];
 		if (rgb) {
-			g = ((uint32_t*)image)[offs+1];
-			b = ((uint32_t*)image)[offs+2];
+			g = ((const uint32_t*)buffer)[offs+1];
+			b = ((const uint32_t*)buffer)[offs+2];
 		}
 		else {
 			g = b = r;
 		}
 		if (wp->has_alpha)
-			a = ((uint32_t*)image)[offs+alpha_offs];
+			a = ((const uint32_t*)buffer)[offs+alpha_offs];
 		break;
 
 	default:

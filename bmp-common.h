@@ -153,7 +153,7 @@ int write_s32_le(FILE *file, int32_t val);
 int read_s16_le(FILE *file, int16_t *val);
 int read_s32_le(FILE *file, int32_t *val);
 
-#define EXPORT_VIS __attribute__ ((visibility ("default")))
+#define API __attribute__ ((visibility ("default")))
 
 
 #define HMAGIC_READ	 (0x44414552UL)

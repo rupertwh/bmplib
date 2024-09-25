@@ -45,7 +45,7 @@ struct Bmphandle {
  * 	bmp_version
  *******************************************************/
 
-EXPORT_VIS const char* bmp_version(void)
+API const char* bmp_version(void)
 {
 	return LIBRARY_VERSION;
 }
@@ -56,7 +56,7 @@ EXPORT_VIS const char* bmp_version(void)
  * 	bmp_errmsg
  *******************************************************/
 
-EXPORT_VIS const char* bmp_errmsg(BMPHANDLE h)
+API const char* bmp_errmsg(BMPHANDLE h)
 {
 	if (!(h && (h->magic == HMAGIC_READ || h->magic == HMAGIC_WRITE)))
 		return "BMPHANDLE is NULL or invalid";
@@ -70,7 +70,7 @@ EXPORT_VIS const char* bmp_errmsg(BMPHANDLE h)
  * 	bmp_free
  *******************************************************/
 
-EXPORT_VIS void bmp_free(BMPHANDLE h)
+API void bmp_free(BMPHANDLE h)
 {
 	if (!h)
 		return;

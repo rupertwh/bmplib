@@ -40,7 +40,7 @@ const char* s_compression_name(int compression);
  * 	bmpread_new
  *******************************************************/
 
-EXPORT_VIS BMPHANDLE bmpread_new(FILE *file)
+API BMPHANDLE bmpread_new(FILE *file)
 {
 	BMPREAD rp = NULL;
 
@@ -102,7 +102,7 @@ static struct Palette* s_read_palette(BMPREAD_R rp);
 static int s_read_colormasks(BMPREAD_R rp);
 static int s_check_dimensions(BMPREAD_R rp);
 
-EXPORT_VIS BMPRESULT bmpread_load_info(BMPHANDLE h)
+API BMPRESULT bmpread_load_info(BMPHANDLE h)
 {
 	BMPREAD rp;
 
@@ -234,7 +234,7 @@ abort:
  * 	bmpread_dimensions
  *******************************************************/
 
-EXPORT_VIS BMPRESULT bmpread_dimensions(BMPHANDLE h, int* restrict width,
+API BMPRESULT bmpread_dimensions(BMPHANDLE h, int* restrict width,
                                                int* restrict height,
                                                int* restrict channels,
                                                int* restrict bitsperchannel,
@@ -281,25 +281,25 @@ enum Dimint {
 
 static int s_single_dim_val(BMPHANDLE h, enum Dimint dim);
 
-EXPORT_VIS int bmpread_width(BMPHANDLE h)
+API int bmpread_width(BMPHANDLE h)
 { return s_single_dim_val(h, DIM_WIDTH); }
 
-EXPORT_VIS int bmpread_height(BMPHANDLE h)
+API int bmpread_height(BMPHANDLE h)
 { return s_single_dim_val(h, DIM_HEIGHT); }
 
-EXPORT_VIS int bmpread_channels(BMPHANDLE h)
+API int bmpread_channels(BMPHANDLE h)
 { return s_single_dim_val(h, DIM_CHANNELS); }
 
-EXPORT_VIS int bmpread_bits_per_channel(BMPHANDLE h)
+API int bmpread_bits_per_channel(BMPHANDLE h)
 { return s_single_dim_val(h, DIM_BITS_PER_CHANNEL); }
 
-EXPORT_VIS int bmpread_topdown(BMPHANDLE h)
+API int bmpread_topdown(BMPHANDLE h)
 { return s_single_dim_val(h, DIM_TOPDOWN); }
 
-EXPORT_VIS int bmpread_resolution_xdpi(BMPHANDLE h)
+API int bmpread_resolution_xdpi(BMPHANDLE h)
 { return s_single_dim_val(h, DIM_XDPI); }
 
-EXPORT_VIS int bmpread_resolution_ydpi(BMPHANDLE h)
+API int bmpread_resolution_ydpi(BMPHANDLE h)
 { return s_single_dim_val(h, DIM_YDPI); }
 
 
@@ -352,7 +352,7 @@ static int s_single_dim_val(BMPHANDLE h, enum Dimint dim)
  * 	bmpread_buffersize
  *******************************************************/
 
-EXPORT_VIS size_t bmpread_buffersize(BMPHANDLE h)
+API size_t bmpread_buffersize(BMPHANDLE h)
 {
 	BMPREAD rp;
 
@@ -376,7 +376,7 @@ EXPORT_VIS size_t bmpread_buffersize(BMPHANDLE h)
  * 	bmpread_set_insanity_limit
  *******************************************************/
 
-EXPORT_VIS void bmpread_set_insanity_limit(BMPHANDLE h, size_t limit)
+API void bmpread_set_insanity_limit(BMPHANDLE h, size_t limit)
 {
 	BMPREAD rp;
 
@@ -398,7 +398,7 @@ EXPORT_VIS void bmpread_set_insanity_limit(BMPHANDLE h, size_t limit)
  * 	bmpread_set_undefined_to_alpha
  *******************************************************/
 
-EXPORT_VIS void bmpread_set_undefined_to_alpha(BMPHANDLE h, int yes)
+API void bmpread_set_undefined_to_alpha(BMPHANDLE h, int yes)
 {
 	BMPREAD rp;
 
@@ -1155,13 +1155,13 @@ enum Infoint {
 
 static int s_info_int(BMPHANDLE h, enum Infoint info);
 
-EXPORT_VIS int bmpread_info_header_version(BMPHANDLE h)
+API int bmpread_info_header_version(BMPHANDLE h)
 { return s_info_int(h, INFO_INT_HEADER_VERSION); }
-EXPORT_VIS int bmpread_info_header_size(BMPHANDLE h)
+API int bmpread_info_header_size(BMPHANDLE h)
 { return s_info_int(h, INFO_INT_HEADER_SIZE); }
-EXPORT_VIS int bmpread_info_compression(BMPHANDLE h)
+API int bmpread_info_compression(BMPHANDLE h)
 { return s_info_int(h, INFO_INT_COMPRESSION); }
-EXPORT_VIS int bmpread_info_bitcount(BMPHANDLE h)
+API int bmpread_info_bitcount(BMPHANDLE h)
 { return s_info_int(h, INFO_INT_BITCOUNT); }
 
 
@@ -1205,9 +1205,9 @@ enum Infostr {
 
 static const char* s_info_str(BMPHANDLE h, enum Infostr info);
 
-EXPORT_VIS const char* bmpread_info_header_name(BMPHANDLE h)
+API const char* bmpread_info_header_name(BMPHANDLE h)
 { return s_info_str(h, INFO_STR_HEADER_NAME); }
-EXPORT_VIS const char* bmpread_info_compression_name(BMPHANDLE h)
+API const char* bmpread_info_compression_name(BMPHANDLE h)
 { return s_info_str(h, INFO_STR_COMPRESSION_NAME); }
 
 
@@ -1241,7 +1241,7 @@ static const char* s_info_str(BMPHANDLE h, enum Infostr info)
  * 	bmpread_info_channel_bits
  *******************************************************/
 
-EXPORT_VIS BMPRESULT bmpread_info_channel_bits(BMPHANDLE h, int *r, int *g, int *b, int *a)
+API BMPRESULT bmpread_info_channel_bits(BMPHANDLE h, int *r, int *g, int *b, int *a)
 {
 	BMPREAD rp;
 

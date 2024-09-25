@@ -8,10 +8,10 @@
 
 ## Current status (v1.4.0):
 ### Reading BMP files:
-  - 16/24/32 bit RGB(A) with any bits/channel combination (BI_RGB, BI_BITFIELDS, BI_ALPHABITFIELDS)
-  - 1/2/4/8 bit indexed (palette), including RLE4 and RLE8 compressed
-  - RLE24 compressed (OS/2)
-  - optional line-by-line reading of BMPs, even RLE
+  - 16/24/32 bit RGB(A) with any bits/channel combination (BI_RGB, BI_BITFIELDS, BI_ALPHABITFIELDS).
+  - 1/2/4/8 bit indexed (palette), including RLE4 and RLE8 compressed.
+  - RLE24 compressed (OS/2).
+  - optional line-by-line reading of BMPs, even RLE.
 
   successful results from reading sample images from Jason Summers'
   fantastic [BMP Suite](https://entropymine.com/jason/bmpsuite/):
@@ -36,21 +36,31 @@
   - Indexed 1/2/4/8 bit, no RLE-compression.
   - write BI_RGB when possible, BI_(ALPHA)BITFIELDS only when
     necessary.
+  - optional line-by-line writing of BMPs.
 
 
 ## Installation
 
 ### Download and compile bmplib library
-To install the library under the default `/usr/local` prefix:
+To install the latest development version of the library under the default `/usr/local` prefix:
 ```
 sudo apt install build-essential git meson pkg-config
 git clone https://github.com/rupertwh/bmplib.git
 cd bmplib/
-meson setup _build
-cd _build/
+meson setup --buildtype=release mybuilddir
+cd mybuilddir/
 ninja
 ninja install
 ```
+Receive updates:
+```
+cd bmplib/
+git pull --rebase
+cd mybuilddir/
+ninja
+ninja install
+```
+
 
 ### Use bmplib in your program
 A minimalistic `meson.build` for a program that uses bmplib:
@@ -59,8 +69,12 @@ project('mytest', 'c')
 bmpdep = dependency('libbmp')
 executable('mytest', 'main.c', dependencies: [bmpdep])
 ```
+Includes:
+```
+#include <bmplib.h>
+```
 
-see api.md for the API documentation
+see API.md for the API documentation
 
 ## TODOs:
 ### Definitely:

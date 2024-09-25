@@ -22,9 +22,6 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdint.h>
-#include <limits.h>
-#include <stdarg.h>
-#include <errno.h>
 
 #include "config.h"
 #include "bmplib.h"
@@ -47,7 +44,7 @@
  * indexed BMPs, 0 is returned.
  *******************************************************/
 
-EXPORT_VIS int bmpread_num_palette_colors(BMPHANDLE h)
+API int bmpread_num_palette_colors(BMPHANDLE h)
 {
 	BMPREAD rp;
 
@@ -69,7 +66,7 @@ EXPORT_VIS int bmpread_num_palette_colors(BMPHANDLE h)
  * character array, 4 bytes per color (R-G-B-0)
  *******************************************************/
 
-EXPORT_VIS BMPRESULT bmpread_load_palette(BMPHANDLE h, unsigned char **palette)
+API BMPRESULT bmpread_load_palette(BMPHANDLE h, unsigned char **palette)
 {
 	BMPREAD rp;
 	int     i,c;

@@ -42,6 +42,13 @@ extern "C" {
  *                       Use bmp_errmsg() to get a textual error
  *                       message.
  *
+ * BMP_RESULT_INVALID    Some or all of the pixel values were
+ *                       invalid. This happens when indexed
+ *                       images point to colors beyond the given
+ *                       palette size. If the image is also
+ *                       truncated, BMP_RESULT_TRUNCATED will be
+ *                       returned instead.
+ *
  * BMP_RESULT_PNG        The BMP file contains an embedded PNG
  * BMP_RESULT_JPEG       or JPEG file.
  *                       The file pointer is left in such a state
@@ -112,8 +119,8 @@ int       bmpread_resolution_ydpi(BMPHANDLE h);
 
 size_t    bmpread_buffersize(BMPHANDLE h);
 
-BMPRESULT bmpread_load_image(BMPHANDLE h, char **buffer);
-BMPRESULT bmpread_load_line(BMPHANDLE h, char **buffer);
+BMPRESULT bmpread_load_image(BMPHANDLE h, unsigned char **buffer);
+BMPRESULT bmpread_load_line(BMPHANDLE h, unsigned char **buffer);
 
 
 int       bmpread_num_palette_colors(BMPHANDLE h);
@@ -145,10 +152,11 @@ BMPRESULT bmpwrite_set_dimensions(BMPHANDLE h,
                                   unsigned  bits_per_channel);
 BMPRESULT bmpwrite_set_resolution(BMPHANDLE h, int xdpi, int ydpi);
 BMPRESULT bmpwrite_set_output_bits(BMPHANDLE h, int red, int green, int blue, int alpha);
-BMPRESULT bmpwrite_set_palette(BMPHANDLE h, int numcolors, unsigned char *palette);
+BMPRESULT bmpwrite_set_palette(BMPHANDLE h, int numcolors, const unsigned char *palette);
 BMPRESULT bmpwrite_allow_2bit(BMPHANDLE h);
 
-BMPRESULT bmpwrite_save_image(BMPHANDLE h, void *image);
+BMPRESULT bmpwrite_save_image(BMPHANDLE h, const unsigned char *image);
+BMPRESULT bmpwrite_save_line(BMPHANDLE h, const unsigned char *line);
 
 
 
