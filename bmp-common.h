@@ -45,10 +45,10 @@ struct Colormask {
 	union {
 		unsigned long value[4];
 		struct {
-			unsigned long	red;
-			unsigned long	green;
-			unsigned long	blue;
-			unsigned long	alpha;
+			unsigned long long red;
+			unsigned long long green;
+			unsigned long long blue;
+			unsigned long long alpha;
 		};
 	} mask;
 	union {
@@ -99,6 +99,7 @@ struct Bmpread {
 	struct Palette   *palette;
 	struct Colormask  colormask;
 	/* result image dimensions */
+	enum Bmp64bitconv conv64;
 	int               result_channels;
 	int               result_indexed;
 	int               result_bits_per_pixel;

@@ -1,4 +1,4 @@
-project('bmplib', 'c', default_options: ['c_std=c11'], version: '1.4.1')
+project('bmplib', 'c', default_options: ['c_std=c11'], version: '1.4.2')
 
 cc = meson.get_compiler('c')
 
@@ -9,6 +9,7 @@ if get_option('buildtype') == 'debug'
   add_project_arguments('-DDEBUG', language: 'c')
 endif
 
+m_dep = cc.find_library('m', required : false)
 
 conf_data = configuration_data()
 conf_data.set('insanity_limit_mb', get_option('insanity_limit_mb'))
@@ -31,7 +32,8 @@ bmplib_sources = ['bmp-read.c',
 bmplib = shared_library('bmp',
                         bmplib_sources,
                         version: meson.project_version(),
-                        install: true)
+                        install: true,
+                        dependencies: m_dep)
 
 pkg_mod = import('pkgconfig')
 pkg_mod.generate(libraries: bmplib,

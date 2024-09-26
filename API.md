@@ -61,6 +61,22 @@ size_t    bmpread_buffersize(BMPHANDLE h)
 ```
 Returns the buffer size you have to allocate for the whole image.
 
+### Optional settings for 64bit BMPs
+
+```
+int bmpread_is_64bit(BMPHANDLE h)
+BMPRESULT bmpread_set_64bit_conv(BMPHANDLE h, enum Bmp64bitconv conv)
+```
+If you don't do anything, 64bit BMPs will be read like any other BMP and the data will be returned as 16bit/channel sRGB
+RGBA. (Hopefully, see README.md)
+
+But if you want to access the original s2.13 fixed-point components, or you don't want the linear-to-sRGB
+conversion, you can call `bmpread_is_64bit()` to inquire if a BMP file is 64bit and subsequently call `bmpread_set_64bit_conv()` with `conv` set to one of the following values:
+- `BMP_CONV64_NONE`: no conversion is done, image data is returned as is (probably 16 bit per channel RGBA in s2.13 fixed-point)
+- `BMP_CONV64_16BIT`: image is returned as normal 16bit per channel, without converting from linear to sRGB-gamma.
+- `BMP_CONV64_16BIT_SRGB`: the default, original data is assumed to be s2.13 fixed-point linear and converted to normal 16bit per channel with sRGB-gamma.
+
+
 ### bmpread_load_image()
 ```
 BMPRESULT bmpread_load_image(BMPHANDLE h, unsigned char **pbuffer)

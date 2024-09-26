@@ -22,6 +22,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdint.h>
+#include <math.h>
 
 #include "config.h"
 #include "bmplib.h"
@@ -222,11 +223,10 @@ static void s_read_one_line(BMPREAD_R rp, unsigned char *restrict line)
 		}
 		else {
 			if (rp->rle) {
-				s_read_rle_line(rp, (unsigned char*) line,
-				                            &rp->lbl_x, &yoff);
+				s_read_rle_line(rp, line, &rp->lbl_x, &yoff);
 			}
 			else {
-				s_read_indexed_line(rp, (unsigned char*) line);
+				s_read_indexed_line(rp, line);
 			}
 
 			if (!(rp->rle_eof || s_stopping_error(rp))) {
@@ -279,6 +279,8 @@ static void s_read_rgb_image(BMPREAD_R rp, unsigned char *restrict image)
  * 	s_read_rgb_line
  *******************************************************/
 static inline int s_read_rgb_pixel(BMPREAD_R rp, union Pixel *restrict px);
+static inline void s_convert64(uint16_t *val64);
+static inline void s_convert64srgb(uint16_t *val64);
 
 static int s_read_rgb_line(BMPREAD_R rp, unsigned char *restrict line)
 {
@@ -308,6 +310,20 @@ static int s_read_rgb_line(BMPREAD_R rp, unsigned char *restrict line)
 			((uint16_t*)line)[offs+2] = (pixel.blue);
 			if (rp->has_alpha)
 				((uint16_t*)line)[offs+3] = (pixel.alpha);
+
+			if (rp->ih->bitcount == 64) {
+				switch (rp->conv64) {
+				case BMP_CONV64_16BIT_SRGB:
+					s_convert64srgb(&((uint16_t*)line)[offs]);
+					break;
+				case BMP_CONV64_16BIT:
+					s_convert64(&((uint16_t*)line)[offs]);
+					break;
+				case BMP_CONV64_NONE:
+				default:
+					break;
+				}
+			}
 			break;
 		case 32:
 			((uint32_t*)line)[offs]   = pixel.red;
@@ -333,6 +349,50 @@ static int s_read_rgb_line(BMPREAD_R rp, unsigned char *restrict line)
 
 
 
+static inline void s_convert64(uint16_t *val64)
+{
+	int i;
+	int32_t s;
+
+	for (i = 0; i < 4; i++) {
+		s = val64[i];
+		s = s << 16 >> 16; /* propagate sign bit */
+		s *= 0xffff;
+		s >>= 13;
+		s = MAX(0, s);
+		val64[i] = s & 0xffff;
+	}
+}
+
+
+static inline void s_convert64srgb(uint16_t *val64)
+{
+	int     i;
+	int32_t s;
+	double  v;
+
+	for (i = 0; i < 4; i++) {
+		s = val64[i];
+		s = s << 16 >> 16; /* propagate sign bit */
+		if (i < 3) {
+			v = (double) s / (1<<13);
+			if (v <= 0.0031308)
+				v = 12.92 * v;
+			else
+				v = 1.055 * pow(v, 1.0/2.4) - 0.055;
+			s = (int32_t) (v * (double) 0xffff);
+		}
+		else {  /* don't apply gamma to alpha channel */
+			s *= 0xffff;
+			s >>= 13;
+		}
+		s = MAX(0, s);
+		val64[i] = s & 0xffff;
+	}
+}
+
+
+
 /********************************************************
  * 	s_read_rgb_pixel
  *
@@ -342,8 +402,8 @@ static int s_read_rgb_line(BMPREAD_R rp, unsigned char *restrict line)
 
 static inline int s_read_rgb_pixel(BMPREAD_R rp, union Pixel *restrict px)
 {
-	unsigned long v, i;
-	int           byte;
+	unsigned long long v;
+	int                i, byte;
 
 	v = 0;
 	for (i = 0; i < rp->ih->bitcount; i+=8 ) {
@@ -351,7 +411,7 @@ static inline int s_read_rgb_pixel(BMPREAD_R rp, union Pixel *restrict px)
 			s_set_file_error(rp);
 			return FALSE;
 		}
-		v |= ((unsigned long)byte) << i;
+		v |= ((unsigned long long)byte) << i;
 	}
 
 	px->red   = (v & rp->colormask.mask.red)   >> rp->colormask.shift.red;

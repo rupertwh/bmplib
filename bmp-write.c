@@ -478,7 +478,7 @@ static int s_save_info(BMPWRITE_R wp)
 #ifdef DEBUG
 	printf("RGB format: %d-%d-%d - %d\n", wp->colormask.bits.red, wp->colormask.bits.green,
 		                         wp->colormask.bits.blue, wp->colormask.bits.alpha);
-	printf("masks: 0x%04lx 0x%04lx 0x%04lx \nshift: 0x%04lx 0x%04lx 0x%04lx \n",
+	printf("masks: 0x%04llx 0x%04llx 0x%04llx \nshift: 0x%04lx 0x%04lx 0x%04lx \n",
 	              wp->colormask.mask.red, wp->colormask.mask.green, wp->colormask.mask.blue,
 	              wp->colormask.shift.red, wp->colormask.shift.green, wp->colormask.shift.blue);
 	printf("bmpinfo: %d\nBits: %d\n", wp->ih->version,

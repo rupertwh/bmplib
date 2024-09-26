@@ -52,6 +52,7 @@ API BMPHANDLE bmpread_new(FILE *file)
 	rp->magic = HMAGIC_READ;
 	rp->undefined_to_alpha = TRUE;
 	rp->wipe_buffer = TRUE;
+	rp->conv64 = BMP_CONV64_16BIT_SRGB;
 
 	if (!(rp->log = logcreate()))
 		goto abort;
@@ -231,6 +232,59 @@ abort:
 
 
 /********************************************************
+ * 	bmpread_set_64bit_conv
+ *******************************************************/
+
+API BMPRESULT bmpread_set_64bit_conv(BMPHANDLE h, enum Bmp64bitconv conv)
+{
+	BMPREAD rp;
+
+	if (!(h && cm_check_is_read_handle(h)))
+		return BMP_RESULT_ERROR;
+	rp = (BMPREAD)(void*)h;
+
+	switch (conv) {
+	case BMP_CONV64_16BIT_SRGB:
+        case BMP_CONV64_16BIT:
+        case BMP_CONV64_NONE:
+        	rp->conv64 = conv;
+        	break;
+        default:
+        	logerr(rp->log, "Invalid 64-bit conversion (%d)", (int) conv);
+        	return BMP_RESULT_ERROR;
+	}
+	return BMP_RESULT_OK;
+}
+
+
+
+/********************************************************
+ * 	bmpread_is_64bit
+ *******************************************************/
+
+API int bmpread_is_64bit(BMPHANDLE h)
+{
+	BMPREAD rp;
+
+	if (!(h && cm_check_is_read_handle(h)))
+		return 0;
+	rp = (BMPREAD)(void*)h;
+
+	if (!rp->getinfo_called)
+		bmpread_load_info((BMPHANDLE)(void*)rp);
+
+	if (rp->getinfo_return != BMP_RESULT_OK && rp->getinfo_return != BMP_RESULT_INSANE) {
+		return 0;
+	}
+
+	if (rp->ih->bitcount == 64)
+		return 1;
+	return 0;
+}
+
+
+
+/********************************************************
  * 	bmpread_dimensions
  *******************************************************/
 
@@ -249,7 +303,7 @@ API BMPRESULT bmpread_dimensions(BMPHANDLE h, int* restrict width,
 	if (!rp->getinfo_called)
 		bmpread_load_info((BMPHANDLE)(void*)rp);
 
-	if (rp->getinfo_return != BMP_RESULT_OK) {
+	if (rp->getinfo_return != BMP_RESULT_OK && rp->getinfo_return != BMP_RESULT_INSANE) {
 		return rp->getinfo_return;
 	}
 
@@ -260,7 +314,7 @@ API BMPRESULT bmpread_dimensions(BMPHANDLE h, int* restrict width,
 	if (topdown)        *topdown        = rp->topdown;
 
 	rp->dimensions_queried = TRUE;
-	return BMP_RESULT_OK;
+	return rp->getinfo_return;
 }
 
 
@@ -504,6 +558,7 @@ static int s_is_bmptype_supported_rgb(BMPREAD_R rp)
 	case 16:
 	case 24:
 	case 32:
+	case 64:
 		/*  ok */
 		break;
 	default:
@@ -513,9 +568,14 @@ static int s_is_bmptype_supported_rgb(BMPREAD_R rp)
 
 	switch (rp->ih->compression) {
 	case BI_RGB:
+		/* ok */
+		break;
 	case BI_BITFIELDS:
 	case BI_ALPHABITFIELDS:
-		/*  ok */
+		if (rp->ih->bitcount == 64) {
+			logerr(rp->log, "Invalid bitcount %d for BITFIELDS", (int) rp->ih->bitcount);
+			return FALSE;
+		}
 		break;
 	case BI_OS2_RLE24:
 		if (rp->ih->bitcount != 24) {
@@ -703,8 +763,8 @@ static struct Palette* s_read_palette(BMPREAD_R rp)
  *******************************************************/
 static int s_read_masks_from_bitfields(BMPREAD_R rp);
 static int s_create_implicit_colormasks(BMPREAD_R rp);
-static inline unsigned long s_calc_bits_for_mask(unsigned long mask);
-static inline unsigned long s_calc_shift_for_mask(unsigned long mask);
+static inline unsigned long s_calc_bits_for_mask(unsigned long long mask);
+static inline unsigned long s_calc_shift_for_mask(unsigned long long mask);
 
 static int s_read_colormasks(BMPREAD_R rp)
 {
@@ -841,16 +901,28 @@ static int s_create_implicit_colormasks(BMPREAD_R rp)
 		bits_per_channel = 8;
 		break;
 
+	case 64:
+		bits_per_channel = 16;
+		break;
 	default:
 		logerr(rp->log, "Invalid bitcount for BMP (%d)", (int) rp->ih->bitcount);
 		return FALSE;
 	}
 
+
 	for (i = 0; i < 3; i++) {
 		rp->colormask.shift.value[i] = (2-i) * bits_per_channel;
 		rp->colormask.mask.value[i] =
-			   ((1<<bits_per_channel)-1) << rp->colormask.shift.value[i];
+			   ((1ULL<<bits_per_channel)-1) << rp->colormask.shift.value[i];
 		rp->colormask.bits.value[i] = s_calc_bits_for_mask(rp->colormask.mask.value[i]);
+	}
+
+	if (rp->ih->bitcount == 64) {
+		rp->colormask.shift.alpha = 3 * bits_per_channel;
+		rp->colormask.mask.alpha =
+			   ((1ULL<<bits_per_channel)-1) << rp->colormask.shift.alpha;
+		rp->colormask.bits.alpha = s_calc_bits_for_mask(rp->colormask.mask.alpha);
+
 	}
 
 #ifdef DEBUG
@@ -870,7 +942,7 @@ static int s_create_implicit_colormasks(BMPREAD_R rp)
  * 	s_calc_bits_for_mask
  *******************************************************/
 
-static inline unsigned long s_calc_bits_for_mask(unsigned long mask)
+static inline unsigned long s_calc_bits_for_mask(unsigned long long mask)
 {
 	int bits = 0;
 
@@ -894,7 +966,7 @@ static inline unsigned long s_calc_bits_for_mask(unsigned long mask)
  * 	s_calc_shift_for_mask
  *******************************************************/
 
-static inline unsigned long s_calc_shift_for_mask(unsigned long mask)
+static inline unsigned long s_calc_shift_for_mask(unsigned long long mask)
 {
 	int shift = 0;
 

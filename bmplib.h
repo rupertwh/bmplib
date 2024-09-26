@@ -80,6 +80,56 @@ enum Bmpresult {
 };
 
 
+
+typedef struct Bmphandle *BMPHANDLE;
+typedef enum Bmpresult    BMPRESULT;
+
+
+/****************************************************************
+ * conversion of 64bit BMPs
+ *
+ * I have very little information on 64bit BMPs. It seems that
+ * the RGBA components are (always?) stored as s2.13 fixed-point
+ * numbers. And according to Jason Summers' BMP Suite the
+ * RGB components are encoded in linear light. As that's the only
+ * sample of a 64-bit BMP I have, that's what I am going with
+ * for now.
+ * But that also means that there is no one obvious format in
+ * which to return the data.
+ * Possible choices are:
+ * 1. return the values untouched, which means the caller has to
+ *    be aware of the s2.13 format. (BMP_64CONV_NONE)
+ * 2. return the values as normal 16bit values, left in linear
+ *    light (BMP_64CONV_16BIT)
+ * 3. return the values as normal 16bit values, converted to sRGB
+ *    gamma. (BMP_64CONV_16BIT_SRGB)
+ *
+ * Choice 3 (16bit sRGB gamma) seems to be the most sensible default,
+ * as it will work well for all callers which are not aware/don't
+ * care about 64bit BMPs and just want to use/diplay them like any
+ * other BMP. (Even though this goes against my original intent to
+ * not have bmplib do any color conversions)
+ *
+ * Note: the s2.13 format allows for negative values and values
+ * greater than 1! When converting to 16bit, these values will be
+ * clipped to 0...1.
+ *
+ * In any case, we'll need to provide functions to check if a BMP is
+ * 64bit and to set the conversion:
+ *   bmpread_is_64bit()
+ *   bmpread_set_64bit_conv()
+ *******************************************************************/
+
+enum Bmp64bitconv {
+        BMP_CONV64_16BIT_SRGB,  /* default */
+        BMP_CONV64_16BIT,
+        BMP_CONV64_NONE,
+};
+
+int bmpread_is_64bit(BMPHANDLE h);
+BMPRESULT bmpread_set_64bit_conv(BMPHANDLE h, enum Bmp64bitconv conv);
+
+
 enum BmpInfoVer {
         BMPINFO_CORE_OS21 = 1,  /* 12 bytes */
         BMPINFO_OS22,           /* 16 / 40(!) / 64 bytes */
@@ -93,8 +143,6 @@ enum BmpInfoVer {
 
 
 
-typedef struct Bmphandle *BMPHANDLE;
-typedef enum Bmpresult    BMPRESULT;
 
 
 BMPHANDLE bmpread_new(FILE *file);
