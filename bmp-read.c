@@ -787,17 +787,6 @@ static int s_read_colormasks(BMPREAD_R rp)
 		return FALSE;
 	}
 
-
-	if (!(rp->colormask.mask.red | rp->colormask.mask.green | rp->colormask.mask.blue)) {
-		logerr(rp->log, "Empty color masks. Corrupted BMP?");
-		return FALSE;
-	}
-
-	for (i = 0; i < 4; i++) {
-		max_bits = MAX(max_bits, rp->colormask.bits.value[i]);
-		sum_bits += rp->colormask.bits.value[i];
-	}
-
 	if (rp->colormask.mask.alpha) {
 		rp->has_alpha = TRUE;
 		rp->result_channels = 4;
@@ -805,6 +794,24 @@ static int s_read_colormasks(BMPREAD_R rp)
 	else {
 		rp->has_alpha = FALSE;
 		rp->result_channels = 3;
+	}
+
+	for (i = 0; i < 4; i++) {
+		max_bits = MAX(max_bits, rp->colormask.bits.value[i]);
+		sum_bits += rp->colormask.bits.value[i];
+	}
+	if (max_bits > MIN(rp->ih->bitcount, 32) || sum_bits > rp->ih->bitcount) {
+		logerr(rp->log, "Invalid mask bitcount (max=%d, sum=%d)", max_bits, sum_bits);
+		return FALSE;
+	}
+	if (!(rp->colormask.mask.red | rp->colormask.mask.green | rp->colormask.mask.blue)) {
+		logerr(rp->log, "Empty color masks. Corrupted BMP?");
+		return FALSE;
+	}
+	if (rp->colormask.mask.red & rp->colormask.mask.green &
+	    rp->colormask.mask.blue & rp->colormask.mask.alpha) {
+		logerr(rp->log, "Overlapping color masks. Corrupt BMP?");
+		return FALSE;
 	}
 
 	/* calculate required bit-depth for output bitmap (8, 16, or 32) */
