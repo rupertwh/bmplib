@@ -49,10 +49,12 @@ struct Bmpwrite {
 	int              source_bytes_per_pixel;
 	int              indexed;
 	struct Palette  *palette;
+	int              palette_size; /* sizeof palette in bytes */
 	/* output */
 	int              has_alpha;
 	struct Colormask colormask;
-	int              palette_size;
+	int              rle_requested;
+	int              rle;
 	int              allow_2bit; /* Windows CE, but many will not read it */
 	int              outbytes_per_pixel;
 	int              outpixels_per_byte;
@@ -66,7 +68,7 @@ struct Bmpwrite {
 };
 
 
-static void s_create_header(BMPWRITE_R wp);
+static void s_decide_outformat(BMPWRITE_R wp);
 static int s_write_palette(BMPWRITE_R wp);
 static int s_save_line(BMPWRITE_R wp, const unsigned char *line);
 static inline unsigned long s_set_outpixel_rgb(BMPWRITE_R wp, const unsigned char *restrict buffer, size_t offs);
@@ -76,7 +78,6 @@ static int s_check_is_write_handle(BMPHANDLE h);
 static inline unsigned s_scaleint(unsigned long val, int frombits, int tobits);
 
 static int s_save_info(BMPWRITE_R wp);
-static int s_save_line(BMPWRITE_R wp, const unsigned char *line);
 
 
 
@@ -318,6 +319,33 @@ API BMPRESULT bmpwrite_set_palette(BMPHANDLE h, int numcolors,
 
 
 /********************************************************
+ * 	bmpwrite_set_rle
+ *******************************************************/
+
+API BMPRESULT bmpwrite_set_rle(BMPHANDLE h, enum BmpRLEtype type)
+{
+	BMPWRITE wp;
+
+	if (!s_check_is_write_handle(h))
+		return BMP_RESULT_ERROR;
+	wp = (BMPWRITE)(void*)h;
+
+	switch (type) {
+	case BMP_RLE_NONE:
+	case BMP_RLE_AUTO:
+	case BMP_RLE_8:
+		wp->rle_requested = type;
+		break;
+	default:
+		logerr(wp->log, "Invalid RLE type specified (%d)", (int) type);
+		return BMP_RESULT_ERROR;
+	}
+	return BMP_RESULT_OK;
+}
+
+
+
+/********************************************************
  * 	bmpwrite_set_resolution
  *******************************************************/
 
@@ -369,12 +397,15 @@ API BMPRESULT bmpwrite_allow_2bit(BMPHANDLE h)
 /********************************************************
  * 	bmpwrite_save_image
  *******************************************************/
+static int s_save_line_rle8(BMPWRITE_R wp, const unsigned char *line);
+static int s_save_line(BMPWRITE_R wp, const unsigned char *line);
+
 
 API BMPRESULT bmpwrite_save_image(BMPHANDLE h, const unsigned char *image)
 {
-	size_t        offs, linesize;
-	int           y;
 	BMPWRITE wp;
+	size_t   offs, linesize;
+	int      y, res;
 
 	if (!s_check_is_write_handle(h))
 		return BMP_RESULT_ERROR;
@@ -393,7 +424,19 @@ API BMPRESULT bmpwrite_save_image(BMPHANDLE h, const unsigned char *image)
 	linesize = (size_t) wp->width * (size_t) wp->source_bytes_per_pixel;
 	for (y = wp->height - 1; y >= 0; y--) {
 		offs = (size_t) y * linesize;
-		if (!s_save_line(wp, image + offs)) {
+		switch (wp->rle) {
+		case 8:
+			res = s_save_line_rle8(wp, image + offs);
+			break;
+		case 4:
+			logerr(wp->log, "RLE4 not implented");
+			res = FALSE;
+			break;
+		default:
+			res = s_save_line(wp, image + offs);
+			break;
+		}
+		if (!res) {
 			logerr(wp->log, "failed saving line %d", y);
 			return BMP_RESULT_ERROR;
 		}
@@ -409,6 +452,7 @@ API BMPRESULT bmpwrite_save_image(BMPHANDLE h, const unsigned char *image)
 API BMPRESULT bmpwrite_save_line(BMPHANDLE h, const unsigned char *line)
 {
 	BMPWRITE wp;
+	int      res;
 
 	if (!s_check_is_write_handle(h))
 		return BMP_RESULT_ERROR;
@@ -427,13 +471,33 @@ API BMPRESULT bmpwrite_save_line(BMPHANDLE h, const unsigned char *line)
 		wp->line_by_line = TRUE;
 	}
 
-	if (!s_save_line(wp, line)) {
+	switch (wp->rle) {
+	case 8:
+		res = s_save_line_rle8(wp, line);
+		break;
+	case 4:
+		logerr(wp->log, "RLE4 not implented");
+		res = FALSE;
+		break;
+	default:
+		res = s_save_line(wp, line);
+		break;
+	}
+
+	if (!res) {
 		wp->saveimage_done = TRUE;
 		return BMP_RESULT_ERROR;
 	}
 
-	if (++wp->lbl_y >= wp->height)
+	if (++wp->lbl_y >= wp->height) {
+		if (wp->rle) {
+			if (EOF == putc(0, wp->file) ||
+			    EOF == putc(1, wp->file)) {
+				logsyserr(wp->log, "Writing RLE end-of-file marker");
+			}
+		}
 		wp->saveimage_done = TRUE;
+	}
 
 	return BMP_RESULT_OK;
 }
@@ -456,7 +520,7 @@ static int s_save_info(BMPWRITE_R wp)
 		return FALSE;
 	}
 
-	s_create_header(wp);
+	s_decide_outformat(wp);
 
 	if (!s_write_bmp_file_header(wp->fh, wp->file)) {
 		logsyserr(wp->log, "Writing BMP file header");
@@ -549,6 +613,72 @@ static int s_save_line(BMPWRITE_R wp, const unsigned char *line)
 
 
 /********************************************************
+ * 	s_save_line_rle
+ *******************************************************/
+
+static int s_save_line_rle8(BMPWRITE_R wp, const unsigned char *line)
+{
+	int i, x, r, l;
+
+	x = 0;
+	while (x < wp->width) {
+		l = 1;
+		while (x+l < wp->width && l < 255) {
+			if (line[x+l] != line[x+l-1])
+				l++;
+			else
+				break;
+		}
+		if (l >= 3) {
+			if (EOF == putc(0, wp->file) ||
+			    EOF == putc(l, wp->file)) {
+				logsyserr(wp->log, "Writing image to BMP file (Lit-count)");
+				return FALSE;
+			}
+			for (i = 0; i < l; i++) {
+				if (EOF == putc(line[x+i], wp->file)) {
+					logsyserr(wp->log, "Writing image to BMP file (Lit-byte)");
+					return FALSE;
+				}
+			}
+			if (l & 0x01) {  /* pad odd-length literal run */
+				if (EOF == putc(0, wp->file)) {
+					logsyserr(wp->log, "Writing image to BMP file (pda)");
+					return FALSE;
+				}
+			}
+			x += l;
+			continue;
+		}
+
+		r = 1;
+		while (x+r < wp->width && r < 255) {
+			if (line[x+r] == line[x])
+				r++;
+			else
+				break;
+		}
+		if (EOF == putc(r, wp->file)) {
+			logsyserr(wp->log, "Writing image to BMP file (RLE-count)");
+			return FALSE;
+		}
+		if (EOF == putc(line[x], wp->file)) {
+			logsyserr(wp->log, "Writing image to BMP file (RLE-byte)");
+			return FALSE;
+		}
+		x += r;
+	}
+
+	if (EOF == putc(0, wp->file) || EOF == putc(0, wp->file)) {
+		logsyserr(wp->log, "Writing image to BMP file (EOL)");
+		return FALSE;
+	}
+
+	return TRUE;
+}
+
+
+/********************************************************
  * 	bw_free
  *******************************************************/
 
@@ -569,10 +699,10 @@ void bw_free(BMPWRITE wp)
 
 
 /********************************************************
- * 	s_create_header
+ * 	s_decide_outformat
  *******************************************************/
 
-static void s_create_header(BMPWRITE_R wp)
+static void s_decide_outformat(BMPWRITE_R wp)
 {
 	int   bitsum, i, bytes_per_line;
 
@@ -585,7 +715,6 @@ static void s_create_header(BMPWRITE_R wp)
 		wp->has_alpha = FALSE;
 	}
 
-
 	if (!wp->outbits_set) {
 		wp->colormask.bits.red = wp->colormask.bits.green = wp->colormask.bits.blue = 8;
 		if (wp->has_alpha)
@@ -596,46 +725,67 @@ static void s_create_header(BMPWRITE_R wp)
 	for (i = 0; i < 4; i++)
 		bitsum += wp->colormask.bits.value[i];
 
-	/* we need BI_BITFIELDS if any of the following is true:
-	 *    - not all RGB-components have the same bitlength
-	 *    - we are writing an alpha-channel
-	 *    - bits per component are not either 5 or 8 (which have
-	 *      known RI_RGB representation)
-	 */
-	if (!cm_all_equal_int(3, (int) wp->colormask.bits.red,
-	                         (int) wp->colormask.bits.green,
-	                         (int) wp->colormask.bits.blue) ||
-	    wp->has_alpha ||
-            (wp->colormask.bits.red > 0 &&
-             wp->colormask.bits.red != 5 &&
-             wp->colormask.bits.red != 8)    ) {
 
-		wp->ih->version     = BMPINFO_V4;
-		wp->ih->size        = BMPIHSIZE_V4;
-		wp->ih->compression = BI_BITFIELDS;  /* do we need BI_ALPHABITFIELDS when alpha is present */
-		                                     /* or will that just confuse other readers?   !!!!!   */
-
-		if (bitsum <= 16)
-			wp->ih->bitcount = 16;
-		else
-			wp->ih->bitcount = 32;
-	}
-	/* otherwise, use BI_RGB with either 5 or 8 bits per component
-	 * resulting in bitcount of 16 or 24, or indexed.
-	 */
-	else {
+	if (wp->palette) {
 		wp->ih->version     = BMPINFO_V3;
 		wp->ih->size        = BMPIHSIZE_V3;
-		wp->ih->compression = BI_RGB;
-		if (wp->palette) {
+		if (wp->rle_requested != BMP_RLE_NONE) {
+			if (wp->palette->numcolors > 16 ||
+			    wp->rle_requested == BMP_RLE_8) {
+				wp->rle = 8;
+				wp->ih->compression = BI_RLE8;
+				wp->ih->bitcount = 8;
+			}
+			else {
+				wp->rle = 8; /* <- 4 */
+				wp->ih->compression = BI_RLE8;
+				wp->ih->bitcount = 8;
+				logerr(wp->log, "RLE4 not implemented yet, using RLE8");
+			}
+		}
+		else {
+			wp->ih->compression = BI_RGB;
 			wp->ih->bitcount = 1;
 			while ((1<<wp->ih->bitcount) < wp->palette->numcolors)
 				wp->ih->bitcount *= 2;
 			if (wp->ih->bitcount == 2 && !wp->allow_2bit)
 				wp->ih->bitcount = 4;
 		}
+
+
+
+	}
+	/* we need BI_BITFIELDS if any of the following is true:
+	 *    - not all RGB-components have the same bitlength
+	 *    - we are writing an alpha-channel
+	 *    - bits per component are not either 5 or 8 (which have
+	 *      known RI_RGB representation)
+	 */
+	else if (!cm_all_equal_int(3, (int) wp->colormask.bits.red,
+	                         (int) wp->colormask.bits.green,
+	                         (int) wp->colormask.bits.blue) ||
+	          wp->has_alpha ||
+                  (wp->colormask.bits.red > 0 &&
+                   wp->colormask.bits.red != 5 &&
+                   wp->colormask.bits.red != 8)    ) {
+
+		wp->ih->version     = BMPINFO_V4;
+		wp->ih->size        = BMPIHSIZE_V4;
+		wp->ih->compression = BI_BITFIELDS;  /* do we need BI_ALPHABITFIELDS when alpha is present */
+		                                     /* or will that just confuse other readers?   !!!!!   */
+		if (bitsum <= 16)
+			wp->ih->bitcount = 16;
 		else
-			wp->ih->bitcount = (bitsum + 7) / 8 * 8;
+			wp->ih->bitcount = 32;
+	}
+	/* otherwise, use BI_RGB with either 5 or 8 bits per component
+	 * resulting in bitcount of 16 or 24.
+	 */
+	else {
+		wp->ih->version     = BMPINFO_V3;
+		wp->ih->size        = BMPIHSIZE_V3;
+		wp->ih->compression = BI_RGB;
+		wp->ih->bitcount    = (bitsum + 7) / 8 * 8;
 	}
 
 	if (wp->palette) {
@@ -665,7 +815,8 @@ static void s_create_header(BMPWRITE_R wp)
 	wp->padding = cm_align4padding(bytes_per_line);
 
 	wp->fh->type = 0x4d42; /* "BM" */
-	wp->fh->size = BMPFHSIZE + wp->ih->size + wp->palette_size + (bytes_per_line + wp->padding) * wp->height;
+	wp->fh->size = wp->rle ? 0 : BMPFHSIZE + wp->ih->size + wp->palette_size +
+	                             (bytes_per_line + wp->padding) * wp->height;
 	wp->fh->offbits = BMPFHSIZE + wp->ih->size + wp->palette_size;
 
 	wp->ih->width = wp->width;

@@ -123,7 +123,7 @@ typedef enum Bmpresult    BMPRESULT;
 enum Bmp64bitconv {
         BMP_CONV64_16BIT_SRGB,  /* default */
         BMP_CONV64_16BIT,
-        BMP_CONV64_NONE,
+        BMP_CONV64_NONE
 };
 
 int bmpread_is_64bit(BMPHANDLE h);
@@ -138,11 +138,15 @@ enum BmpInfoVer {
         BMPINFO_V3_ADOBE2,      /* 56 bytes, unofficial */
         BMPINFO_V4,             /* 108 bytes */
         BMPINFO_V5,             /* 124 bytes */
-        BMPINFO_FUTURE,         /* future versions, larger than 124 bytes */
+        BMPINFO_FUTURE          /* future versions, larger than 124 bytes */
 };
 
 
-
+enum BmpRLEtype {
+        BMP_RLE_NONE = 0,
+        BMP_RLE_AUTO,
+        BMP_RLE_8
+};
 
 
 BMPHANDLE bmpread_new(FILE *file);
@@ -202,6 +206,7 @@ BMPRESULT bmpwrite_set_resolution(BMPHANDLE h, int xdpi, int ydpi);
 BMPRESULT bmpwrite_set_output_bits(BMPHANDLE h, int red, int green, int blue, int alpha);
 BMPRESULT bmpwrite_set_palette(BMPHANDLE h, int numcolors, const unsigned char *palette);
 BMPRESULT bmpwrite_allow_2bit(BMPHANDLE h);
+BMPRESULT bmpwrite_set_rle(BMPHANDLE h, enum BmpRLEtype type);
 
 BMPRESULT bmpwrite_save_image(BMPHANDLE h, const unsigned char *image);
 BMPRESULT bmpwrite_save_line(BMPHANDLE h, const unsigned char *line);
