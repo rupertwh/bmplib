@@ -191,12 +191,12 @@ BMPRESULT bmpread_info_channel_bits(BMPHANDLE h, int *r, int *g, int *b, int *a)
 
 ## 2. Functions for writing BMP files
 
-### bmpwrite_new()
+### Get a handle
 ```
 BMPHANDLE bmpwrite_new(FILE *file)
 ```
 
-### Setting image dimensions
+### Set image dimensions
 ```
 BMPRESULT bmpwrite_set_dimensions(BMPHANDLE h,
                                   unsigned  width,
@@ -231,9 +231,18 @@ If you provide a palette, the image data you provide has to be 1 channel, 8 bits
 bmplib will choose the appropriate bit-depth for the BMP according to the number of color-entries in your palette.
 By default, bmplib will not write 2-bit indexed BMPs (supposedly a Windows CE relict), as many readers will refuse to open these. If you do want a 2-bit BMP for 3- or 4-color images, call `bmpwrite_allow_2bit()` before calling `bmpwrite_save_image()`.
 
-RLE compression is not supported yet.
+#### RLE
+Index images may optionally be written as RLE4 or RLE8 compressed BMPs. Images with 16 or fewer colors can be
+written as either RLE4 or RLE8 (default is RLE4), images with more than 16 colors only as RLE8.
 
-
+To activate RLE compression call
+```
+BMPRESULT bmpwrite_set_rle(BMPHANDLE h, enum BmpRLEtype type)
+```
+with `type` set to one of the following values:
+- `BMP_RLE_NONE` no RLE compression, same as not calling `bmpwrite_set_rle()` at all
+- `BMP_RLE_AUTO` choose RLE4 or RLE8 based on number of colors in palette
+- `BMP_RLE_RLE8` use RLE8, regardless of number of colors in palette
 
 
 ### Write the image
@@ -245,9 +254,6 @@ Write either the whole image at once with `bmpwrite_save_image()` or one line at
 The image data pointed to by `image` or `line` must be in the format described by `bmpwrite_set_dimensions()`. Multi-byte values (16 or 32 bit) are expected in host byte order, the channels in the order R-G-B-(A). Indexed data must be supplied as 8 bit per pixel, even when writing lower bit (1/2/4) BMPs (see above).
 Important: When writing the whole image at once using `bmpwrite_save_image()`, the image data must be provided top-down (same as is returned by `bmpread_load_image()`). When using `bmpwrite_save_line()` to write the image line-by-line, the image data must be provided bottom-up (i.e. starting with the bottom-most line).
 In both cases, the actual BMP will be written bottom-up, which is the only 'officially' correct orientation.
-
-
-
 
 
 

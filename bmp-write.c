@@ -70,7 +70,7 @@ struct Bmpwrite {
 
 static void s_decide_outformat(BMPWRITE_R wp);
 static int s_write_palette(BMPWRITE_R wp);
-static int s_save_line(BMPWRITE_R wp, const unsigned char *line);
+static int s_save_line_rgb(BMPWRITE_R wp, const unsigned char *line);
 static inline unsigned long s_set_outpixel_rgb(BMPWRITE_R wp, const unsigned char *restrict buffer, size_t offs);
 static int s_write_bmp_file_header(struct Bmpfile *bfh, FILE *file);
 static int s_write_bmp_info_header(struct Bmpinfo *bih, FILE *file);
@@ -333,7 +333,7 @@ API BMPRESULT bmpwrite_set_rle(BMPHANDLE h, enum BmpRLEtype type)
 	switch (type) {
 	case BMP_RLE_NONE:
 	case BMP_RLE_AUTO:
-	case BMP_RLE_8:
+	case BMP_RLE_RLE8:
 		wp->rle_requested = type;
 		break;
 	default:
@@ -397,9 +397,9 @@ API BMPRESULT bmpwrite_allow_2bit(BMPHANDLE h)
 /********************************************************
  * 	bmpwrite_save_image
  *******************************************************/
+static int s_save_line_rgb(BMPWRITE_R wp, const unsigned char *line);
 static int s_save_line_rle8(BMPWRITE_R wp, const unsigned char *line);
-static int s_save_line(BMPWRITE_R wp, const unsigned char *line);
-
+static int s_save_line_rle4(BMPWRITE_R wp, const unsigned char *line);
 
 API BMPRESULT bmpwrite_save_image(BMPHANDLE h, const unsigned char *image)
 {
@@ -429,11 +429,10 @@ API BMPRESULT bmpwrite_save_image(BMPHANDLE h, const unsigned char *image)
 			res = s_save_line_rle8(wp, image + offs);
 			break;
 		case 4:
-			logerr(wp->log, "RLE4 not implented");
-			res = FALSE;
+			res = s_save_line_rle4(wp, image + offs);
 			break;
 		default:
-			res = s_save_line(wp, image + offs);
+			res = s_save_line_rgb(wp, image + offs);
 			break;
 		}
 		if (!res) {
@@ -476,11 +475,10 @@ API BMPRESULT bmpwrite_save_line(BMPHANDLE h, const unsigned char *line)
 		res = s_save_line_rle8(wp, line);
 		break;
 	case 4:
-		logerr(wp->log, "RLE4 not implented");
-		res = FALSE;
+		res = s_save_line_rle4(wp, line);
 		break;
 	default:
-		res = s_save_line(wp, line);
+		res = s_save_line_rgb(wp, line);
 		break;
 	}
 
@@ -554,10 +552,10 @@ static int s_save_info(BMPWRITE_R wp)
 
 
 /********************************************************
- * 	s_save_line
+ * 	s_save_line_rgb
  *******************************************************/
 
-static int s_save_line(BMPWRITE_R wp, const unsigned char *line)
+static int s_save_line_rgb(BMPWRITE_R wp, const unsigned char *line)
 {
 	size_t        offs;
 	unsigned long bytes = 0;
@@ -613,7 +611,7 @@ static int s_save_line(BMPWRITE_R wp, const unsigned char *line)
 
 
 /********************************************************
- * 	s_save_line_rle
+ * 	s_save_line_rle8
  *******************************************************/
 
 static int s_save_line_rle8(BMPWRITE_R wp, const unsigned char *line)
@@ -632,19 +630,16 @@ static int s_save_line_rle8(BMPWRITE_R wp, const unsigned char *line)
 		if (l >= 3) {
 			if (EOF == putc(0, wp->file) ||
 			    EOF == putc(l, wp->file)) {
-				logsyserr(wp->log, "Writing image to BMP file (Lit-count)");
-				return FALSE;
+				goto abort;
 			}
 			for (i = 0; i < l; i++) {
 				if (EOF == putc(line[x+i], wp->file)) {
-					logsyserr(wp->log, "Writing image to BMP file (Lit-byte)");
-					return FALSE;
+					goto abort;
 				}
 			}
 			if (l & 0x01) {  /* pad odd-length literal run */
 				if (EOF == putc(0, wp->file)) {
-					logsyserr(wp->log, "Writing image to BMP file (pda)");
-					return FALSE;
+					goto abort;
 				}
 			}
 			x += l;
@@ -659,23 +654,100 @@ static int s_save_line_rle8(BMPWRITE_R wp, const unsigned char *line)
 				break;
 		}
 		if (EOF == putc(r, wp->file)) {
-			logsyserr(wp->log, "Writing image to BMP file (RLE-count)");
-			return FALSE;
+			goto abort;
 		}
 		if (EOF == putc(line[x], wp->file)) {
-			logsyserr(wp->log, "Writing image to BMP file (RLE-byte)");
-			return FALSE;
+			goto abort;
 		}
 		x += r;
 	}
 
 	if (EOF == putc(0, wp->file) || EOF == putc(0, wp->file)) {
-		logsyserr(wp->log, "Writing image to BMP file (EOL)");
-		return FALSE;
+		goto abort;
 	}
 
 	return TRUE;
+abort:
+	logsyserr(wp->log, "Writing RLE8 data to BMP file");
+	return FALSE;
 }
+
+
+
+/********************************************************
+ * 	s_save_line_rle4
+ *******************************************************/
+
+static int s_save_line_rle4(BMPWRITE_R wp, const unsigned char *line)
+{
+	int i, x, r, l, odd, outbyte;
+
+	x = 0;
+	while (x < wp->width) {
+		l = 2;
+		while (x+l < wp->width - 1 && l < 255) {
+			if (line[x+l] != line[x+l-2] || line[x+l+1] != line[x+l-1])
+				l++;
+			else
+				break;
+		}
+		if (l >= 3) {
+			if (EOF == putc(0, wp->file) ||
+			    EOF == putc(l, wp->file)) {
+				goto abort;
+			}
+			odd = 0;
+			for (i = 0; i < l; i++) {
+				if (odd)
+					outbyte |= line[x+i] & 0x0f;
+				else
+					outbyte = (line[x+i] << 4) & 0xf0;
+
+				if (odd || i == l-1) {
+					if (EOF == putc(outbyte, wp->file)) {
+						goto abort;
+					}
+				}
+				odd = !odd;
+			}
+			if ((l+1)%4 > 1) {  /* pad odd-length literal run */
+				if (EOF == putc(0, wp->file)) {
+					goto abort;
+				}
+			}
+			x += l;
+			continue;
+		}
+
+		r = 1;
+		while (x+r < wp->width-1 && r < 255) {
+			if (line[x+r+1] == line[x])
+				r++;
+			else
+				break;
+		}
+		if (EOF == putc(r, wp->file)) {
+			goto abort;
+		}
+		outbyte = (line[x] << 4) & 0xf0;
+		if (r > 1)
+			outbyte |= line[x+1] & 0x0f;
+		if (EOF == putc(outbyte, wp->file)) {
+			goto abort;
+		}
+		x += r;
+	}
+
+	if (EOF == putc(0, wp->file) || EOF == putc(0, wp->file)) {
+		goto abort;
+	}
+
+	return TRUE;
+abort:
+	logsyserr(wp->log, "Writing RLE8 data to BMP file");
+	return FALSE;
+}
+
 
 
 /********************************************************
@@ -731,16 +803,15 @@ static void s_decide_outformat(BMPWRITE_R wp)
 		wp->ih->size        = BMPIHSIZE_V3;
 		if (wp->rle_requested != BMP_RLE_NONE) {
 			if (wp->palette->numcolors > 16 ||
-			    wp->rle_requested == BMP_RLE_8) {
+			    wp->rle_requested == BMP_RLE_RLE8) {
 				wp->rle = 8;
 				wp->ih->compression = BI_RLE8;
 				wp->ih->bitcount = 8;
 			}
 			else {
-				wp->rle = 8; /* <- 4 */
-				wp->ih->compression = BI_RLE8;
-				wp->ih->bitcount = 8;
-				logerr(wp->log, "RLE4 not implemented yet, using RLE8");
+				wp->rle = 4;
+				wp->ih->compression = BI_RLE4;
+				wp->ih->bitcount = 4;
 			}
 		}
 		else {

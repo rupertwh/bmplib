@@ -145,7 +145,7 @@ enum BmpInfoVer {
 enum BmpRLEtype {
         BMP_RLE_NONE = 0,
         BMP_RLE_AUTO,
-        BMP_RLE_8
+        BMP_RLE_RLE8
 };
 
 
