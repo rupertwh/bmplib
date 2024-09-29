@@ -59,6 +59,8 @@ struct Bmpwrite {
 	int              outbytes_per_pixel;
 	int              outpixels_per_byte;
 	int              padding;
+	int             *group;
+	int              group_count;
 	/* state */
 	int              outbits_set;
 	int              dimensions_set;
@@ -440,7 +442,12 @@ API BMPRESULT bmpwrite_save_image(BMPHANDLE h, const unsigned char *image)
 			return BMP_RESULT_ERROR;
 		}
 	}
-
+	if (wp->rle) {
+		if (EOF == putc(0, wp->file) ||
+		    EOF == putc(1, wp->file)) {
+			logsyserr(wp->log, "Writing RLE end-of-file marker");
+		}
+	}
 	return BMP_RESULT_OK;
 }
 
@@ -609,6 +616,27 @@ static int s_save_line_rgb(BMPWRITE_R wp, const unsigned char *line)
 }
 
 
+/********************************************************
+ * 	s_length_of_runs
+ *
+ * 	for RLE-encoding, returns the number of
+ *      pixels in contiguous upcoming groups with
+ *      run-lengths > 1. Used to termine if it is
+ *      worthwile to switch from literal run to
+ *      repeat-run.
+ *******************************************************/
+
+static inline int s_length_of_runs(BMPWRITE_R wp, int x, int group)
+{
+	int i, len = 0;
+
+	for (i = group; i < wp->group_count; i++) {
+		if (wp->group[i] == 1)
+			break;
+		len += wp->group[i];
+	}
+	return len;
+}
 
 /********************************************************
  * 	s_save_line_rle8
@@ -616,58 +644,94 @@ static int s_save_line_rgb(BMPWRITE_R wp, const unsigned char *line)
 
 static int s_save_line_rle8(BMPWRITE_R wp, const unsigned char *line)
 {
-	int i, x, r, l;
+	int i, j, k, x, l, dx;
+
+	if (!wp->group) {
+		if (!(wp->group = malloc(wp->width * sizeof *wp->group))) {
+			logsyserr(wp->log, "allocating RLE buffer");
+			goto abort;
+		}
+	}
+
+	/* group identical contiguous pixels and keep a list
+	 * of number of pixels/group in wp->group
+	 * e.g. a pixel line abccaaadaaba would make a group list:
+	 *                   112 3  12 11 = 1,1,2,3,1,2,1,1
+	 */
+	memset(wp->group, 0, wp->width * sizeof *wp->group);
+	for (x = 0, wp->group_count = 0; x < wp->width; x++) {
+		wp->group[wp->group_count]++;
+		if (x == wp->width - 1 || line[x] != line[x+1])
+			wp->group_count++;
+	}
 
 	x = 0;
-	while (x < wp->width) {
-		l = 1;
-		while (x+l < wp->width && l < 255) {
-			if (line[x+l] != line[x+l-1])
-				l++;
-			else
-				break;
-		}
-		if (l >= 3) {
-			if (EOF == putc(0, wp->file) ||
-			    EOF == putc(l, wp->file)) {
-				goto abort;
-			}
-			for (i = 0; i < l; i++) {
-				if (EOF == putc(line[x+i], wp->file)) {
-					goto abort;
+	for (i = 0; i < wp->group_count; i++) {
+		l = 0;  /* l counts the number of groups in this literal run */
+		dx = 0; /* dx counts the number of pixels in this literal run */
+		while (i+l < wp->group_count && wp->group[i+l] == 1 && dx < 255) {
+			/* start/continue a literal run */
+			dx++;
+			l++;
+
+			/* if only a small number of repeated pixels comes up, include
+			 * those in the literal run instead of switching to repeat-run.
+			 * Not perfect, but already much better than interrupting a literal
+			 * run for e.g. two repeated pixels and then restarting the literal
+			 * run at a cost of 2-4 bytes (depending on padding)
+			 */
+			const int small_number = 5;
+			if (i+l < wp->group_count && s_length_of_runs(wp, x+dx, i+l) <= small_number) {
+				while (i+l < wp->group_count && wp->group[i+l] > 1 && dx + wp->group[i+l] < 255) {
+					dx += wp->group[i+l];
+					l++;
 				}
 			}
-			if (l & 0x01) {  /* pad odd-length literal run */
+		}
+		if (dx >= 3) {
+			/* write literal run to file if it's at least 3 bytes long,
+			 * otherwise fall through to repeat-run
+			 */
+			if (EOF == putc(0, wp->file) ||
+			    EOF == putc(dx, wp->file)) {
+				goto abort;
+			}
+			for (j = 0; j < l; j++) {
+				for (k = 0; k < wp->group[i+j]; k++) {
+					if (EOF == putc(line[x++], wp->file)) {
+						goto abort;
+					}
+				}
+			}
+			if (dx & 0x01) {  /* pad odd-length literal run */
 				if (EOF == putc(0, wp->file)) {
 					goto abort;
 				}
 			}
-			x += l;
+			i += l-1;
 			continue;
 		}
-
-		r = 1;
-		while (x+r < wp->width && r < 255) {
-			if (line[x+r] == line[x])
-				r++;
-			else
-				break;
-		}
-		if (EOF == putc(r, wp->file)) {
+		/* write repeat-run to file */
+		if (EOF == putc(wp->group[i], wp->file)) {
 			goto abort;
 		}
 		if (EOF == putc(line[x], wp->file)) {
 			goto abort;
 		}
-		x += r;
+		x += wp->group[i];
 	}
 
-	if (EOF == putc(0, wp->file) || EOF == putc(0, wp->file)) {
+	if (EOF == putc(0, wp->file) || EOF == putc(0, wp->file)) {  /* EOL */
 		goto abort;
 	}
 
 	return TRUE;
 abort:
+	if (wp->group) {
+		free(wp->group);
+		wp->group = NULL;
+		wp->group_count = 0;
+	}
 	logsyserr(wp->log, "Writing RLE8 data to BMP file");
 	return FALSE;
 }
@@ -756,6 +820,8 @@ abort:
 
 void bw_free(BMPWRITE wp)
 {
+	if (wp->group)
+		free(wp->group);
 	if (wp->palette)
 		free(wp->palette);
 	if (wp->ih)
