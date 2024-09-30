@@ -227,15 +227,16 @@ BMPRESULT bmpwrite_allow_2bit(BMPHANDLE h)
 ```
 You can write 1/2/4/8-bit indexed images by providing a color palette with `bmpwrite_set_palette()`. The palette entries must be 4 bytes each, the first three bytes are the red, green, and blue values in that order, the 4th byte is padding and will be ignored.
 
-If you provide a palette, the image data you provide has to be 1 channel, 8 bits per pixel, and bmplib will write an indexed BMP.
+If you provide a palette, the image data you provide has to be 1 channel, 8 bits per pixel, regardless of the palette size. The pixel values must be indexing the color palette. Invalid index values (which go beyond the color palette) will
+be silently clipped.
 bmplib will choose the appropriate bit-depth for the BMP according to the number of color-entries in your palette.
 By default, bmplib will not write 2-bit indexed BMPs (supposedly a Windows CE relict), as many readers will refuse to open these. If you do want a 2-bit BMP for 3- or 4-color images, call `bmpwrite_allow_2bit()` before calling `bmpwrite_save_image()`.
 
 #### RLE
-Index images may optionally be written as RLE4 or RLE8 compressed BMPs. Images with 16 or fewer colors can be
+Indexed images may optionally be written as RLE4 or RLE8 compressed BMPs. Images with 16 or fewer colors can be
 written as either RLE4 or RLE8 (default is RLE4), images with more than 16 colors only as RLE8.
 
-To activate RLE compression call
+To activate RLE compression, call
 ```
 BMPRESULT bmpwrite_set_rle(BMPHANDLE h, enum BmpRLEtype type)
 ```

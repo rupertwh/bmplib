@@ -295,7 +295,7 @@ API BMPRESULT bmpwrite_set_palette(BMPHANDLE h, int numcolors,
 		}
 	}
 
-	if (numcolors < 0 || numcolors > 256) {
+	if (numcolors < 1 || numcolors > 256) {
 		logerr(wp->log, "Invalid number of colors for palette (%d)",
 		                                          numcolors);
 		return BMP_RESULT_ERROR;
@@ -626,12 +626,12 @@ static int s_save_line_rgb(BMPWRITE_R wp, const unsigned char *line)
  *      repeat-run.
  *******************************************************/
 
-static inline int s_length_of_runs(BMPWRITE_R wp, int x, int group)
+static inline int s_length_of_runs(BMPWRITE_R wp, int x, int group, int minlen)
 {
 	int i, len = 0;
 
 	for (i = group; i < wp->group_count; i++) {
-		if (wp->group[i] == 1)
+		if (wp->group[i] <= minlen)
 			break;
 		len += wp->group[i];
 	}
@@ -681,7 +681,7 @@ static int s_save_line_rle8(BMPWRITE_R wp, const unsigned char *line)
 			 * run at a cost of 2-4 bytes (depending on padding)
 			 */
 			const int small_number = 5;
-			if (i+l < wp->group_count && s_length_of_runs(wp, x+dx, i+l) <= small_number) {
+			if (i+l < wp->group_count && s_length_of_runs(wp, x+dx, i+l, 1) <= small_number) {
 				while (i+l < wp->group_count && wp->group[i+l] > 1 && dx + wp->group[i+l] < 255) {
 					dx += wp->group[i+l];
 					l++;
@@ -744,64 +744,104 @@ abort:
 
 static int s_save_line_rle4(BMPWRITE_R wp, const unsigned char *line)
 {
-	int i, x, r, l, odd, outbyte;
+	int i, j, k, x, dx, l, even, outbyte;
+
+	if (!wp->group) {
+		if (!(wp->group = malloc(wp->width * sizeof *wp->group))) {
+			logsyserr(wp->log, "allocating RLE buffer");
+			goto abort;
+		}
+	}
+
+	/* group contiguous alternating pixels and keep a list
+	 * of number of pixels/group in wp->group. Unlike RLE8,
+	 * there is not one unambiguos ways to group the pixels.
+	 * (Of course, the two repeated 4-bit values could also
+	 * be identical)
+	 * e.g.,a pixel line abcbcabaddacacab coule be grouped as:
+	 *                   14   3  2 5    1 = 1,4,3,2,5
+	 *               or  2 3  3  2 5    1 = 2,3,3,2,5
+	 * we'll use the second (greedy) one, which results in
+	 * groups of at least 2 pixels (except for the last group
+	 * in a row, which may be a 1-pixel group)
+	 */
+	memset(wp->group, 0, wp->width * sizeof *wp->group);
+	for (x = 0, wp->group_count = 0; x < wp->width; x++) {
+		wp->group[wp->group_count]++;
+		if (x == wp->width - 1) {
+			wp->group_count++;
+			break;
+		}
+		if (wp->group[wp->group_count] > 1 && line[x-1] != line[x+1]) {
+			wp->group_count++;
+		}
+	}
 
 	x = 0;
-	while (x < wp->width) {
-		l = 2;
-		while (x+l < wp->width - 1 && l < 255) {
-			if (line[x+l] != line[x+l-2] || line[x+l+1] != line[x+l-1])
-				l++;
-			else
-				break;
+	for (i = 0; i < wp->group_count; i++) {
+		l = 0;  /* l counts the number of groups in this literal run */
+		dx = 0; /* dx counts the number of pixels in this literal run */
+		while (i+l < wp->group_count && wp->group[i+l] <= 2 && (dx + wp->group[i+l]) < 255) {
+			/* start/continue a literal run */
+			dx += wp->group[i+l];
+			l++;
+
+			const int small_number = 7;
+			if (i+l < wp->group_count && s_length_of_runs(wp, x+dx, i+l, 2) <= small_number) {
+				while (i+l < wp->group_count && wp->group[i+l] > 2 && dx + wp->group[i+l] < 255) {
+					dx += wp->group[i+l];
+					l++;
+				}
+			}
 		}
-		if (l >= 3) {
+		if (dx >= 3) {
+			/* write literal run to file if it's at least 3 bytes long,
+			 * otherwise fall through to repeat-run
+			 */
 			if (EOF == putc(0, wp->file) ||
-			    EOF == putc(l, wp->file)) {
+			    EOF == putc(dx, wp->file)) {
 				goto abort;
 			}
-			odd = 0;
-			for (i = 0; i < l; i++) {
-				if (odd)
-					outbyte |= line[x+i] & 0x0f;
-				else
-					outbyte = (line[x+i] << 4) & 0xf0;
-
-				if (odd || i == l-1) {
-					if (EOF == putc(outbyte, wp->file)) {
-						goto abort;
+			even = TRUE;
+			for (j = 0; j < l; j++) {
+				for (k = 0; k < wp->group[i+j]; k++) {
+					if (even)
+						outbyte = (line[x++] << 4) & 0xf0;
+					else {
+						outbyte |= line[x++] & 0x0f;
+						if (EOF == putc(outbyte, wp->file)) {
+							goto abort;
+						}
 					}
+					even = !even;
 				}
-				odd = !odd;
 			}
-			if ((l+1)%4 > 1) {  /* pad odd-length literal run */
+			if (!even) {
+				if (EOF == putc(outbyte, wp->file)) {
+					goto abort;
+				}
+			}
+			if ((dx+1)%4 > 1) {  /* pad odd byte-length literal run */
 				if (EOF == putc(0, wp->file)) {
 					goto abort;
 				}
 			}
-			x += l;
+			i += l-1;
 			continue;
 		}
 
-		r = 1;
-		while (x+r < wp->width-1 && r < 255) {
-			if (line[x+r+1] == line[x])
-				r++;
-			else
-				break;
-		}
-		if (EOF == putc(r, wp->file)) {
+		/* write repeat-run to file */
+		if (EOF == putc(wp->group[i], wp->file)) {
 			goto abort;
 		}
 		outbyte = (line[x] << 4) & 0xf0;
-		if (r > 1)
+		if (wp->group[i] > 1)
 			outbyte |= line[x+1] & 0x0f;
 		if (EOF == putc(outbyte, wp->file)) {
 			goto abort;
 		}
-		x += r;
+		x += wp->group[i];
 	}
-
 	if (EOF == putc(0, wp->file) || EOF == putc(0, wp->file)) {
 		goto abort;
 	}
