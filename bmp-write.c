@@ -51,6 +51,8 @@ struct Bmpwrite {
 	struct Palette  *palette;
 	int              palette_size; /* sizeof palette in bytes */
 	/* output */
+	size_t           bytes_written;
+	size_t           bytes_written_before_bitdata;
 	int              has_alpha;
 	struct Colormask colormask;
 	int              rle_requested;
@@ -74,13 +76,13 @@ static void s_decide_outformat(BMPWRITE_R wp);
 static int s_write_palette(BMPWRITE_R wp);
 static int s_save_line_rgb(BMPWRITE_R wp, const unsigned char *line);
 static inline unsigned long s_set_outpixel_rgb(BMPWRITE_R wp, const unsigned char *restrict buffer, size_t offs);
-static int s_write_bmp_file_header(struct Bmpfile *bfh, FILE *file);
-static int s_write_bmp_info_header(struct Bmpinfo *bih, FILE *file);
+static int s_write_bmp_file_header(BMPWRITE_R wp);
+static int s_write_bmp_info_header(BMPWRITE_R wp);
 static int s_check_is_write_handle(BMPHANDLE h);
 static inline unsigned s_scaleint(unsigned long val, int frombits, int tobits);
-
+static inline int s_write_one_byte(int byte, BMPWRITE_R wp);
 static int s_save_info(BMPWRITE_R wp);
-
+static int s_try_saving_image_size(BMPWRITE_R wp);
 
 
 
@@ -422,6 +424,7 @@ API BMPRESULT bmpwrite_save_image(BMPHANDLE h, const unsigned char *image)
 		return BMP_RESULT_ERROR;
 
 	wp->saveimage_done = TRUE;
+	wp->bytes_written_before_bitdata = wp->bytes_written;
 
 	linesize = (size_t) wp->width * (size_t) wp->source_bytes_per_pixel;
 	for (y = wp->height - 1; y >= 0; y--) {
@@ -443,11 +446,17 @@ API BMPRESULT bmpwrite_save_image(BMPHANDLE h, const unsigned char *image)
 		}
 	}
 	if (wp->rle) {
-		if (EOF == putc(0, wp->file) ||
-		    EOF == putc(1, wp->file)) {
+		if (EOF == s_write_one_byte(0, wp) ||
+		    EOF == s_write_one_byte(1, wp)) {
 			logsyserr(wp->log, "Writing RLE end-of-file marker");
+			return BMP_RESULT_ERROR;
 		}
+		s_try_saving_image_size(wp);
 	}
+#ifdef DEBUG
+	printf("bytes written: %d (0x%04lx) = %dkb\n", (int)wp->bytes_written,
+		                         wp->bytes_written, (int) (wp->bytes_written>>10));
+#endif
 	return BMP_RESULT_OK;
 }
 
@@ -470,10 +479,9 @@ API BMPRESULT bmpwrite_save_line(BMPHANDLE h, const unsigned char *line)
 	}
 
 	if (!wp->line_by_line) {  /* first line */
-		if  (!s_save_info(wp)) {
-			wp->saveimage_done = TRUE;
-			return BMP_RESULT_ERROR;
-		}
+		if  (!s_save_info(wp))
+			goto abort;
+		wp->bytes_written_before_bitdata = wp->bytes_written;
 		wp->line_by_line = TRUE;
 	}
 
@@ -489,22 +497,30 @@ API BMPRESULT bmpwrite_save_line(BMPHANDLE h, const unsigned char *line)
 		break;
 	}
 
-	if (!res) {
-		wp->saveimage_done = TRUE;
-		return BMP_RESULT_ERROR;
-	}
+	if (!res)
+		goto abort;
 
 	if (++wp->lbl_y >= wp->height) {
 		if (wp->rle) {
-			if (EOF == putc(0, wp->file) ||
-			    EOF == putc(1, wp->file)) {
+			if (EOF == s_write_one_byte(0, wp) ||
+			    EOF == s_write_one_byte(1, wp)) {
 				logsyserr(wp->log, "Writing RLE end-of-file marker");
+				goto abort;
 			}
+			s_try_saving_image_size(wp);
 		}
 		wp->saveimage_done = TRUE;
+#ifdef DEBUG
+		printf("bytes written: %d (0x%04lx) = %dkb\n", (int)wp->bytes_written,
+		                         wp->bytes_written, (int) (wp->bytes_written>>10));
+#endif
+
 	}
 
 	return BMP_RESULT_OK;
+abort:
+	wp->saveimage_done = TRUE;
+	return BMP_RESULT_ERROR;
 }
 
 
@@ -527,12 +543,12 @@ static int s_save_info(BMPWRITE_R wp)
 
 	s_decide_outformat(wp);
 
-	if (!s_write_bmp_file_header(wp->fh, wp->file)) {
+	if (!s_write_bmp_file_header(wp)) {
 		logsyserr(wp->log, "Writing BMP file header");
 		return FALSE;
 	}
 
-	if (!s_write_bmp_info_header(wp->ih, wp->file)) {
+	if (!s_write_bmp_info_header(wp)) {
 		logsyserr(wp->log, "Writing BMP info header");
 		return FALSE;
 	}
@@ -559,6 +575,33 @@ static int s_save_info(BMPWRITE_R wp)
 
 
 /********************************************************
+ * 	s_try_saving_image_size
+ * this will fail on unseekable files like pipes etc.
+ * which isn't too bad, because reader generally
+ * ignore the file and image size in the header anyway.
+ *******************************************************/
+
+static int s_try_saving_image_size(BMPWRITE_R wp)
+{
+	uint32_t image_size, file_size;
+
+	image_size = wp->bytes_written - wp->bytes_written_before_bitdata;
+	file_size = wp->bytes_written;
+
+	if (fseek(wp->file, 2, SEEK_SET))
+		return FALSE;
+	if (!write_u32_le(wp->file, file_size))
+		return FALSE;
+	if (fseek(wp->file, 14 + 20, SEEK_SET))
+		return FALSE;
+	if (!write_u32_le(wp->file, image_size))
+		return FALSE;
+	return TRUE;
+}
+
+
+
+/********************************************************
  * 	s_save_line_rgb
  *******************************************************/
 
@@ -575,7 +618,7 @@ static int s_save_line_rgb(BMPWRITE_R wp, const unsigned char *line)
 			bytes |= line[offs];
 			bits_used += wp->ih->bitcount;
 			if (bits_used == 8) {
-				if (EOF == putc((int)bytes, wp->file)) {
+				if (EOF == s_write_one_byte((int)bytes, wp)) {
 					logsyserr(wp->log, "Writing image to BMP file");
 					return FALSE;
 				}
@@ -589,7 +632,7 @@ static int s_save_line_rgb(BMPWRITE_R wp, const unsigned char *line)
 				return BMP_RESULT_ERROR;
 
 			for (i = 0; i < wp->outbytes_per_pixel; i++) {
-				if (EOF == putc((bytes >> (8*i)) & 0xff, wp->file)) {
+				if (EOF == s_write_one_byte((bytes >> (8*i)) & 0xff, wp)) {
 					logsyserr(wp->log, "Writing image to BMP file");
 					return FALSE;
 				}
@@ -599,7 +642,7 @@ static int s_save_line_rgb(BMPWRITE_R wp, const unsigned char *line)
 
 	if (wp->palette && bits_used != 0) {
 		bytes <<= 8 - bits_used;
-		if (EOF == putc((int)bytes, wp->file)) {
+		if (EOF == s_write_one_byte((int)bytes, wp)) {
 			logsyserr(wp->log, "Writing image to BMP file");
 			return FALSE;
 		}
@@ -607,7 +650,7 @@ static int s_save_line_rgb(BMPWRITE_R wp, const unsigned char *line)
 	}
 
 	for (i = 0; i < wp->padding; i++) {
-		if (EOF == putc(0, wp->file)) {
+		if (EOF == s_write_one_byte(0, wp)) {
 			logsyserr(wp->log, "Writing padding bytes to BMP file");
 			return FALSE;
 		}
@@ -692,19 +735,19 @@ static int s_save_line_rle8(BMPWRITE_R wp, const unsigned char *line)
 			/* write literal run to file if it's at least 3 bytes long,
 			 * otherwise fall through to repeat-run
 			 */
-			if (EOF == putc(0, wp->file) ||
-			    EOF == putc(dx, wp->file)) {
+			if (EOF == s_write_one_byte(0, wp) ||
+			    EOF == s_write_one_byte(dx, wp)) {
 				goto abort;
 			}
 			for (j = 0; j < l; j++) {
 				for (k = 0; k < wp->group[i+j]; k++) {
-					if (EOF == putc(line[x++], wp->file)) {
+					if (EOF == s_write_one_byte(line[x++], wp)) {
 						goto abort;
 					}
 				}
 			}
 			if (dx & 0x01) {  /* pad odd-length literal run */
-				if (EOF == putc(0, wp->file)) {
+				if (EOF == s_write_one_byte(0, wp)) {
 					goto abort;
 				}
 			}
@@ -712,16 +755,16 @@ static int s_save_line_rle8(BMPWRITE_R wp, const unsigned char *line)
 			continue;
 		}
 		/* write repeat-run to file */
-		if (EOF == putc(wp->group[i], wp->file)) {
+		if (EOF == s_write_one_byte(wp->group[i], wp)) {
 			goto abort;
 		}
-		if (EOF == putc(line[x], wp->file)) {
+		if (EOF == s_write_one_byte(line[x], wp)) {
 			goto abort;
 		}
 		x += wp->group[i];
 	}
 
-	if (EOF == putc(0, wp->file) || EOF == putc(0, wp->file)) {  /* EOL */
+	if (EOF == s_write_one_byte(0, wp) || EOF == s_write_one_byte(0, wp)) {  /* EOL */
 		goto abort;
 	}
 
@@ -798,8 +841,8 @@ static int s_save_line_rle4(BMPWRITE_R wp, const unsigned char *line)
 			/* write literal run to file if it's at least 3 bytes long,
 			 * otherwise fall through to repeat-run
 			 */
-			if (EOF == putc(0, wp->file) ||
-			    EOF == putc(dx, wp->file)) {
+			if (EOF == s_write_one_byte(0, wp) ||
+			    EOF == s_write_one_byte(dx, wp)) {
 				goto abort;
 			}
 			even = TRUE;
@@ -809,7 +852,7 @@ static int s_save_line_rle4(BMPWRITE_R wp, const unsigned char *line)
 						outbyte = (line[x++] << 4) & 0xf0;
 					else {
 						outbyte |= line[x++] & 0x0f;
-						if (EOF == putc(outbyte, wp->file)) {
+						if (EOF == s_write_one_byte(outbyte, wp)) {
 							goto abort;
 						}
 					}
@@ -817,12 +860,12 @@ static int s_save_line_rle4(BMPWRITE_R wp, const unsigned char *line)
 				}
 			}
 			if (!even) {
-				if (EOF == putc(outbyte, wp->file)) {
+				if (EOF == s_write_one_byte(outbyte, wp)) {
 					goto abort;
 				}
 			}
 			if ((dx+1)%4 > 1) {  /* pad odd byte-length literal run */
-				if (EOF == putc(0, wp->file)) {
+				if (EOF == s_write_one_byte(0, wp)) {
 					goto abort;
 				}
 			}
@@ -831,18 +874,18 @@ static int s_save_line_rle4(BMPWRITE_R wp, const unsigned char *line)
 		}
 
 		/* write repeat-run to file */
-		if (EOF == putc(wp->group[i], wp->file)) {
+		if (EOF == s_write_one_byte(wp->group[i], wp)) {
 			goto abort;
 		}
 		outbyte = (line[x] << 4) & 0xf0;
 		if (wp->group[i] > 1)
 			outbyte |= line[x+1] & 0x0f;
-		if (EOF == putc(outbyte, wp->file)) {
+		if (EOF == s_write_one_byte(outbyte, wp)) {
 			goto abort;
 		}
 		x += wp->group[i];
 	}
-	if (EOF == putc(0, wp->file) || EOF == putc(0, wp->file)) {
+	if (EOF == s_write_one_byte(0, wp) || EOF == s_write_one_byte(0, wp)) {
 		goto abort;
 	}
 
@@ -999,7 +1042,7 @@ static void s_decide_outformat(BMPWRITE_R wp)
 	wp->ih->width = wp->width;
 	wp->ih->height = wp->height;
 	wp->ih->planes = 1;
-	wp->ih->sizeimage = 0;
+	wp->ih->sizeimage = wp->rle ? 0 : (bytes_per_line + wp->padding) * wp->height;
 }
 
 
@@ -1094,10 +1137,10 @@ static int s_write_palette(BMPWRITE_R wp)
 
 	for (i = 0; i < wp->palette->numcolors; i++) {
 		for (c = 0; c < 3; c++) {
-			if (EOF == putc(wp->palette->color[i].value[2-c], wp->file))
+			if (EOF == s_write_one_byte(wp->palette->color[i].value[2-c], wp))
 				return FALSE;
 		}
-		if (EOF == putc(0, wp->file))
+		if (EOF == s_write_one_byte(0, wp))
 			return FALSE;
 	}
 	return TRUE;
@@ -1109,13 +1152,17 @@ static int s_write_palette(BMPWRITE_R wp)
  * 	s_write_bmp_file_header
  *******************************************************/
 
-static int s_write_bmp_file_header(struct Bmpfile *bfh, FILE *file)
+static int s_write_bmp_file_header(BMPWRITE_R wp)
 {
-	return write_u16_le(file, bfh->type) &&
-	       write_u32_le(file, bfh->size) &&
-	       write_u16_le(file, bfh->reserved1) &&
-	       write_u16_le(file, bfh->reserved2) &&
-	       write_u32_le(file, bfh->offbits);
+	if (!(write_u16_le(wp->file, wp->fh->type) &&
+	      write_u32_le(wp->file, wp->fh->size) &&
+	      write_u16_le(wp->file, wp->fh->reserved1) &&
+	      write_u16_le(wp->file, wp->fh->reserved2) &&
+	      write_u32_le(wp->file, wp->fh->offbits))) {
+		return FALSE;
+	}
+	wp->bytes_written += 14;
+	return TRUE;
 }
 
 
@@ -1124,42 +1171,65 @@ static int s_write_bmp_file_header(struct Bmpfile *bfh, FILE *file)
  * 	s_write_bmp_info_header
  *******************************************************/
 
-static int s_write_bmp_info_header(struct Bmpinfo *bih, FILE *file)
+static int s_write_bmp_info_header(BMPWRITE_R wp)
 {
-	if (!(write_u32_le(file, bih->size) &&
-	      write_s32_le(file, bih->width) &&
-	      write_s32_le(file, bih->height) &&
-	      write_u16_le(file, bih->planes) &&
-	      write_u16_le(file, bih->bitcount) &&
-	      write_u32_le(file, bih->compression) &&
-	      write_u32_le(file, bih->sizeimage) &&
-	      write_s32_le(file, bih->xpelspermeter) &&
-	      write_s32_le(file, bih->ypelspermeter) &&
-	      write_u32_le(file, bih->clrused) &&
-	      write_u32_le(file, bih->clrimportant) )) {
+	if (!(write_u32_le(wp->file, wp->ih->size) &&
+	      write_s32_le(wp->file, wp->ih->width) &&
+	      write_s32_le(wp->file, wp->ih->height) &&
+	      write_u16_le(wp->file, wp->ih->planes) &&
+	      write_u16_le(wp->file, wp->ih->bitcount) &&
+	      write_u32_le(wp->file, wp->ih->compression) &&
+	      write_u32_le(wp->file, wp->ih->sizeimage) &&
+	      write_s32_le(wp->file, wp->ih->xpelspermeter) &&
+	      write_s32_le(wp->file, wp->ih->ypelspermeter) &&
+	      write_u32_le(wp->file, wp->ih->clrused) &&
+	      write_u32_le(wp->file, wp->ih->clrimportant) )) {
 		return FALSE;
 	}
-	if (bih->version == BMPINFO_V3)
+	wp->bytes_written += 40;
+
+	if (wp->ih->version == BMPINFO_V3)
 		return TRUE;
 
-	return write_u32_le(file, bih->redmask) &&
-	       write_u32_le(file, bih->greenmask) &&
-	       write_u32_le(file, bih->bluemask) &&
-	       write_u32_le(file, bih->alphamask) &&
-	       write_u32_le(file, bih->cstype) &&
-	       write_s32_le(file, bih->redX) &&
-	       write_s32_le(file, bih->redY) &&
-	       write_s32_le(file, bih->redZ) &&
-	       write_s32_le(file, bih->greenX) &&
-	       write_s32_le(file, bih->greenY) &&
-	       write_s32_le(file, bih->greenZ) &&
-	       write_s32_le(file, bih->blueX) &&
-	       write_s32_le(file, bih->blueY) &&
-	       write_u32_le(file, bih->blueZ) &&
-	       write_u32_le(file, bih->gammared) &&
-	       write_u32_le(file, bih->gammagreen) &&
-	       write_u32_le(file, bih->gammablue);
+	if (!(write_u32_le(wp->file, wp->ih->redmask) &&
+	      write_u32_le(wp->file, wp->ih->greenmask) &&
+	      write_u32_le(wp->file, wp->ih->bluemask) &&
+	      write_u32_le(wp->file, wp->ih->alphamask) &&
+	      write_u32_le(wp->file, wp->ih->cstype) &&
+	      write_s32_le(wp->file, wp->ih->redX) &&
+	      write_s32_le(wp->file, wp->ih->redY) &&
+	      write_s32_le(wp->file, wp->ih->redZ) &&
+	      write_s32_le(wp->file, wp->ih->greenX) &&
+	      write_s32_le(wp->file, wp->ih->greenY) &&
+	      write_s32_le(wp->file, wp->ih->greenZ) &&
+	      write_s32_le(wp->file, wp->ih->blueX) &&
+	      write_s32_le(wp->file, wp->ih->blueY) &&
+	      write_u32_le(wp->file, wp->ih->blueZ) &&
+	      write_u32_le(wp->file, wp->ih->gammared) &&
+	      write_u32_le(wp->file, wp->ih->gammagreen) &&
+	      write_u32_le(wp->file, wp->ih->gammablue))) {
+		return FALSE;
+	}
+	wp->bytes_written += 68;
 
+	return TRUE;
+}
+
+
+
+
+/********************************************************
+ * 	s_write_one_byte
+ *******************************************************/
+
+static inline int s_write_one_byte(int byte, BMPWRITE_R wp)
+{
+	int ret;
+
+	if (EOF != (ret = putc(byte, wp->file)))
+		wp->bytes_written++;
+
+	return ret;
 }
 
 

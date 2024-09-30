@@ -360,7 +360,8 @@ static inline void s_convert64(uint16_t *val64)
 		s *= 0xffff;
 		s >>= 13;
 		s = MAX(0, s);
-		val64[i] = s & 0xffff;
+		s = MIN(s, 0xffff);
+		val64[i] = s;
 	}
 }
 
@@ -387,7 +388,8 @@ static inline void s_convert64srgb(uint16_t *val64)
 			s >>= 13;
 		}
 		s = MAX(0, s);
-		val64[i] = s & 0xffff;
+		s = MIN(s, 0xffff);
+		val64[i] = s;
 	}
 }
 
