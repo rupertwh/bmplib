@@ -84,22 +84,21 @@ struct Bmpread {
 		LOG      log;
 	};
 	FILE             *file;
-	unsigned long     bytes_read;  /* number of bytes we have read from the file */
+	size_t            bytes_read;  /* number of bytes we have read from the file */
 	struct Bmpfile   *fh;
 	struct Bmpinfo   *ih;
 	unsigned int      insanity_limit;
 	int               width;
 	int               height;
-	int               topdown;
+	enum BmpOrient    orientation;
 	int               has_alpha;   /* original BMP has alpha channel */
-	int               undefined_to_alpha;
-	int               wipe_buffer;
+	enum BmpUndefined undefined_to_alpha;
 	int               we_allocated_buffer;
 	int               line_by_line;
 	struct Palette   *palette;
 	struct Colormask  colormask;
 	/* result image dimensions */
-	enum Bmp64bitconv conv64;
+	enum Bmpconv64    conv64;
 	int               result_channels;
 	int               result_indexed;
 	int               result_bits_per_pixel;
@@ -162,19 +161,6 @@ int read_s32_le(FILE *file, int32_t *val);
 
 typedef struct Bmpread  *BMPREAD;
 typedef struct Bmpwrite *BMPWRITE;
-
-
-
-
-
-/* There seems to be ambiguity about whether the 40-byte
- * BITMAPINFOHEADER is version 1 or version 3. Both make
- * sense, depending on whether you consider the
- * BITMAPCORE/OS2 versions v1 and v2, or if you consider
- * the Adobe-extensions (supposedly at one time
- * MS-'official') v2 and v3.
- * I am going with BITMAPINFOHEADER = v3.
- */
 
 
 #define BMPFILE_BM (0x4d42)

@@ -50,8 +50,8 @@ API BMPHANDLE bmpread_new(FILE *file)
 	}
 	memset(rp, 0, sizeof *rp);
 	rp->magic = HMAGIC_READ;
-	rp->undefined_to_alpha = TRUE;
-	rp->wipe_buffer = TRUE;
+	rp->undefined_to_alpha = BMP_UNDEFINED_TO_ALPHA;
+	rp->orientation = BMP_ORIENT_BOTTOMUP;
 	rp->conv64 = BMP_CONV64_16BIT_SRGB;
 
 	if (!(rp->log = logcreate()))
@@ -111,12 +111,8 @@ API BMPRESULT bmpread_load_info(BMPHANDLE h)
 		return BMP_RESULT_ERROR;
 	rp = (BMPREAD)(void*)h;
 
-	if (rp->getinfo_called) {
-#ifdef DEBUG
-		printf("getinfo() had already been called");
-#endif
+	if (rp->getinfo_called)
 		return rp->getinfo_return;
-	}
 	rp->getinfo_called = TRUE;
 
 	if (!s_read_file_header(rp))
@@ -148,7 +144,7 @@ API BMPRESULT bmpread_load_info(BMPHANDLE h)
 
 	/* negative height flips the image vertically */
 	if (rp->height < 0) {
-		rp->topdown = TRUE;
+		rp->orientation = BMP_ORIENT_TOPDOWN;
 		rp->height = -rp->height;
 	}
 
@@ -199,10 +195,10 @@ API BMPRESULT bmpread_load_info(BMPHANDLE h)
 
 	/* add alpha channel for undefined pixels in RLE bitmaps */
 	if (rp->rle) {
-		rp->result_bits_per_pixel = rp->undefined_to_alpha ? 32 : 24;
-		rp->result_bytes_per_pixel = rp->undefined_to_alpha ? 4 : 3;
+		rp->result_bits_per_pixel = (rp->undefined_to_alpha == BMP_UNDEFINED_TO_ALPHA) ? 32 : 24;
+		rp->result_bytes_per_pixel = (rp->undefined_to_alpha == BMP_UNDEFINED_TO_ALPHA) ? 4 : 3;
 		rp->result_bits_per_channel = 8;
-		rp->result_channels = rp->undefined_to_alpha ? 4 : 3;
+		rp->result_channels = (rp->undefined_to_alpha == BMP_UNDEFINED_TO_ALPHA) ? 4 : 3;
 	}
 
 
@@ -235,7 +231,7 @@ abort:
  * 	bmpread_set_64bit_conv
  *******************************************************/
 
-API BMPRESULT bmpread_set_64bit_conv(BMPHANDLE h, enum Bmp64bitconv conv)
+API BMPRESULT bmpread_set_64bit_conv(BMPHANDLE h, enum Bmpconv64 conv)
 {
 	BMPREAD rp;
 
@@ -289,10 +285,10 @@ API int bmpread_is_64bit(BMPHANDLE h)
  *******************************************************/
 
 API BMPRESULT bmpread_dimensions(BMPHANDLE h, int* restrict width,
-                                               int* restrict height,
-                                               int* restrict channels,
-                                               int* restrict bitsperchannel,
-                                               int* restrict topdown)
+                                              int* restrict height,
+                                              int* restrict channels,
+                                              int* restrict bitsperchannel,
+                                   enum BmpOrient* restrict orientation)
 {
 	BMPREAD rp;
 
@@ -311,7 +307,7 @@ API BMPRESULT bmpread_dimensions(BMPHANDLE h, int* restrict width,
 	if (height)         *height         = rp->height;
 	if (channels)       *channels       = rp->result_channels;
 	if (bitsperchannel) *bitsperchannel = rp->result_bits_per_channel;
-	if (topdown)        *topdown        = rp->topdown;
+	if (orientation)    *orientation    = rp->orientation;
 
 	rp->dimensions_queried = TRUE;
 	return rp->getinfo_return;
@@ -328,7 +324,7 @@ enum Dimint {
 	DIM_HEIGHT,
 	DIM_CHANNELS,
 	DIM_BITS_PER_CHANNEL,
-	DIM_TOPDOWN,
+	DIM_ORIENTATION,
 	DIM_XDPI,
 	DIM_YDPI,
 };
@@ -348,7 +344,10 @@ API int bmpread_bits_per_channel(BMPHANDLE h)
 { return s_single_dim_val(h, DIM_BITS_PER_CHANNEL); }
 
 API int bmpread_topdown(BMPHANDLE h)
-{ return s_single_dim_val(h, DIM_TOPDOWN); }
+{ return s_single_dim_val(h, DIM_ORIENTATION); }
+
+API enum BmpOrient bmpread_orientation(BMPHANDLE h)
+{ return (enum BmpOrient) s_single_dim_val(h, DIM_ORIENTATION); }
 
 API int bmpread_resolution_xdpi(BMPHANDLE h)
 { return s_single_dim_val(h, DIM_XDPI); }
@@ -386,8 +385,8 @@ static int s_single_dim_val(BMPHANDLE h, enum Dimint dim)
 	case DIM_BITS_PER_CHANNEL:
 		rp->dim_queried_bits_per_channel = TRUE;
 		return rp->result_bits_per_channel;
-	case DIM_TOPDOWN:
-		return rp->topdown;
+	case DIM_ORIENTATION:
+		return (int) rp->orientation;
 	case DIM_XDPI:
 		return rp->ih->xpelspermeter / 39.37 + 0.5;
 	case DIM_YDPI:
@@ -449,10 +448,12 @@ API void bmpread_set_insanity_limit(BMPHANDLE h, size_t limit)
 
 
 /********************************************************
- * 	bmpread_set_undefined_to_alpha
+ * 	bmpread_set_undefined
  *******************************************************/
+API void bmpread_set_undefined_to_alpha(BMPHANDLE h, int mode)
+{ bmpread_set_undefined(h, (enum BmpUndefined) mode); }
 
-API void bmpread_set_undefined_to_alpha(BMPHANDLE h, int yes)
+API void bmpread_set_undefined(BMPHANDLE h, enum BmpUndefined mode)
 {
 	BMPREAD rp;
 
@@ -460,26 +461,30 @@ API void bmpread_set_undefined_to_alpha(BMPHANDLE h, int yes)
 		return;
 	rp = (BMPREAD)(void*)h;
 
-	if (!rp->undefined_to_alpha == !yes)
+	if (mode == rp->undefined_to_alpha)
 		return;
+
+	if (mode != BMP_UNDEFINED_TO_ALPHA && mode != BMP_UNDEFINED_TO_ZERO) {
+		logerr(rp->log, "Invalid undefined-mode selected");
+		return;
+	}
+
+	rp->undefined_to_alpha = mode;
 
 	if (!rp->getinfo_called || (rp->getinfo_called != BMP_RESULT_OK &&
 		                    rp->getinfo_called != BMP_RESULT_INSANE)) {
-		rp->undefined_to_alpha = !!yes;
 		return;
 	}
 
 	/* we are changing the setting after dimensions have */
 	/* been established. Only relevant for RLE-encoding  */
 
-	rp->undefined_to_alpha = !!yes;
-
 	if (!rp->rle)
 		return;
 
-	rp->result_bytes_per_pixel = yes ?  4 :  3;
-	rp->result_bits_per_pixel  = yes ? 32 : 24;
-	rp->result_channels        = yes ?  4 :  3;
+	rp->result_bytes_per_pixel = (mode == BMP_UNDEFINED_TO_ALPHA) ?  4 :  3;
+	rp->result_bits_per_pixel  = (mode == BMP_UNDEFINED_TO_ALPHA) ? 32 : 24;
+	rp->result_channels        = (mode == BMP_UNDEFINED_TO_ALPHA) ?  4 :  3;
 
 	rp->result_size = (size_t) rp->width *
                           (size_t) rp->height *
@@ -1234,8 +1239,8 @@ enum Infoint {
 
 static int s_info_int(BMPHANDLE h, enum Infoint info);
 
-API int bmpread_info_header_version(BMPHANDLE h)
-{ return s_info_int(h, INFO_INT_HEADER_VERSION); }
+API enum BmpInfoVer bmpread_info_header_version(BMPHANDLE h)
+{ return (enum BmpInfoVer) s_info_int(h, INFO_INT_HEADER_VERSION); }
 API int bmpread_info_header_size(BMPHANDLE h)
 { return s_info_int(h, INFO_INT_HEADER_SIZE); }
 API int bmpread_info_compression(BMPHANDLE h)
@@ -1260,7 +1265,7 @@ static int s_info_int(BMPHANDLE h, enum Infoint info)
 
 	switch (info) {
 	case INFO_INT_HEADER_VERSION:
-		return rp->ih->version;
+		return (int) rp->ih->version;
 	case INFO_INT_HEADER_SIZE:
 		return (int) rp->ih->size;
 	case INFO_INT_COMPRESSION:

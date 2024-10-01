@@ -109,12 +109,10 @@ static BMPRESULT s_load_image(BMPREAD_R rp, unsigned char **restrict buffer, int
 		return BMP_RESULT_ERROR;
 	}
 
-#ifdef NEVER  /* gets too complicated with querying single dim values */
 	if (!rp->dimensions_queried) {
 		logerr(rp->log, "must query dimensions before loading image");
 		return BMP_RESULT_ERROR;
 	}
-#endif
 
 	if (!buffer) {
 		logerr(rp->log, "buffer pointer is NULL");
@@ -134,8 +132,7 @@ static BMPRESULT s_load_image(BMPREAD_R rp, unsigned char **restrict buffer, int
 	}
 		else rp->we_allocated_buffer = FALSE;
 
-	if (rp->wipe_buffer || rp->undefined_to_alpha || rp->we_allocated_buffer)
-		memset(*buffer, 0, buffer_size);
+	memset(*buffer, 0, buffer_size);
 
 	if (!line_by_line)
 		rp->image_loaded = TRUE; /* point of no return */
@@ -266,7 +263,7 @@ static void s_read_rgb_image(BMPREAD_R rp, unsigned char *restrict image)
 	linelength = (size_t) rp->width * rp->result_bytes_per_pixel;
 
 	for (y = 0; y < rp->height; y++) {
-		real_y = rp->topdown ? y : rp->height-1-y;
+		real_y = (rp->orientation == BMP_ORIENT_TOPDOWN) ? y : rp->height-1-y;
 		offs = linelength * real_y;
 		if (!s_read_rgb_line(rp, image + offs))
 			rp->truncated = TRUE;
@@ -450,7 +447,7 @@ static void s_read_indexed_or_rle_image(BMPREAD_R rp, unsigned char *restrict im
 	linesize = (size_t) rp->width * (size_t) rp->result_bytes_per_pixel;
 
 	while (y < rp->height) {
-		real_y = rp->topdown ? y : rp->height-1-y;
+		real_y = (rp->orientation == BMP_ORIENT_TOPDOWN) ? y : rp->height-1-y;
 		if (rp->rle) {
 			s_read_rle_line(rp, (unsigned char*)image +
 			                        real_y * linesize, &x, &yoff);
@@ -516,7 +513,7 @@ static void s_read_indexed_line(BMPREAD_R rp, unsigned char *restrict line)
 					line[offs]   = rp->palette->color[v].red;
 					line[offs+1] = rp->palette->color[v].green;
 					line[offs+2] = rp->palette->color[v].blue;
-					if (rp->rle && rp->undefined_to_alpha)
+					if (rp->rle && (rp->undefined_to_alpha == BMP_UNDEFINED_TO_ALPHA))
 						line[offs+3] = 0xff; /* set alpha to 1.0
 						                        for defined pixels */
 				}
@@ -658,7 +655,7 @@ static void s_read_rle_line(BMPREAD_R rp, unsigned char *restrict line,
 				}
 				break;
 			}
-			if (rp->undefined_to_alpha && !rp->result_indexed)
+			if ((rp->undefined_to_alpha == BMP_UNDEFINED_TO_ALPHA) && !rp->result_indexed)
 				line[offs+3] = 0xff; /* set alpha to 1.0 for defined pixels */
 
 			*x += 1;
@@ -710,7 +707,7 @@ static void s_read_rle_line(BMPREAD_R rp, unsigned char *restrict line,
 				padding = v & 0x01 ? TRUE : FALSE;
 				break;
 			case 4:
-				if (v%4 == 1 || v%4 == 2)
+				if ((v+1)%4 >= 2)
 					padding = TRUE;
 				else
 					padding = FALSE;
