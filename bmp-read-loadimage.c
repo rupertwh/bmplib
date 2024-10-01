@@ -35,8 +35,13 @@ static inline unsigned long s_scaleint(unsigned long val, int frombits, int tobi
 static void s_set_file_error(BMPREAD_R rp);
 static void s_log_error_from_state(BMPREAD_R rp);
 static int s_stopping_error(BMPREAD_R rp);
+static inline int s_read_one_byte(BMPREAD_R rp);
 
-static BMPRESULT s_load_image(BMPREAD_R rp, unsigned char **restrict buffer, int line_by_line);
+static BMPRESULT s_load_image_or_line(BMPREAD_R rp, unsigned char **restrict buffer, int line_by_line);
+static int s_read_rgb_line(BMPREAD_R rp, unsigned char *restrict line);
+static void s_read_indexed_line(BMPREAD_R rp, unsigned char *restrict line);
+static void s_read_rle_line(BMPREAD_R rp, unsigned char *restrict line,
+                               int *restrict x, int *restrict yoff);
 
 
 
@@ -52,7 +57,7 @@ API BMPRESULT bmpread_load_image(BMPHANDLE h, unsigned char **restrict buffer)
 		return BMP_RESULT_ERROR;
 	rp = (BMPREAD)(void*)h;
 
-	return s_load_image(rp, buffer, FALSE);
+	return s_load_image_or_line(rp, buffer, FALSE);
 }
 
 
@@ -73,19 +78,19 @@ API BMPRESULT bmpread_load_line(BMPHANDLE h, unsigned char **restrict buffer)
 	                   /* of log entries with large corrupted     */
 	                   /* images                                  */
 
-	return s_load_image(rp, buffer, TRUE);
+	return s_load_image_or_line(rp, buffer, TRUE);
 }
 
 
 
 /********************************************************
- * 	s_load_image
+ * 	s_load_image_or_line
  *******************************************************/
 
 static void s_read_whole_image(BMPREAD_R rp, unsigned char *restrict image);
 static void s_read_one_line(BMPREAD_R rp, unsigned char *restrict image);
 
-static BMPRESULT s_load_image(BMPREAD_R rp, unsigned char **restrict buffer, int line_by_line)
+static BMPRESULT s_load_image_or_line(BMPREAD_R rp, unsigned char **restrict buffer, int line_by_line)
 {
 	size_t	buffer_size;
 
@@ -137,10 +142,10 @@ static BMPRESULT s_load_image(BMPREAD_R rp, unsigned char **restrict buffer, int
 	if (!line_by_line)
 		rp->image_loaded = TRUE; /* point of no return */
 
-	if (!rp->line_by_line) {  /* either whole image ot first line */
+	if (!rp->line_by_line) {  /* either whole image or first line */
 
 		if (rp->bytes_read > rp->fh->offbits) {
-			logerr(rp->log, "Panic! Corrupt file?");
+			logerr(rp->log, "Corrupt file");
 			goto abort;
 		}
 		/* skip to actual bitmap data: */
@@ -148,6 +153,7 @@ static BMPRESULT s_load_image(BMPREAD_R rp, unsigned char **restrict buffer, int
 			logerr(rp->log, "while seeking start of bitmap data");
 			goto abort;
 		}
+		rp->bytes_read += rp->fh->offbits - rp->bytes_read;
 	}
 
 	if (line_by_line) {
@@ -168,6 +174,16 @@ static BMPRESULT s_load_image(BMPREAD_R rp, unsigned char **restrict buffer, int
 	else if (rp->invalid_pixels)
 		return BMP_RESULT_INVALID;
 
+
+#ifdef DEBUG
+	if (rp->image_loaded) {
+		if (rp->fh->size != 0 && rp->fh->size != rp->bytes_read)
+			printf("****!!!*** ");
+		printf("File size: header: %lu  -  actually read: %lu\n",
+	                       (unsigned long) rp->fh->size, rp->bytes_read);
+	}
+#endif
+
 	return BMP_RESULT_OK;
 
 abort:
@@ -181,18 +197,42 @@ abort:
 
 
 
+
 /********************************************************
  * 	s_read_whole_image
  *******************************************************/
-static void s_read_rgb_image(BMPREAD_R rp, unsigned char *restrict image);
-static void s_read_indexed_or_rle_image(BMPREAD_R rp, unsigned char *restrict image);
 
 static void s_read_whole_image(BMPREAD_R rp, unsigned char *restrict image)
 {
-	if (rp->ih->bitcount <= 8 || rp->rle)
-		s_read_indexed_or_rle_image(rp, image);
-	else
-		s_read_rgb_image(rp, image);
+	int          x = 0, y, yoff = 1;
+	size_t       linesize, real_y;
+
+	linesize = (size_t) rp->width * (size_t) rp->result_bytes_per_pixel;
+
+	for (y = 0; y < rp->height; y += yoff) {
+		real_y = (rp->orientation == BMP_ORIENT_TOPDOWN) ? y : rp->height-1-y;
+		if (rp->rle) {
+			s_read_rle_line(rp, (unsigned char*)image +
+			                        real_y * linesize, &x, &yoff);
+		}
+		else if (rp->ih->bitcount <= 8) {
+			s_read_indexed_line(rp, (unsigned char*)image + real_y*linesize);
+		}
+		else {
+			s_read_rgb_line(rp, image + real_y*linesize);
+		}
+		if (rp->rle_eof || s_stopping_error(rp))
+			break;
+
+		/* only relevant for RLE-images: */
+		if (x >= rp->width)
+			x = 0;
+	}
+	if (y > rp->height) {
+		logerr(rp->log, "RLE delta beyond image dimensions");
+		rp->invalid_delta = TRUE;
+	}
+
 }
 
 
@@ -201,10 +241,6 @@ static void s_read_whole_image(BMPREAD_R rp, unsigned char *restrict image)
  * 	s_read_one_line
  *******************************************************/
 
-static int s_read_rgb_line(BMPREAD_R rp, unsigned char *restrict line);
-static void s_read_indexed_line(BMPREAD_R rp, unsigned char *restrict line);
-static void s_read_rle_line(BMPREAD_R rp, unsigned char *restrict line,
-                               int *restrict x, int *restrict yoff);
 
 static void s_read_one_line(BMPREAD_R rp, unsigned char *restrict line)
 {
@@ -233,8 +269,6 @@ static void s_read_one_line(BMPREAD_R rp, unsigned char *restrict line)
 					rp->invalid_delta = TRUE;
 				}
 			}
-
-
 			if (rp->rle_eof)
 				rp->lbl_file_y = rp->height;
 		}
@@ -249,26 +283,6 @@ static void s_read_one_line(BMPREAD_R rp, unsigned char *restrict line)
 	}
 }
 
-
-
-/********************************************************
- * 	s_read_rgb_image
- *******************************************************/
-
-static void s_read_rgb_image(BMPREAD_R rp, unsigned char *restrict image)
-{
-	int           y;
-	size_t        linelength, offs, real_y;
-
-	linelength = (size_t) rp->width * rp->result_bytes_per_pixel;
-
-	for (y = 0; y < rp->height; y++) {
-		real_y = (rp->orientation == BMP_ORIENT_TOPDOWN) ? y : rp->height-1-y;
-		offs = linelength * real_y;
-		if (!s_read_rgb_line(rp, image + offs))
-			rp->truncated = TRUE;
-	}
-}
 
 
 
@@ -341,9 +355,9 @@ static int s_read_rgb_line(BMPREAD_R rp, unsigned char *restrict line)
 		s_set_file_error(rp);
 		return FALSE;
 	}
+	rp->bytes_read += padding;
 	return TRUE;
 }
-
 
 
 static inline void s_convert64(uint16_t *val64)
@@ -394,9 +408,6 @@ static inline void s_convert64srgb(uint16_t *val64)
 
 /********************************************************
  * 	s_read_rgb_pixel
- *
- * read RGB image pixels.
- * works with up to 32bits and any RGBA-masks
  *******************************************************/
 
 static inline int s_read_rgb_pixel(BMPREAD_R rp, union Pixel *restrict px)
@@ -406,7 +417,7 @@ static inline int s_read_rgb_pixel(BMPREAD_R rp, union Pixel *restrict px)
 
 	v = 0;
 	for (i = 0; i < rp->ih->bitcount; i+=8 ) {
-		if (EOF == (byte = getc(rp->file))) {
+		if (EOF == (byte = s_read_one_byte(rp))) {
 			s_set_file_error(rp);
 			return FALSE;
 		}
@@ -429,47 +440,6 @@ static inline int s_read_rgb_pixel(BMPREAD_R rp, union Pixel *restrict px)
 		px->alpha = (1<<rp->result_bits_per_channel) - 1;
 
 	return TRUE;
-}
-
-
-
-/********************************************************
- * 	s_read_indexed_or_rle_image
- * - 4/8/24 bit RLE
- * - 1/2/4/8 bits non-RLE indexed
- *******************************************************/
-
-static void s_read_indexed_or_rle_image(BMPREAD_R rp, unsigned char *restrict image)
-{
-	int          x = 0, y = 0, yoff = 1;
-	size_t       linesize, real_y;
-
-	linesize = (size_t) rp->width * (size_t) rp->result_bytes_per_pixel;
-
-	while (y < rp->height) {
-		real_y = (rp->orientation == BMP_ORIENT_TOPDOWN) ? y : rp->height-1-y;
-		if (rp->rle) {
-			s_read_rle_line(rp, (unsigned char*)image +
-			                        real_y * linesize, &x, &yoff);
-		}
-		else {
-			s_read_indexed_line(rp, (unsigned char*)image + real_y*linesize);
-		}
-		if (rp->rle_eof || s_stopping_error(rp))
-			break;
-
-		y += yoff;
-
-		if (y > rp->height) {
-			logerr(rp->log, "RLE delta beyond image dimensions");
-			rp->invalid_delta = TRUE;
-			break;
-		}
-
-		/* only relevant for RLE-images: */
-		if (x >= rp->width)
-			x = 0;
-	}
 }
 
 
@@ -546,7 +516,7 @@ static inline int s_read_n_bytes(BMPREAD_R rp, int n, unsigned int *restrict buf
 
 	*buff = 0;
 	while (n--) {
-		if (EOF == (byte = getc(rp->file))) {
+		if (EOF == (byte = s_read_one_byte(rp))) {
 			s_set_file_error(rp);
 			return FALSE;
 		}
@@ -611,15 +581,15 @@ static void s_read_rle_line(BMPREAD_R rp, unsigned char *restrict line,
 			        /* for 24-bit RLE, b holds blue value,            */
 			        /* for 4/8-bit RLE, b holds index value(s)        */
 			        /* 4-bit RLE only needs new byte every other time */
-				if (EOF == (b = getc(rp->file)) ||
-				    (bits == 24 && EOF == (g = getc(rp->file))) ||
-				    (bits == 24 && EOF == (r = getc(rp->file)))) {
+				if (EOF == (b = s_read_one_byte(rp)) ||
+				    (bits == 24 && EOF == (g = s_read_one_byte(rp))) ||
+				    (bits == 24 && EOF == (r = s_read_one_byte(rp)))) {
 					s_set_file_error(rp);
 					break;
 				}
 			}
 			if (left_in_run == 0 && padding) {
-				if (EOF == getc(rp->file)) {
+				if (EOF == s_read_one_byte(rp)) {
 					s_set_file_error(rp);
 					break;
 				}
@@ -670,16 +640,16 @@ static void s_read_rle_line(BMPREAD_R rp, unsigned char *restrict line,
 		}
 
 		/* not in a literal or RLE run, start afresh */
-		if (EOF == (v = getc(rp->file))) {
+		if (EOF == (v = s_read_one_byte(rp))) {
 			s_set_file_error(rp);
 			break;
 		}
 
 		/* start RLE run */
 		if (v > 0) {
-			if (EOF == (b = getc(rp->file)) ||
-			    (bits == 24 && EOF == (g = getc(rp->file))) ||
-			    (bits == 24 && EOF == (r = getc(rp->file)))) {
+			if (EOF == (b = s_read_one_byte(rp)) ||
+			    (bits == 24 && EOF == (g = s_read_one_byte(rp))) ||
+			    (bits == 24 && EOF == (r = s_read_one_byte(rp)))) {
 				s_set_file_error(rp);
 				break;
 			}
@@ -691,7 +661,7 @@ static void s_read_rle_line(BMPREAD_R rp, unsigned char *restrict line,
 		}
 
 		/* v == 0: escape, look at next byte */
-		if (EOF == (v = getc(rp->file))) {
+		if (EOF == (v = s_read_one_byte(rp))) {
 			s_set_file_error(rp);
 			break;
 		}
@@ -735,7 +705,7 @@ static void s_read_rle_line(BMPREAD_R rp, unsigned char *restrict line,
 
 		/* delta. */
 		if (v == 2) {
-			if (EOF == (right = getc(rp->file)) || EOF == (up = getc(rp->file))) {
+			if (EOF == (right = s_read_one_byte(rp)) || EOF == (up = s_read_one_byte(rp))) {
 				s_set_file_error(rp);
 				break;
 			}
@@ -810,6 +780,20 @@ static int s_stopping_error(BMPREAD_R rp)
 	}
 	/* ok to continue reading BMP */
 	return FALSE;
+}
+
+
+
+/********************************************************
+ * 	s_read_one_byte
+ *******************************************************/
+
+static inline int s_read_one_byte(BMPREAD_R rp)
+{
+	int byte;
+	if (EOF != (byte = getc(rp->file)))
+		rp->bytes_read++;
+	return byte;
 }
 
 
