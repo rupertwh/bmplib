@@ -145,20 +145,21 @@ RLE-encoded BMP files may have undefined pixels, either by using early end-of-li
 codes, or by using delta codes to skip part of the image. That is not an error, but a feature of RLE.
 bmplib default is to make such pixels transparent. RLE-encoded BMPs will therefore always be returned
 with an alpha channel by default, whether the file has such undefined pixels or not (because bmplib
-doesn't know beforehand if there will be any undefined pixels). You can change this behaviour by calling
-`bmpread_set_undefined()`, with `mode` set to `BMP_UNDEFINED_TO_ZERO`. In that case, the returned image
-will have no alpha channel, and undefined pixels will be set to zero. This function has no effect
-on non-RLE BMPs.
+doesn't know beforehand if there will be any undefined pixels).
+
+You can change this behaviour by calling
+`bmpread_set_undefined()`, with `mode` set to `BMP_UNDEFINED_LEAVE`. In that case, the returned image
+will have no alpha channel, and undefined pixels will not change the image buffer. So whatever was in the image buffer before loading the image will remain untouched by undefined pixels. (Note: if you let bmplib allocate the image buffer, it will always be initialized to zero before loading the image). This function has no effect on non-RLE BMPs.
 
 ```
 void bmpread_set_undefined(BMPHANDLE h, BMPUNDEFINED mode)
 ```
 `mode` can be one of:
-- `BMPUNDEFINED_TO_ZERO`
+- `BMPUNDEFINED_LEAVE`
 - `BMPUNDEFINED_TO_ALPHA` (default)
 
 Note: If you use `bmpread_load_palette()` to switch to loading the index data instead of RGB data,
-this setting will have no effect and undefined pixels will always be set to zero! (see above)
+this setting will have no effect and undefined pixels will always be left alone! (see above)
 
 
 ### Optional settings for 64bit BMPs

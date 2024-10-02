@@ -155,7 +155,7 @@ typedef enum BmpRLEtype BMPRLETYPE;
  *
  */
 enum BmpUndefined {
-        BMP_UNDEFINED_TO_ZERO,
+        BMP_UNDEFINED_LEAVE,
         BMP_UNDEFINED_TO_ALPHA  /* default */
 };
 typedef enum BmpUndefined BMPUNDEFINED;

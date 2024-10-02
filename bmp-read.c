@@ -50,9 +50,9 @@ API BMPHANDLE bmpread_new(FILE *file)
 	}
 	memset(rp, 0, sizeof *rp);
 	rp->magic = HMAGIC_READ;
-	rp->undefined_to_alpha = BMP_UNDEFINED_TO_ALPHA;
-	rp->orientation = BMP_ORIENT_BOTTOMUP;
-	rp->conv64 = BMP_CONV64_16BIT_SRGB;
+	rp->undefined_mode = BMP_UNDEFINED_TO_ALPHA;
+	rp->orientation    = BMP_ORIENT_BOTTOMUP;
+	rp->conv64         = BMP_CONV64_16BIT_SRGB;
 
 	if (!(rp->log = logcreate()))
 		goto abort;
@@ -195,12 +195,11 @@ API BMPRESULT bmpread_load_info(BMPHANDLE h)
 
 	/* add alpha channel for undefined pixels in RLE bitmaps */
 	if (rp->rle) {
-		rp->result_bits_per_pixel = (rp->undefined_to_alpha == BMP_UNDEFINED_TO_ALPHA) ? 32 : 24;
-		rp->result_bytes_per_pixel = (rp->undefined_to_alpha == BMP_UNDEFINED_TO_ALPHA) ? 4 : 3;
+		rp->result_bits_per_pixel = (rp->undefined_mode == BMP_UNDEFINED_TO_ALPHA) ? 32 : 24;
+		rp->result_bytes_per_pixel = (rp->undefined_mode == BMP_UNDEFINED_TO_ALPHA) ? 4 : 3;
 		rp->result_bits_per_channel = 8;
-		rp->result_channels = (rp->undefined_to_alpha == BMP_UNDEFINED_TO_ALPHA) ? 4 : 3;
+		rp->result_channels = (rp->undefined_mode == BMP_UNDEFINED_TO_ALPHA) ? 4 : 3;
 	}
-
 
 	if (!s_check_dimensions(rp))
 		goto abort;
@@ -461,15 +460,15 @@ API void bmpread_set_undefined(BMPHANDLE h, enum BmpUndefined mode)
 		return;
 	rp = (BMPREAD)(void*)h;
 
-	if (mode == rp->undefined_to_alpha)
+	if (mode == rp->undefined_mode)
 		return;
 
-	if (mode != BMP_UNDEFINED_TO_ALPHA && mode != BMP_UNDEFINED_TO_ZERO) {
+	if (mode != BMP_UNDEFINED_TO_ALPHA && mode != BMP_UNDEFINED_LEAVE) {
 		logerr(rp->log, "Invalid undefined-mode selected");
 		return;
 	}
 
-	rp->undefined_to_alpha = mode;
+	rp->undefined_mode = mode;
 
 	if (!rp->getinfo_called || (rp->getinfo_called != BMP_RESULT_OK &&
 		                    rp->getinfo_called != BMP_RESULT_INSANE)) {
@@ -637,6 +636,7 @@ static int s_is_bmptype_supported_indexed(BMPREAD_R rp)
 		                   s_compression_name(rp->ih->compression));
 		return FALSE;
 	}
+
 	return TRUE;
 }
 
@@ -725,15 +725,8 @@ static struct Palette* s_read_palette(BMPREAD_R rp)
 		return NULL;
 	}
 
-#ifdef DEBUG
-	printf("allocated %lu bytes (%luk) for %d-color palette (%d bytes per entry)\n",
-	                  memsize, memsize>>10, colors_in_file - colors_ignore, bytes_per_entry);
-#endif
-
 	memset(palette, 0, memsize);
-
 	palette->numcolors = colors_in_file - colors_ignore;
-
 	for (i = 0; i < palette->numcolors; i++) {
 		if (EOF == (b = getc(rp->file)) ||
 		    EOF == (g = getc(rp->file)) ||
@@ -882,14 +875,6 @@ static int s_read_masks_from_bitfields(BMPREAD_R rp)
 		rp->colormask.shift.value[i] = s_calc_shift_for_mask(rp->colormask.mask.value[i]);
 	}
 
-#ifdef DEBUG
-	printf("Explicit BITFIELDS-Colormasks: %d-%d-%d - %d\n",
-							      rp->colormask.bits.value[0],
-							      rp->colormask.bits.value[1],
-							      rp->colormask.bits.value[2],
-							      rp->colormask.bits.value[3]);
-#endif
-
 	return TRUE;
 }
 
@@ -936,14 +921,6 @@ static int s_create_implicit_colormasks(BMPREAD_R rp)
 		rp->colormask.bits.alpha = s_calc_bits_for_mask(rp->colormask.mask.alpha);
 
 	}
-
-#ifdef DEBUG
-		printf("Implicit Colormasks: %d-%d-%d - %d\n",
-							      rp->colormask.bits.value[0],
-							      rp->colormask.bits.value[1],
-							      rp->colormask.bits.value[2],
-							      rp->colormask.bits.value[3]);
-#endif
 
 	return TRUE;
 }

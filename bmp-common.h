@@ -30,6 +30,11 @@
 #define MIN(a,b) ((a)<(b)?(a):(b))
 #define ARR_SIZE(a) ((int) (sizeof a / sizeof (a)[0]))
 
+#if defined(__GNUC__)
+	#define ATTR_CONST __attribute__((const))
+#else
+	#define ATTR_CONST
+#endif
 
 union Pixel {
 	unsigned int value[4];
@@ -92,7 +97,7 @@ struct Bmpread {
 	int               height;
 	enum BmpOrient    orientation;
 	int               has_alpha;   /* original BMP has alpha channel */
-	enum BmpUndefined undefined_to_alpha;
+	enum BmpUndefined undefined_mode;
 	int               we_allocated_buffer;
 	int               line_by_line;
 	struct Palette   *palette;
@@ -123,8 +128,9 @@ struct Bmpread {
 	int               lbl_y;  /* for line by line reading            */
 	int               lbl_file_y;  /* RLE files may be ahead of the image y */
 	int               truncated;
-	int               invalid_pixels;
+	int               invalid_index;
 	int               invalid_delta;
+	int               invalid_overrun;
 	int               file_err;
 	int               file_eof;
 	int               panic;

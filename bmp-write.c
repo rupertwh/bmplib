@@ -453,10 +453,7 @@ API BMPRESULT bmpwrite_save_image(BMPHANDLE h, const unsigned char *image)
 		}
 		s_try_saving_image_size(wp);
 	}
-#ifdef DEBUG
-	printf("bytes written: %d (0x%04lx) = %dkb\n", (int)wp->bytes_written,
-		                         wp->bytes_written, (int) (wp->bytes_written>>10));
-#endif
+
 	return BMP_RESULT_OK;
 }
 
@@ -510,11 +507,6 @@ API BMPRESULT bmpwrite_save_line(BMPHANDLE h, const unsigned char *line)
 			s_try_saving_image_size(wp);
 		}
 		wp->saveimage_done = TRUE;
-#ifdef DEBUG
-		printf("bytes written: %d (0x%04lx) = %dkb\n", (int)wp->bytes_written,
-		                         wp->bytes_written, (int) (wp->bytes_written>>10));
-#endif
-
 	}
 
 	return BMP_RESULT_OK;

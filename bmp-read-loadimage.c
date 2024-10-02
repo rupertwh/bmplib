@@ -31,9 +31,31 @@
 #include "bmp-read.h"
 
 
-static inline unsigned long s_scaleint(unsigned long val, int frombits, int tobits) __attribute__((const));
+/*
+ * Rough overview over top-level functions defined in this file:
+ *
+ *
+ * API entry points       bmpread_load_image()        bmpread_load_line()
+ *                                      \                 /
+ *                                       \               /
+ * common prep work,                      \             /
+ * buffer allocation,                 s_load_image_or_line()
+ * sanity checks, etc.                    /             \
+ *                                       /               \
+ *                                      /                 \
+ * 'supervision'          s_read_whole_image()        s_read_one_line()
+ *                                      \                 /
+ *                                       \               /
+ *                                        \             /
+ *                                        s_read_rgb_line()
+ * 'grunt work'                         s_read_indexed_line()
+ *                                        s_read_rle_line()
+ */
+
+static inline unsigned long s_scaleint(unsigned long val, int frombits, int tobits) ATTR_CONST;
 static void s_set_file_error(BMPREAD_R rp);
 static void s_log_error_from_state(BMPREAD_R rp);
+static int s_cont_error(BMPREAD_R rp);
 static int s_stopping_error(BMPREAD_R rp);
 static inline int s_read_one_byte(BMPREAD_R rp);
 
@@ -42,7 +64,6 @@ static int s_read_rgb_line(BMPREAD_R rp, unsigned char *restrict line);
 static void s_read_indexed_line(BMPREAD_R rp, unsigned char *restrict line);
 static void s_read_rle_line(BMPREAD_R rp, unsigned char *restrict line,
                                int *restrict x, int *restrict yoff);
-
 
 
 /********************************************************
@@ -74,9 +95,8 @@ API BMPRESULT bmpread_load_line(BMPHANDLE h, unsigned char **restrict buffer)
 		return BMP_RESULT_ERROR;
 	rp = (BMPREAD)(void*)h;
 
-	logreset(rp->log); /* otherwise we might accumulate thousands */
-	                   /* of log entries with large corrupted     */
-	                   /* images                                  */
+	logreset(rp->log); /* otherwise we might accumulate thousands  */
+	                   /* of log entries with large corrupt images */
 
 	return s_load_image_or_line(rp, buffer, TRUE);
 }
@@ -135,9 +155,12 @@ static BMPRESULT s_load_image_or_line(BMPREAD_R rp, unsigned char **restrict buf
 		}
 		rp->we_allocated_buffer = TRUE;
 	}
-		else rp->we_allocated_buffer = FALSE;
+	else {
+		rp->we_allocated_buffer = FALSE;
+	}
 
-	memset(*buffer, 0, buffer_size);
+	if (rp->we_allocated_buffer || (rp->rle && (rp->undefined_mode == BMP_UNDEFINED_TO_ALPHA)))
+		memset(*buffer, 0, buffer_size);
 
 	if (!line_by_line)
 		rp->image_loaded = TRUE; /* point of no return */
@@ -171,18 +194,8 @@ static BMPRESULT s_load_image_or_line(BMPREAD_R rp, unsigned char **restrict buf
 		rp->image_loaded = TRUE;
 		return BMP_RESULT_TRUNCATED;
 	}
-	else if (rp->invalid_pixels)
+	else if (s_cont_error(rp))
 		return BMP_RESULT_INVALID;
-
-
-#ifdef DEBUG
-	if (rp->image_loaded) {
-		if (rp->fh->size != 0 && rp->fh->size != rp->bytes_read)
-			printf("****!!!*** ");
-		printf("File size: header: %lu  -  actually read: %lu\n",
-	                       (unsigned long) rp->fh->size, rp->bytes_read);
-	}
-#endif
 
 	return BMP_RESULT_OK;
 
@@ -194,7 +207,6 @@ abort:
 	rp->image_loaded = TRUE;
 	return BMP_RESULT_ERROR;
 }
-
 
 
 
@@ -212,27 +224,23 @@ static void s_read_whole_image(BMPREAD_R rp, unsigned char *restrict image)
 	for (y = 0; y < rp->height; y += yoff) {
 		real_y = (rp->orientation == BMP_ORIENT_TOPDOWN) ? y : rp->height-1-y;
 		if (rp->rle) {
-			s_read_rle_line(rp, (unsigned char*)image +
-			                        real_y * linesize, &x, &yoff);
+			s_read_rle_line(rp, image + real_y * linesize, &x, &yoff);
+			if (x >= rp->width)
+				x = 0;
 		}
 		else if (rp->ih->bitcount <= 8) {
-			s_read_indexed_line(rp, (unsigned char*)image + real_y*linesize);
+			s_read_indexed_line(rp, image + real_y * linesize);
 		}
 		else {
-			s_read_rgb_line(rp, image + real_y*linesize);
+			s_read_rgb_line(rp, image + real_y * linesize);
 		}
 		if (rp->rle_eof || s_stopping_error(rp))
 			break;
-
-		/* only relevant for RLE-images: */
-		if (x >= rp->width)
-			x = 0;
 	}
 	if (y > rp->height) {
 		logerr(rp->log, "RLE delta beyond image dimensions");
 		rp->invalid_delta = TRUE;
 	}
-
 }
 
 
@@ -240,7 +248,6 @@ static void s_read_whole_image(BMPREAD_R rp, unsigned char *restrict image)
 /********************************************************
  * 	s_read_one_line
  *******************************************************/
-
 
 static void s_read_one_line(BMPREAD_R rp, unsigned char *restrict line)
 {
@@ -282,7 +289,6 @@ static void s_read_one_line(BMPREAD_R rp, unsigned char *restrict line)
 		rp->image_loaded = TRUE;
 	}
 }
-
 
 
 
@@ -347,7 +353,6 @@ static int s_read_rgb_line(BMPREAD_R rp, unsigned char *restrict line)
 			logerr(rp->log, "Waaaaaaaaaaaaaah!");
 			rp->panic = TRUE;
 			return FALSE;
-
 		}
 	}
 	padding = cm_align4padding((rp->width * rp->ih->bitcount + 7) / 8);
@@ -448,16 +453,16 @@ static inline int s_read_rgb_pixel(BMPREAD_R rp, union Pixel *restrict px)
  * 	s_read_indexed_line
  * - 1/2/4/8 bits non-RLE indexed
  *******************************************************/
-static inline int s_read_n_bytes(BMPREAD_R rp, int n, unsigned int *restrict buff);
-static inline unsigned int s_bits_from_buffer(unsigned int buf, int size,
+static inline int s_read_n_bytes(BMPREAD_R rp, int n, unsigned long *restrict buff);
+static inline unsigned long s_bits_from_buffer(unsigned long buf, int size,
                                               int nbits, int used_bits);
 
 static void s_read_indexed_line(BMPREAD_R rp, unsigned char *restrict line)
 {
-	int          bits_used, buffer_size, x = 0, v;
-	int          done = FALSE;
-	unsigned int buffer;
-	size_t       offs;
+	int           bits_used, buffer_size, x = 0, v;
+	int           done = FALSE;
+	unsigned long buffer;
+	size_t        offs;
 
 	/* setting the buffer size to the alignment takes care of padding bytes */
 	buffer_size = 32;
@@ -467,26 +472,24 @@ static void s_read_indexed_line(BMPREAD_R rp, unsigned char *restrict line)
 		bits_used = 0;
 		while (bits_used < buffer_size) {
 
-			/* mask out the relevant bits for current pixel      */
-			v = (int) s_bits_from_buffer(buffer, buffer_size, rp->ih->bitcount, bits_used);
+			/* mask out the relevant bits for current pixel */
+			v = (int) s_bits_from_buffer(buffer, buffer_size,
+			                             rp->ih->bitcount, bits_used);
 			bits_used += rp->ih->bitcount;
 
 			if (v >= rp->palette->numcolors) {
-				rp->invalid_pixels = TRUE;
+				v = rp->palette->numcolors - 1;
+				rp->invalid_index = TRUE;
+			}
+
+			offs = (size_t) x * (size_t) rp->result_bytes_per_pixel;
+			if (rp->result_indexed) {
+				line[offs] = v;
 			}
 			else {
-				offs = (size_t) x * (size_t) rp->result_bytes_per_pixel;
-				if (rp->result_indexed) {
-					line[offs] = v;
-				}
-				else {
-					line[offs]   = rp->palette->color[v].red;
-					line[offs+1] = rp->palette->color[v].green;
-					line[offs+2] = rp->palette->color[v].blue;
-					if (rp->rle && (rp->undefined_to_alpha == BMP_UNDEFINED_TO_ALPHA))
-						line[offs+3] = 0xff; /* set alpha to 1.0
-						                        for defined pixels */
-				}
+				line[offs]   = rp->palette->color[v].red;
+				line[offs+1] = rp->palette->color[v].green;
+				line[offs+2] = rp->palette->color[v].blue;
 			}
 			if (++x == rp->width) {
 				done = TRUE;
@@ -502,17 +505,9 @@ static void s_read_indexed_line(BMPREAD_R rp, unsigned char *restrict line)
  * 	s_read_n_bytes
  *******************************************************/
 
-static inline int s_read_n_bytes(BMPREAD_R rp, int n, unsigned int *restrict buff)
+static inline int s_read_n_bytes(BMPREAD_R rp, int n, unsigned long *restrict buff)
 {
 	int byte;
-
-#ifdef DEBUG
-	if (n > sizeof *buff) {
-		logerr(rp->log, "Nooooo! Trying to read more than fits into buffer");
-		rp->panic = TRUE;
-		return FALSE;
-	}
-#endif
 
 	*buff = 0;
 	while (n--) {
@@ -520,7 +515,6 @@ static inline int s_read_n_bytes(BMPREAD_R rp, int n, unsigned int *restrict buf
 			s_set_file_error(rp);
 			return FALSE;
 		}
-
 		*buff <<= 8;
 		*buff |= byte;
 	}
@@ -533,7 +527,7 @@ static inline int s_read_n_bytes(BMPREAD_R rp, int n, unsigned int *restrict buf
  * 	s_bits_from_buffer
  *******************************************************/
 
-static inline unsigned int s_bits_from_buffer(unsigned int buf, int size,
+static inline unsigned long s_bits_from_buffer(unsigned long buf, int size,
                                               int nbits, int used_bits)
 {
 	unsigned long mask;
@@ -611,28 +605,27 @@ static void s_read_rle_line(BMPREAD_R rp, unsigned char *restrict line,
 					odd = !odd;
 				}
 				if (v >= rp->palette->numcolors) {
-					rp->invalid_pixels = TRUE;
+					v = rp->palette->numcolors - 1;
+					rp->invalid_index = TRUE;
+				}
+				if (rp->result_indexed) {
+					line[offs] = v;
 				}
 				else {
-					if (rp->result_indexed) {
-						line[offs] = v;
-					}
-					else {
-						line[offs]   = rp->palette->color[v].red;
-						line[offs+1] = rp->palette->color[v].green;
-						line[offs+2] = rp->palette->color[v].blue;
-					}
+					line[offs]   = rp->palette->color[v].red;
+					line[offs+1] = rp->palette->color[v].green;
+					line[offs+2] = rp->palette->color[v].blue;
 				}
 				break;
 			}
-			if ((rp->undefined_to_alpha == BMP_UNDEFINED_TO_ALPHA) && !rp->result_indexed)
+			if ((rp->undefined_mode == BMP_UNDEFINED_TO_ALPHA) && !rp->result_indexed)
 				line[offs+3] = 0xff; /* set alpha to 1.0 for defined pixels */
 
 			*x += 1;
 			if (*x >= rp->width) {
 				rp->rle_eol = FALSE; /* EOL detected by width, not by RLE-code */
 				if (left_in_run) {
-					rp->invalid_pixels = TRUE;
+					rp->invalid_overrun = TRUE;
 				}
 				break;
 			}
@@ -755,12 +748,29 @@ static void s_log_error_from_state(BMPREAD_R rp)
 		logerr(rp->log, "Unexpected end of file.");
 	if (rp->file_err)
 		logsyserr(rp->log, "While reading file");
-	if (rp->invalid_pixels)
-		logerr(rp->log, "File contained invalid data.");
+	if (rp->invalid_index)
+		logerr(rp->log, "File contained invalid color index.");
 	if (rp->invalid_delta)
 		logerr(rp->log, "Invalid delta pointing outside image area.");
+	if (rp->invalid_overrun)
+		logerr(rp->log, "RLE data overrunning image area.");
 	if (rp->truncated)
 		logerr(rp->log, "Image was truncated.");
+}
+
+
+
+/********************************************************
+ * 	s_cont_error
+ *******************************************************/
+
+static int s_cont_error(BMPREAD_R rp)
+{
+	if (rp->invalid_index ||
+	    rp->invalid_overrun) {
+	    	return TRUE;
+	}
+	return FALSE;
 }
 
 
@@ -778,7 +788,6 @@ static int s_stopping_error(BMPREAD_R rp)
 	    rp->panic) {
 	    	return TRUE;
 	}
-	/* ok to continue reading BMP */
 	return FALSE;
 }
 
@@ -825,6 +834,5 @@ static inline unsigned long s_scaleint(unsigned long val, int frombits, int tobi
 			result |= val >> (frombits - spaceleft);
 		spaceleft -= frombits;
 	}
-
 	return result;
 }
