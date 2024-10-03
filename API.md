@@ -347,6 +347,26 @@ with `type` set to one of the following values:
 - `BMP_RLE_RLE8` use RLE8, regardless of number of colors in palette
 
 
+### top-down / bottom-up
+By default, bmplib will write BMP files bottom-up, which is how BMP files are usually orientated.
+
+For non-RLE files, you have the option to change the orientation to top-down. (RLE files
+always have to be written in the default bottom-up orientation.)
+```
+BMPRESULT bmpwrite_set_orientation(BMPHANDLE h, BMPORIENT orientation)
+```
+with `orientation` set to one of the following values:
+ - `BMPORIENT_BOTTOMUP`
+ - `BMPORIENT_TOPDOWN`
+
+Note: When writing the whole image at once using `bmpwrite_save_image()`, the image
+buffer you provide must **always** be in top-down orientation, regardless of the
+orientation chosen for the BMP file.
+
+When writing the image line-by-line using `bmpwrite_save_line()`, you must provide
+the image lines in the order according to the orientation you have chosen for the BMP file.
+
+
 ### Write the image
 ```
 BMPRESULT bmpwrite_save_image(BMPHANDLE h, const unsigned char *image)
@@ -358,12 +378,11 @@ The image data pointed to by `image` or `line` must be in the format described b
 `bmpwrite_set_dimensions()`. Multi-byte values (16 or 32 bit) are expected in host byte order,
 the channels in the order R-G-B-(A). Indexed data must be supplied as 8 bit per pixel,
 even when writing lower bit (1/2/4) BMPs (see above).
+
 Important: When writing the whole image at once using `bmpwrite_save_image()`, the image
 data must be provided top-down (same as is returned by `bmpread_load_image()`). When
 using `bmpwrite_save_line()` to write the image line-by-line, the image data must be
-provided bottom-up (i.e. starting with the bottom-most line).
-In both cases, the actual BMP will be written bottom-up, which is the only 'officially'
-correct orientation.
+provided according to the orientation set with `bmpwrite_set_orientation()` (see above).
 
 
 

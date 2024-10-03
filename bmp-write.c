@@ -41,8 +41,8 @@ struct Bmpwrite {
 	FILE            *file;
 	struct Bmpfile  *fh;
 	struct Bmpinfo  *ih;
-	unsigned         width;
-	unsigned         height;
+	int              width;
+	int              height;
 	/* input */
 	int              source_channels;
 	int              source_bits_per_channel;
@@ -54,6 +54,7 @@ struct Bmpwrite {
 	size_t           bytes_written;
 	size_t           bytes_written_before_bitdata;
 	int              has_alpha;
+	enum BmpOrient   outorientation;
 	struct Colormask colormask;
 	int              rle_requested;
 	int              rle;
@@ -101,6 +102,8 @@ API BMPHANDLE bmpwrite_new(FILE *file)
 	memset(wp, 0, sizeof *wp);
 	wp->magic = HMAGIC_WRITE;
 
+	wp->rle_requested  = BMP_RLE_NONE;
+	wp->outorientation = BMP_ORIENT_BOTTOMUP;
 
 	if (!(wp->log = logcreate()))
 		goto abort;
@@ -179,7 +182,8 @@ API BMPRESULT bmpwrite_set_dimensions(BMPHANDLE h,
 		break;
 
 	default:
-		logerr(wp->log, "Invalid number of bits per channel: %d", (int) source_bits_per_channel);
+		logerr(wp->log, "Invalid number of bits per channel: %d",
+		                                 (int) source_bits_per_channel);
 		return BMP_RESULT_ERROR;
 	}
 
@@ -188,7 +192,8 @@ API BMPRESULT bmpwrite_set_dimensions(BMPHANDLE h,
 		return BMP_RESULT_ERROR;
 	}
 	if (wp->palette && source_channels != 1) {
-		logerr(wp->log, "Indexed images must have 1 channel (not %d)", (int) source_channels);
+		logerr(wp->log, "Indexed images must have 1 channel (not %d)",
+			                               (int) source_channels);
 		return BMP_RESULT_ERROR;
 	}
 
@@ -200,16 +205,16 @@ API BMPRESULT bmpwrite_set_dimensions(BMPHANDLE h,
 	if (width > INT_MAX || height > INT_MAX ||
 	    width < 1 || height < 1 ||
 	    total_bits > 8*sizeof(size_t) ) {
-		logerr(wp->log, "Invalid dimensions %ux%ux%d @ %dbits",
-		                    (unsigned) width, (unsigned) height,
-		                    (int) source_channels, (int) source_bits_per_channel);
+		logerr(wp->log, "Invalid dimensions %ux%ux%u @ %ubits",
+		                          width, height, source_channels,
+		                          source_bits_per_channel);
 		return BMP_RESULT_ERROR;
 	}
 
-	wp->width = width;
-	wp->height = height;
-	wp->source_channels = source_channels;
-	wp->source_bits_per_channel = source_bits_per_channel;
+	wp->width = (int) width;
+	wp->height = (int) height;
+	wp->source_channels = (int) source_channels;
+	wp->source_bits_per_channel = (int) source_bits_per_channel;
 	wp->dimensions_set = TRUE;
 
 	return BMP_RESULT_OK;
@@ -323,6 +328,46 @@ API BMPRESULT bmpwrite_set_palette(BMPHANDLE h, int numcolors,
 
 
 /********************************************************
+ * 	bmpwrite_set_orientation
+ *******************************************************/
+
+API BMPRESULT bmpwrite_set_orientation(BMPHANDLE h, enum BmpOrient orientation)
+{
+	BMPWRITE wp;
+
+	if (!s_check_is_write_handle(h))
+		return BMP_RESULT_ERROR;
+	wp = (BMPWRITE)(void*)h;
+
+	if (wp->saveimage_done) {
+		logerr(wp->log, "Image already saved.");
+		return BMP_RESULT_ERROR;
+	}
+
+	switch (orientation) {
+	case BMP_ORIENT_TOPDOWN:
+		if (wp->rle_requested != BMP_RLE_NONE) {
+			logerr(wp->log, "Topdown is invalid with RLE BMPs");
+			return BMP_RESULT_ERROR;
+		}
+		break;
+
+	case BMP_ORIENT_BOTTOMUP:
+		/* always ok */
+		break;
+
+	default:
+		logerr(wp->log, "Invalid orientation (%d)", (int) orientation);
+		return BMP_RESULT_ERROR;
+	}
+
+	wp->outorientation = orientation;
+	return BMP_RESULT_OK;
+}
+
+
+
+/********************************************************
  * 	bmpwrite_set_rle
  *******************************************************/
 
@@ -336,14 +381,23 @@ API BMPRESULT bmpwrite_set_rle(BMPHANDLE h, enum BmpRLEtype type)
 
 	switch (type) {
 	case BMP_RLE_NONE:
+		/* always ok */
+		break;
+
 	case BMP_RLE_AUTO:
 	case BMP_RLE_RLE8:
-		wp->rle_requested = type;
+		if (wp->outorientation != BMP_ORIENT_BOTTOMUP) {
+			logerr(wp->log, "RLE is invalid with top-down BMPs");
+			return BMP_RESULT_ERROR;
+		}
 		break;
+
 	default:
 		logerr(wp->log, "Invalid RLE type specified (%d)", (int) type);
 		return BMP_RESULT_ERROR;
 	}
+
+	wp->rle_requested = type;
 	return BMP_RESULT_OK;
 }
 
@@ -409,7 +463,7 @@ API BMPRESULT bmpwrite_save_image(BMPHANDLE h, const unsigned char *image)
 {
 	BMPWRITE wp;
 	size_t   offs, linesize;
-	int      y, res;
+	int      y, real_y, res;
 
 	if (!s_check_is_write_handle(h))
 		return BMP_RESULT_ERROR;
@@ -427,8 +481,9 @@ API BMPRESULT bmpwrite_save_image(BMPHANDLE h, const unsigned char *image)
 	wp->bytes_written_before_bitdata = wp->bytes_written;
 
 	linesize = (size_t) wp->width * (size_t) wp->source_bytes_per_pixel;
-	for (y = wp->height - 1; y >= 0; y--) {
-		offs = (size_t) y * linesize;
+	for (y = 0; y < wp->height; y++) {
+		real_y = (wp->outorientation == BMP_ORIENT_TOPDOWN) ? y : wp->height - y - 1;
+		offs = (size_t) real_y * linesize;
 		switch (wp->rle) {
 		case 8:
 			res = s_save_line_rle8(wp, image + offs);
@@ -456,6 +511,8 @@ API BMPRESULT bmpwrite_save_image(BMPHANDLE h, const unsigned char *image)
 
 	return BMP_RESULT_OK;
 }
+
+
 
 /********************************************************
  * 	bmpwrite_save_line
@@ -560,7 +617,7 @@ static int s_save_info(BMPWRITE_R wp)
 /********************************************************
  * 	s_try_saving_image_size
  * this will fail on unseekable files like pipes etc.
- * which isn't too bad, because reader generally
+ * which isn't too bad, because readers generally
  * ignore the file and image size in the header anyway.
  *******************************************************/
 
@@ -1023,7 +1080,10 @@ static void s_decide_outformat(BMPWRITE_R wp)
 	wp->fh->offbits = BMPFHSIZE + wp->ih->size + wp->palette_size;
 
 	wp->ih->width = wp->width;
-	wp->ih->height = wp->height;
+	if (wp->outorientation == BMP_ORIENT_BOTTOMUP)
+		wp->ih->height = wp->height;
+	else
+		wp->ih->height = -wp->height;
 	wp->ih->planes = 1;
 	wp->ih->sizeimage = wp->rle ? 0 : (bytes_per_line + wp->padding) * wp->height;
 }

@@ -235,6 +235,7 @@ BMPRESULT bmpwrite_set_output_bits(BMPHANDLE h, int red, int green, int blue, in
 BMPRESULT bmpwrite_set_palette(BMPHANDLE h, int numcolors, const unsigned char *palette);
 BMPRESULT bmpwrite_allow_2bit(BMPHANDLE h);
 BMPRESULT bmpwrite_set_rle(BMPHANDLE h, BMPRLETYPE type);
+BMPRESULT bmpwrite_set_orientation(BMPHANDLE h, BMPORIENT orientation);
 
 BMPRESULT bmpwrite_save_image(BMPHANDLE h, const unsigned char *image);
 BMPRESULT bmpwrite_save_line(BMPHANDLE h, const unsigned char *line);
