@@ -813,6 +813,10 @@ static inline int s_read_one_byte(BMPREAD_R rp)
 
 static inline unsigned long s_scaleint(unsigned long val, int frombits, int tobits)
 {
+	return (unsigned long) ((double) val * ((1<<tobits)-1) / ((1<<frombits)-1) + 0.5);
+
+#ifdef NEVER
+	/* nice, but has some slight off-by-one rounding errors */
 	unsigned long result;
 	int           spaceleft;
 
@@ -835,4 +839,5 @@ static inline unsigned long s_scaleint(unsigned long val, int frombits, int tobi
 		spaceleft -= frombits;
 	}
 	return result;
+#endif
 }
