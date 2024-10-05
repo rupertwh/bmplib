@@ -25,6 +25,12 @@
         extern "C" {
 #endif
 
+#if defined(__GNUC__)
+        #define DEPR(m) __attribute__ ((deprecated(m)))
+#else
+        #define DEPR(m)
+#endif
+
 typedef struct Bmphandle *BMPHANDLE;
 
 
@@ -156,6 +162,7 @@ typedef enum BmpRLEtype BMPRLETYPE;
  */
 enum BmpUndefined {
         BMP_UNDEFINED_LEAVE,
+        BMP_UNDEFINED_TO_ZERO DEPR("use BMP_UNDEFINED_LEAVE instead") = 0,
         BMP_UNDEFINED_TO_ALPHA  /* default */
 };
 typedef enum BmpUndefined BMPUNDEFINED;
@@ -252,16 +259,10 @@ const char* bmp_version(void);
 /* these functions are kept for binary compatibility and will be
  * removed from future versions:
  */
-#if defined(__GNUC__)
-        #define DEPR __attribute__ ((deprecated))
-#else
-        #define DEPR
-#endif
 
-int  DEPR bmpread_topdown(BMPHANDLE h); /* use bmpread_orientation() instead */
 
-void DEPR bmpread_set_undefined_to_alpha(BMPHANDLE h, int mode); /* use bmpread_set_undefined instead */
-
+int  DEPR("use bmpread_orientation() instead") bmpread_topdown(BMPHANDLE h);
+void DEPR("use bmpread_set_undefined instead") bmpread_set_undefined_to_alpha(BMPHANDLE h, int mode);
 
 #ifdef __cplusplus
 }
