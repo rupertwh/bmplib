@@ -179,8 +179,8 @@ API BMPRESULT bmpread_load_info(BMPHANDLE h)
 	if (rp->ih->bitcount <= 8) { /* indexed */
 		if (!(rp->palette = s_read_palette(rp)))
 			goto abort;
-		rp->result_bits_per_pixel = 24;
-		rp->result_bytes_per_pixel = 3;
+		rp->result_bits_per_pixel   = 24;
+		rp->result_bytes_per_pixel  = 3;
 		rp->result_bits_per_channel = 8;
 	}
 	else if (!rp->rle) {  /* RGB  */
@@ -195,10 +195,10 @@ API BMPRESULT bmpread_load_info(BMPHANDLE h)
 
 	/* add alpha channel for undefined pixels in RLE bitmaps */
 	if (rp->rle) {
-		rp->result_bits_per_pixel = (rp->undefined_mode == BMP_UNDEFINED_TO_ALPHA) ? 32 : 24;
-		rp->result_bytes_per_pixel = (rp->undefined_mode == BMP_UNDEFINED_TO_ALPHA) ? 4 : 3;
+		rp->result_bits_per_pixel   = (rp->undefined_mode == BMP_UNDEFINED_TO_ALPHA) ? 32 : 24;
+		rp->result_bytes_per_pixel  = (rp->undefined_mode == BMP_UNDEFINED_TO_ALPHA) ? 4 : 3;
 		rp->result_bits_per_channel = 8;
-		rp->result_channels = (rp->undefined_mode == BMP_UNDEFINED_TO_ALPHA) ? 4 : 3;
+		rp->result_channels         = (rp->undefined_mode == BMP_UNDEFINED_TO_ALPHA) ? 4 : 3;
 	}
 
 	if (!s_check_dimensions(rp))
@@ -664,7 +664,6 @@ static int s_check_dimensions(BMPREAD_R rp)
 				     (int) rp->ih->width, (int) rp->ih->height);
 		return FALSE;
 	}
-
 	return TRUE;
 }
 
@@ -806,7 +805,7 @@ static int s_read_colormasks(BMPREAD_R rp)
 		logerr(rp->log, "Empty color masks. Corrupted BMP?");
 		return FALSE;
 	}
-	if (rp->colormask.mask.red & rp->colormask.mask.green &
+	if (rp->colormask.mask.red  & rp->colormask.mask.green &
 	    rp->colormask.mask.blue & rp->colormask.mask.alpha) {
 		logerr(rp->log, "Overlapping color masks. Corrupt BMP?");
 		return FALSE;
@@ -871,7 +870,7 @@ static int s_read_masks_from_bitfields(BMPREAD_R rp)
 	}
 
 	for (i = 0; i < (rp->colormask.mask.alpha ? 4 : 3); i++) {
-		rp->colormask.bits.value[i] = s_calc_bits_for_mask(rp->colormask.mask.value[i]);
+		rp->colormask.bits.value[i]  = s_calc_bits_for_mask(rp->colormask.mask.value[i]);
 		rp->colormask.shift.value[i] = s_calc_shift_for_mask(rp->colormask.mask.value[i]);
 	}
 
@@ -909,16 +908,16 @@ static int s_create_implicit_colormasks(BMPREAD_R rp)
 
 	for (i = 0; i < 3; i++) {
 		rp->colormask.shift.value[i] = (2-i) * bits_per_channel;
-		rp->colormask.mask.value[i] =
+		rp->colormask.mask.value[i]  =
 			   ((1ULL<<bits_per_channel)-1) << rp->colormask.shift.value[i];
-		rp->colormask.bits.value[i] = s_calc_bits_for_mask(rp->colormask.mask.value[i]);
+		rp->colormask.bits.value[i]  = s_calc_bits_for_mask(rp->colormask.mask.value[i]);
 	}
 
 	if (rp->ih->bitcount == 64) {
 		rp->colormask.shift.alpha = 3 * bits_per_channel;
-		rp->colormask.mask.alpha =
+		rp->colormask.mask.alpha  =
 			   ((1ULL<<bits_per_channel)-1) << rp->colormask.shift.alpha;
-		rp->colormask.bits.alpha = s_calc_bits_for_mask(rp->colormask.mask.alpha);
+		rp->colormask.bits.alpha  = s_calc_bits_for_mask(rp->colormask.mask.alpha);
 
 	}
 
@@ -1177,14 +1176,14 @@ static void s_detect_os2_compression(BMPREAD_R rp)
 		if (rp->ih->compression == BI_OS2_HUFFMAN_DUP) {
 			/* might be huffman or BITFIELDS */
 			if (rp->ih->bitcount == 1) {
-				rp->ih->version = BMPINFO_OS22;
+				rp->ih->version     = BMPINFO_OS22;
 				rp->ih->compression = BI_OS2_HUFFMAN;
 			}
 		}
 		else if (rp->ih->compression == BI_OS2_RLE24_DUP) {
 			/* might be RLE24 or JPEG */
 			if (rp->ih->bitcount == 24) {
-				rp->ih->version = BMPINFO_OS22;
+				rp->ih->version     = BMPINFO_OS22;
 				rp->ih->compression = BI_OS2_RLE24;
 			}
 		}
