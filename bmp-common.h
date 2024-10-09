@@ -104,12 +104,14 @@ struct Bmpread {
 	struct Colormask  cmask;
 	/* result image dimensions */
 	enum Bmpconv64    conv64;
+	int               conv64_explicit;
 	int               result_channels;
 	int               result_indexed;
 	int               result_bits_per_pixel;
 	int               result_bytes_per_pixel;
 	int               result_bits_per_channel;
 	enum BmpFormat    result_format;
+	int               result_format_explicit;
 	size_t            result_size;
 	/* state */
 	int               getinfo_called;
@@ -149,6 +151,9 @@ int cm_count_bits(unsigned long v);
 
 int cm_gobble_up(FILE *file, int count, LOG log);
 int cm_check_is_read_handle(BMPHANDLE h);
+
+const char* cm_conv64_name(enum Bmpconv64 conv);
+const char* cm_format_name(enum BmpFormat format);
 
 int write_u16_le(FILE *file, uint16_t val);
 int write_u32_le(FILE *file, uint32_t val);

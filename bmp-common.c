@@ -182,6 +182,29 @@ int cm_count_bits(unsigned long v)
 
 
 
+const char* cm_conv64_name(enum Bmpconv64 conv)
+{
+	switch (conv) {
+	case BMP_CONV64_16BIT_SRGB: return "BMP_CONV64_16BIT_SRGB";
+        case BMP_CONV64_16BIT     : return "BMP_CONV64_16BIT";
+        case BMP_CONV64_NONE      : return "BMP_CONV64_NONE";
+	}
+	return "(invalid)";
+}
+
+
+const char* cm_format_name(enum BmpFormat format)
+{
+	switch (format) {
+	case BMP_FORMAT_INT  : return "BMP_FORMAT_INT";
+        case BMP_FORMAT_FLOAT: return "BMP_FORMAT_FLOAT";
+        case BMP_FORMAT_S2_13: return "BMP_FORMAT_S2_13";
+	}
+	return "(invalid)";
+}
+
+
+
 int cm_all_lessoreq_int(int limit, int n, ...)
 {
 	va_list ap;

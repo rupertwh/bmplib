@@ -232,11 +232,26 @@ API BMPRESULT bmpread_set_64bit_conv(BMPHANDLE h, enum Bmpconv64 conv)
 	switch (conv) {
 	case BMP_CONV64_16BIT_SRGB:
         case BMP_CONV64_16BIT:
-        case BMP_CONV64_NONE:
+        	if (rp->result_format != BMP_FORMAT_INT) {
+        		logerr(rp->log, "64-bit conversion %s imcompatible with chosen number format %s.\n",
+        		                cm_conv64_name(conv), cm_format_name(rp->result_format));
+        		return BMP_RESULT_ERROR;
+        	}
         	rp->conv64 = conv;
+        	rp->conv64_explicit = TRUE;
+        	break;
+
+        case BMP_CONV64_NONE:
+        	if (rp->result_format_explicit && rp->result_format != BMP_FORMAT_S2_13) {
+        		logerr(rp->log, "64-bit conversion %s imcompatible with chosen number format %s.\n",
+        		                cm_conv64_name(conv), cm_format_name(rp->result_format));
+        		return BMP_RESULT_ERROR;
+        	}
+        	rp->conv64 = conv;
+        	rp->conv64_explicit = TRUE;
         	break;
         default:
-        	logerr(rp->log, "Invalid 64-bit conversion (%d)", (int) conv);
+        	logerr(rp->log, "Unknown 64-bit conversion %s (%d)", cm_conv64_name(conv), (int) conv);
         	return BMP_RESULT_ERROR;
 	}
 	return BMP_RESULT_OK;
@@ -311,8 +326,10 @@ API BMPRESULT bmpread_dimensions(BMPHANDLE h, int* restrict width,
 BMPRESULT br_set_number_format(BMPREAD_R rp, enum BmpFormat format)
 {
 
-	if (rp->result_format == format)
+	if (rp->result_format == format) {
+		rp->result_format_explicit = TRUE;
 		return BMP_RESULT_OK;
+	}
 
 	if (!(format == BMP_FORMAT_INT ||
 	      format == BMP_FORMAT_FLOAT ||
@@ -332,6 +349,11 @@ BMPRESULT br_set_number_format(BMPREAD_R rp, enum BmpFormat format)
 		break;
 
 	case BMP_FORMAT_FLOAT:
+		if (rp->conv64_explicit) {
+			logerr(rp->log, "format %s imcompatible with 64bit conversion %s.",
+			                cm_format_name(format), cm_conv64_name(rp->conv64));
+			return BMP_RESULT_ERROR;
+		}
 	case BMP_FORMAT_S2_13:
 		if (rp->getinfo_called && rp->result_indexed) {
 			logerr(rp->log, "Cannot load color index as float or s2.13");
@@ -345,6 +367,7 @@ BMPRESULT br_set_number_format(BMPREAD_R rp, enum BmpFormat format)
 	}
 
 	rp->result_format = format;
+	rp->result_format_explicit = TRUE;
 
 	if (!br_set_resultbits(rp))
 		return BMP_RESULT_ERROR;
