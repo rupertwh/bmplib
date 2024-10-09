@@ -77,6 +77,10 @@ API BMPRESULT bmpread_load_palette(BMPHANDLE h, unsigned char **palette)
 		return 0;
 	rp = (BMPREAD)(void*)h;
 
+	if (!rp->getinfo_called) {
+		logerr(rp->log, "Must call bmpread_load_info() before loading palette");
+		return BMP_RESULT_ERROR;
+	}
 	if (!rp->palette) {
 		logerr(rp->log, "Image has no palette");
 		return BMP_RESULT_ERROR;
@@ -100,12 +104,10 @@ API BMPRESULT bmpread_load_palette(BMPHANDLE h, unsigned char **palette)
 	if (!rp->result_indexed) {
 		rp->result_indexed = TRUE;
 		rp->dimensions_queried = FALSE;
-
+		rp->dim_queried_channels = FALSE;
 		rp->result_channels = 1;
-		rp->result_bits_per_pixel = 8;
-		rp->result_bytes_per_pixel = 1;
-		rp->result_bits_per_channel = 8;
-		rp->result_size = (size_t) rp->width * (size_t) rp->height;
+		if (!br_set_resultbits(rp))
+			return BMP_RESULT_ERROR;
 	}
 
 	for (i = 0; i < rp->palette->numcolors; i++) {

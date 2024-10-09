@@ -58,6 +58,7 @@ static void s_log_error_from_state(BMPREAD_R rp);
 static int s_cont_error(BMPREAD_R rp);
 static int s_stopping_error(BMPREAD_R rp);
 static inline int s_read_one_byte(BMPREAD_R rp);
+static inline void s_int_to_result_format(BMPREAD_R rp, int frombits, unsigned char *restrict px);
 
 static BMPRESULT s_load_image_or_line(BMPREAD_R rp, unsigned char **restrict buffer, int line_by_line);
 static int s_read_rgb_line(BMPREAD_R rp, unsigned char *restrict line);
@@ -79,6 +80,7 @@ API BMPRESULT bmpread_load_image(BMPHANDLE h, unsigned char **restrict buffer)
 	rp = (BMPREAD)(void*)h;
 
 	return s_load_image_or_line(rp, buffer, FALSE);
+
 }
 
 
@@ -166,7 +168,6 @@ static BMPRESULT s_load_image_or_line(BMPREAD_R rp, unsigned char **restrict buf
 		rp->image_loaded = TRUE; /* point of no return */
 
 	if (!rp->line_by_line) {  /* either whole image or first line */
-
 		if (rp->bytes_read > rp->fh->offbits) {
 			logerr(rp->log, "Corrupt file");
 			goto abort;
@@ -301,33 +302,40 @@ static inline void s_convert64srgb(uint16_t *val64);
 
 static int s_read_rgb_line(BMPREAD_R rp, unsigned char *restrict line)
 {
-	int           x, padding;
-	union Pixel   pixel;
+	int           i, x, padding;
+	union Pixel   px;
 	size_t        offs;
+	int           bits = rp->result_bits_per_channel;
+	uint32_t      pxval;
 
 	for (x = 0; x < rp->width; x++) {
 
-		if (!s_read_rgb_pixel(rp, &pixel)) {
+		if (!s_read_rgb_pixel(rp, &px)) {
 			return FALSE;
 		}
 
 		offs = x * rp->result_channels;
 
-		switch (rp->result_bits_per_channel) {
-		case 8:
-			((unsigned char*)line)[offs]   = pixel.red;
-			((unsigned char*)line)[offs+1] = pixel.green;
-			((unsigned char*)line)[offs+2] = pixel.blue;
-			if (rp->has_alpha)
-				((unsigned char*)line)[offs+3] = pixel.alpha;
-			break;
-		case 16:
-			((uint16_t*)line)[offs]   = (pixel.red);
-			((uint16_t*)line)[offs+1] = (pixel.green);
-			((uint16_t*)line)[offs+2] = (pixel.blue);
-			if (rp->has_alpha)
-				((uint16_t*)line)[offs+3] = (pixel.alpha);
-
+		switch (rp->result_format) {
+		case BMP_FORMAT_INT:
+			for (i = 0; i < rp->result_channels; i++) {
+				pxval = s_scaleint(px.value[i], rp->cmask.bits.value[i], bits);
+				switch(bits) {
+				case 8:
+					((unsigned char*)line)[offs + i] = pxval;
+					break;
+				case 16:
+					((uint16_t*)line)[offs + i] = pxval;
+					break;
+				case 32:
+					((uint32_t*)line)[offs + i] = pxval;
+					break;
+				default:
+					logerr(rp->log, "Waaaaaaaaaaaaaah!");
+					rp->panic = TRUE;
+					return FALSE;
+				}
+			}
 			if (rp->ih->bitcount == 64) {
 				switch (rp->conv64) {
 				case BMP_CONV64_16BIT_SRGB:
@@ -342,15 +350,28 @@ static int s_read_rgb_line(BMPREAD_R rp, unsigned char *restrict line)
 				}
 			}
 			break;
-		case 32:
-			((uint32_t*)line)[offs]   = pixel.red;
-			((uint32_t*)line)[offs+1] = pixel.green;
-			((uint32_t*)line)[offs+2] = pixel.blue;
-			if (rp->has_alpha)
-				((uint32_t*)line)[offs+3] = pixel.alpha;
+		case BMP_FORMAT_FLOAT:
+#ifdef DEBUG
+			if (bits != 32) {
+				printf("format FLOAT, but bits != 32!\n");
+				exit(1);
+			}
+#endif
+			for (i = 0; i < rp->result_channels; i++) {
+				((float*)line)[offs + i] = (double) px.value[i] /
+				                           (double) ((1ULL<<rp->cmask.bits.value[i])-1);
+			}
 			break;
+
+		case BMP_FORMAT_S2_13:
+			for (i = 0; i < rp->result_channels; i++) {
+				((uint16_t*)line)[offs+i] = (uint16_t) ((double) px.value[i] /
+				                     (double) ((1ULL<<rp->cmask.bits.value[i])-1) * 8192.0 + 0.5);
+			}
+			break;
+
 		default:
-			logerr(rp->log, "Waaaaaaaaaaaaaah!");
+			logerr(rp->log, "Unknown format");
 			rp->panic = TRUE;
 			return FALSE;
 		}
@@ -429,18 +450,11 @@ static inline int s_read_rgb_pixel(BMPREAD_R rp, union Pixel *restrict px)
 		v |= ((unsigned long long)byte) << i;
 	}
 
-	px->red   = (v & rp->colormask.mask.red)   >> rp->colormask.shift.red;
-	px->green = (v & rp->colormask.mask.green) >> rp->colormask.shift.green;
-	px->blue  = (v & rp->colormask.mask.blue)  >> rp->colormask.shift.blue;
-
-	px->red   = s_scaleint(px->red,   rp->colormask.bits.red,   rp->result_bits_per_channel);
-	px->green = s_scaleint(px->green, rp->colormask.bits.green, rp->result_bits_per_channel);
-	px->blue  = s_scaleint(px->blue,  rp->colormask.bits.blue,  rp->result_bits_per_channel);
-
-	if (rp->has_alpha) {
-		px->alpha = (v & rp->colormask.mask.alpha) >> rp->colormask.shift.alpha;
-		px->alpha = s_scaleint(px->alpha, rp->colormask.bits.alpha, rp->result_bits_per_channel);
-	}
+	px->red   = (v & rp->cmask.mask.red)   >> rp->cmask.shift.red;
+	px->green = (v & rp->cmask.mask.green) >> rp->cmask.shift.green;
+	px->blue  = (v & rp->cmask.mask.blue)  >> rp->cmask.shift.blue;
+	if (rp->has_alpha)
+		px->alpha = (v & rp->cmask.mask.alpha) >> rp->cmask.shift.alpha;
 	else
 		px->alpha = (1<<rp->result_bits_per_channel) - 1;
 
@@ -490,6 +504,7 @@ static void s_read_indexed_line(BMPREAD_R rp, unsigned char *restrict line)
 				line[offs]   = rp->palette->color[v].red;
 				line[offs+1] = rp->palette->color[v].green;
 				line[offs+2] = rp->palette->color[v].blue;
+				s_int_to_result_format(rp, 8, line + offs);
 			}
 			if (++x == rp->width) {
 				done = TRUE;
@@ -590,11 +605,14 @@ static void s_read_rle_line(BMPREAD_R rp, unsigned char *restrict line,
 			}
 
 			offs = (size_t) *x * (size_t) rp->result_bytes_per_pixel;
+			if ((rp->undefined_mode == BMP_UNDEFINED_TO_ALPHA) && !rp->result_indexed)
+				line[offs+3] = 0xff; /* set alpha to 1.0 for defined pixels */
 			switch (bits) {
 			case 24:
 				line[offs]   = r;
 				line[offs+1] = g;
 				line[offs+2] = b;
+				s_int_to_result_format(rp, 8, line + offs);
 				break;
 			case 4:
 			case 8:
@@ -615,11 +633,10 @@ static void s_read_rle_line(BMPREAD_R rp, unsigned char *restrict line,
 					line[offs]   = rp->palette->color[v].red;
 					line[offs+1] = rp->palette->color[v].green;
 					line[offs+2] = rp->palette->color[v].blue;
+					s_int_to_result_format(rp, 8, line+offs);
 				}
 				break;
 			}
-			if ((rp->undefined_mode == BMP_UNDEFINED_TO_ALPHA) && !rp->result_indexed)
-				line[offs+3] = 0xff; /* set alpha to 1.0 for defined pixels */
 
 			*x += 1;
 			if (*x >= rp->width) {
@@ -717,6 +734,62 @@ static void s_read_rle_line(BMPREAD_R rp, unsigned char *restrict line,
 		logerr(rp->log, "Should never get here! (x=%d, byte=%d)", (int) *x, (int) v);
 		rp->panic = TRUE;
 		break;
+	}
+}
+
+
+
+/********************************************************
+ * 	s_int_to_result_format
+ * convert integer values in image buffer
+ * to selected number format.
+ *******************************************************/
+
+static inline void s_int_to_result_format(BMPREAD_R rp, int frombits, unsigned char *restrict px)
+{
+	int      c;
+	uint32_t v;
+
+	if (rp->result_format == BMP_FORMAT_INT)
+		return;
+#ifdef DEBUG
+	if (frombits > rp->result_bits_per_channel) {
+		printf("This is bad, frombits must be <= bits_per_channel");
+		exit(1);
+	}
+#endif
+	for (c = rp->result_channels - 1; c >= 0; c--) {
+		switch (frombits) {
+		case 8:
+			v = px[c];
+			break;
+		case 16:
+			v = ((uint16_t*)px)[c];
+			break;
+		case 32:
+			v = ((uint32_t*)px)[c];
+			break;
+		default:
+#ifdef DEBUG
+			printf("Invalid pixel int size %d!!!", frombits);
+			exit(1);
+#endif
+			break;
+		}
+		switch (rp->result_format) {
+		case BMP_FORMAT_FLOAT:
+			((float*)px)[c] = (double) v / ((1ULL<<frombits)-1);
+			break;
+		case BMP_FORMAT_S2_13:
+			((uint16_t*)px)[c] = (uint16_t) ((double) v / ((1ULL<<frombits)-1) * 8192.0 + 0.5);
+			break;
+		default:
+#ifdef DEBUG
+			logerr(rp->log, "Unexpected result format %d", rp->result_format);
+			exit(1);
+#endif
+			break;
+		}
 	}
 }
 

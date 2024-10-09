@@ -6,7 +6,7 @@
 - Write any sensible BMP
 - Robustness! Don't let malformed BMPs bother us
 
-## Current status (v1.4.5):
+## Current status (v1.4.6):
 ### Reading BMP files:
   - 16/24/32 bit RGB(A) with any bits/channel combination
     (BI_RGB, BI_BITFIELDS, BI_ALPHABITFIELDS).
@@ -14,6 +14,7 @@
   - 1/2/4/8 bit indexed (palette), including RLE4 and RLE8 compressed.
   - RLE24 compressed (OS/2).
   - optional line-by-line reading of BMPs, even RLE.
+  - optionally return image data as float or s2.13
 
   successful results from reading sample images from Jason Summers'
   fantastic [BMP Suite](https://entropymine.com/jason/bmpsuite/):

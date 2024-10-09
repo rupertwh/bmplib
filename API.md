@@ -221,6 +221,9 @@ don't want the linear-to-sRGB conversion, you can call `bmpread_is_64bit
   sRGB-gamma.
 
 
+### Floating point
+
+
 ### Huge files: bmpread_set_insanity_limit()
 
 bmplib will refuse to load images beyond a certain size (default 500MB) and

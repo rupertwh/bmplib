@@ -183,6 +183,14 @@ enum BmpOrient {
 typedef enum BmpOrient BMPORIENT;
 
 
+enum BmpFormat {
+        BMP_FORMAT_INT,
+        BMP_FORMAT_FLOAT,
+        BMP_FORMAT_S2_13
+};
+typedef enum BmpFormat BMPFORMAT;
+
+
 BMPHANDLE bmpread_new(FILE *file);
 
 BMPRESULT bmpread_load_info(BMPHANDLE h);
@@ -248,6 +256,7 @@ BMPRESULT bmpwrite_save_image(BMPHANDLE h, const unsigned char *image);
 BMPRESULT bmpwrite_save_line(BMPHANDLE h, const unsigned char *line);
 
 
+BMPRESULT bmp_set_number_format(BMPHANDLE h, BMPFORMAT format);
 
 void        bmp_free(BMPHANDLE h);
 

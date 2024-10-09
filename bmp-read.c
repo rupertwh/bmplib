@@ -25,6 +25,7 @@
 #include <limits.h>
 #include <stdarg.h>
 
+#include "platform.h"
 #include "config.h"
 #include "bmplib.h"
 #include "logging.h"
@@ -34,6 +35,7 @@
 
 const char* s_infoheader_name(int infoversion);
 const char* s_compression_name(int compression);
+
 
 
 /********************************************************
@@ -53,14 +55,10 @@ API BMPHANDLE bmpread_new(FILE *file)
 	rp->undefined_mode = BMP_UNDEFINED_TO_ALPHA;
 	rp->orientation    = BMP_ORIENT_BOTTOMUP;
 	rp->conv64         = BMP_CONV64_16BIT_SRGB;
+	rp->result_format  = BMP_FORMAT_INT;
 
 	if (!(rp->log = logcreate()))
 		goto abort;
-
-	if (sizeof(int) < 4 || sizeof(unsigned int) < 4) {
-		logerr(rp->log, "code doesn't work on %d-bit platforms!\n", (int) (8 * sizeof(int)));
-		goto abort;
-	}
 
 	if (!file) {
 		logerr(rp->log, "Must supply file handle");
@@ -113,7 +111,7 @@ API BMPRESULT bmpread_load_info(BMPHANDLE h)
 
 	if (rp->getinfo_called)
 		return rp->getinfo_return;
-	rp->getinfo_called = TRUE;
+
 
 	if (!s_read_file_header(rp))
 		goto abort;
@@ -179,34 +177,26 @@ API BMPRESULT bmpread_load_info(BMPHANDLE h)
 	if (rp->ih->bitcount <= 8) { /* indexed */
 		if (!(rp->palette = s_read_palette(rp)))
 			goto abort;
-		rp->result_bits_per_pixel   = 24;
-		rp->result_bytes_per_pixel  = 3;
-		rp->result_bits_per_channel = 8;
 	}
 	else if (!rp->rle) {  /* RGB  */
-		memset(&rp->colormask, 0, sizeof rp->colormask);
+		memset(&rp->cmask, 0, sizeof rp->cmask);
 		if (!s_read_colormasks(rp))
 			goto abort;
-		/* result bitspp/bytespp/bitspc are set inside s_read_colormasks */
 
-		if (rp->colormask.mask.alpha)
+		if (rp->cmask.mask.alpha)
 			rp->result_channels = 4;
 	}
 
 	/* add alpha channel for undefined pixels in RLE bitmaps */
 	if (rp->rle) {
-		rp->result_bits_per_pixel   = (rp->undefined_mode == BMP_UNDEFINED_TO_ALPHA) ? 32 : 24;
-		rp->result_bytes_per_pixel  = (rp->undefined_mode == BMP_UNDEFINED_TO_ALPHA) ? 4 : 3;
-		rp->result_bits_per_channel = 8;
-		rp->result_channels         = (rp->undefined_mode == BMP_UNDEFINED_TO_ALPHA) ? 4 : 3;
+		rp->result_channels = (rp->undefined_mode == BMP_UNDEFINED_TO_ALPHA) ? 4 : 3;
 	}
+
+	if (!br_set_resultbits(rp))
+		goto abort;
 
 	if (!s_check_dimensions(rp))
 		goto abort;
-
-	rp->result_size = (size_t) rp->width *
-                          (size_t) rp->height *
-                          (size_t) rp->result_bytes_per_pixel;
 
 	if (rp->insanity_limit &&
 	    rp->result_size > rp->insanity_limit) {
@@ -216,10 +206,11 @@ API BMPRESULT bmpread_load_info(BMPHANDLE h)
 	else {
 		rp->getinfo_return = BMP_RESULT_OK;
 	}
-
+	rp->getinfo_called = TRUE;
 	return rp->getinfo_return;
 
 abort:
+	rp->getinfo_called = TRUE;
 	rp->getinfo_return = BMP_RESULT_ERROR;
 	return BMP_RESULT_ERROR;
 }
@@ -312,6 +303,54 @@ API BMPRESULT bmpread_dimensions(BMPHANDLE h, int* restrict width,
 	return rp->getinfo_return;
 }
 
+
+/********************************************************
+ * 	br_set_number_format
+ *******************************************************/
+
+BMPRESULT br_set_number_format(BMPREAD_R rp, enum BmpFormat format)
+{
+
+	if (rp->result_format == format)
+		return BMP_RESULT_OK;
+
+	if (!(format == BMP_FORMAT_INT ||
+	      format == BMP_FORMAT_FLOAT ||
+	      format == BMP_FORMAT_S2_13)) {
+		logerr(rp->log, "Invalid number format (%d) specified", (int) format);
+		return BMP_RESULT_ERROR;
+	}
+
+	if (format == BMP_FORMAT_FLOAT && sizeof (float) != 4) {
+		logerr(rp->log, "Cannot use float on platforms with sizeof(float)=%d\n", (int)sizeof(float));
+		return BMP_RESULT_ERROR;
+	}
+
+	switch (format) {
+	case BMP_FORMAT_INT:
+		/* always ok */
+		break;
+
+	case BMP_FORMAT_FLOAT:
+	case BMP_FORMAT_S2_13:
+		if (rp->getinfo_called && rp->result_indexed) {
+			logerr(rp->log, "Cannot load color index as float or s2.13");
+			return BMP_RESULT_ERROR;
+		}
+		break;
+
+	default:
+		logerr(rp->log, "Invalid number format (%d) specified", (int) format);
+		return BMP_RESULT_ERROR;
+	}
+
+	rp->result_format = format;
+
+	if (!br_set_resultbits(rp))
+		return BMP_RESULT_ERROR;
+	return BMP_RESULT_OK;
+
+}
 
 
 /********************************************************
@@ -470,8 +509,8 @@ API void bmpread_set_undefined(BMPHANDLE h, enum BmpUndefined mode)
 
 	rp->undefined_mode = mode;
 
-	if (!rp->getinfo_called || (rp->getinfo_called != BMP_RESULT_OK &&
-		                    rp->getinfo_called != BMP_RESULT_INSANE)) {
+	if (!rp->getinfo_called || (rp->getinfo_return != BMP_RESULT_OK &&
+		                    rp->getinfo_return != BMP_RESULT_INSANE)) {
 		return;
 	}
 
@@ -481,25 +520,9 @@ API void bmpread_set_undefined(BMPHANDLE h, enum BmpUndefined mode)
 	if (!rp->rle)
 		return;
 
-	rp->result_bytes_per_pixel = (mode == BMP_UNDEFINED_TO_ALPHA) ?  4 :  3;
-	rp->result_bits_per_pixel  = (mode == BMP_UNDEFINED_TO_ALPHA) ? 32 : 24;
-	rp->result_channels        = (mode == BMP_UNDEFINED_TO_ALPHA) ?  4 :  3;
+	rp->result_channels = (mode == BMP_UNDEFINED_TO_ALPHA) ?  4 :  3;
 
-	rp->result_size = (size_t) rp->width *
-                          (size_t) rp->height *
-                          (size_t) rp->result_bytes_per_pixel;
-
-	rp->dimensions_queried = FALSE;
-	rp->dim_queried_channels = FALSE;
-
-        /* we have to redo the insanity-check */
-	if (rp->insanity_limit &&
-	    rp->result_size > rp->insanity_limit) {
-		logerr(rp->log, "file is insanely large");
-		rp->getinfo_return = BMP_RESULT_INSANE;
-	}
-	else if (rp->getinfo_return == BMP_RESULT_INSANE)
-		rp->getinfo_return = BMP_RESULT_OK;
+	br_set_resultbits(rp);
 }
 
 
@@ -784,7 +807,7 @@ static int s_read_colormasks(BMPREAD_R rp)
 		return FALSE;
 	}
 
-	if (rp->colormask.mask.alpha) {
+	if (rp->cmask.mask.alpha) {
 		rp->has_alpha = TRUE;
 		rp->result_channels = 4;
 	}
@@ -794,32 +817,94 @@ static int s_read_colormasks(BMPREAD_R rp)
 	}
 
 	for (i = 0; i < 4; i++) {
-		max_bits = MAX(max_bits, rp->colormask.bits.value[i]);
-		sum_bits += rp->colormask.bits.value[i];
+		max_bits = MAX(max_bits, rp->cmask.bits.value[i]);
+		sum_bits += rp->cmask.bits.value[i];
 	}
 	if (max_bits > MIN(rp->ih->bitcount, 32) || sum_bits > rp->ih->bitcount) {
 		logerr(rp->log, "Invalid mask bitcount (max=%d, sum=%d)", max_bits, sum_bits);
 		return FALSE;
 	}
-	if (!(rp->colormask.mask.red | rp->colormask.mask.green | rp->colormask.mask.blue)) {
+	if (!(rp->cmask.mask.red | rp->cmask.mask.green | rp->cmask.mask.blue)) {
 		logerr(rp->log, "Empty color masks. Corrupted BMP?");
 		return FALSE;
 	}
-	if (rp->colormask.mask.red  & rp->colormask.mask.green &
-	    rp->colormask.mask.blue & rp->colormask.mask.alpha) {
+	if (rp->cmask.mask.red  & rp->cmask.mask.green &
+	    rp->cmask.mask.blue & rp->cmask.mask.alpha) {
 		logerr(rp->log, "Overlapping color masks. Corrupt BMP?");
 		return FALSE;
 	}
 
-	/* calculate required bit-depth for output bitmap (8, 16, or 32) */
+	return TRUE;
+}
 
-	rp->result_bits_per_channel = 8;
-	while (rp->result_bits_per_channel < max_bits && rp->result_bits_per_channel < 32)
-		rp->result_bits_per_channel *= 2;
 
+
+/********************************************************
+ * 	br_set_resultbits
+ *******************************************************/
+
+int br_set_resultbits(BMPREAD_R rp)
+{
+	int    newbits, max_bits = 0, i;
+
+	if (!rp->ih->bitcount)
+		return TRUE;
+
+	switch (rp->result_format) {
+	case BMP_FORMAT_FLOAT:
+		if (rp->result_indexed) {
+			logerr(rp->log, "Float is invalid number format for indexed image\n");
+			return FALSE;
+		}
+		newbits = 8 * sizeof (float);
+		break;
+
+	case BMP_FORMAT_S2_13:
+		if (rp->result_indexed) {
+			logerr(rp->log, "s2.13 is invalid number format for indexed image\n");
+			return FALSE;
+		}
+		newbits = 16;
+		break;
+
+	case BMP_FORMAT_INT:
+		if (rp->ih->bitcount <= 8 || rp->rle)
+			newbits = 8;
+		else { /* RGB */
+			for (i = 0; i < 4; i++) {
+				max_bits = MAX(max_bits, rp->cmask.bits.value[i]);
+			}
+			newbits = 8;
+			while (newbits < max_bits && newbits < 32) {
+				newbits *= 2;
+			}
+		}
+		break;
+	default:
+		logerr(rp->log, "Invalid number format %d\n", rp->result_format);
+		return FALSE;
+
+	}
+
+	if (newbits != rp->result_bits_per_channel) {
+		rp->dim_queried_bits_per_channel = FALSE;
+		rp->dimensions_queried = FALSE;
+	}
+	rp->result_bits_per_channel = newbits;
 	rp->result_bits_per_pixel = rp->result_bits_per_channel * rp->result_channels;
 	rp->result_bytes_per_pixel = rp->result_bits_per_pixel / 8;
 
+	rp->result_size = (size_t) rp->width * (size_t) rp->height * (size_t) rp->result_bytes_per_pixel;
+	if (rp->getinfo_called) {
+		if (rp->insanity_limit && rp->result_size > rp->insanity_limit) {
+		 	if (rp->getinfo_return == BMP_RESULT_OK) {
+				logerr(rp->log, "file is insanely large");
+				rp->getinfo_return = BMP_RESULT_INSANE;
+			}
+		}
+		else if (rp->getinfo_return == BMP_RESULT_INSANE)
+			rp->getinfo_return = BMP_RESULT_OK;
+	}
 	return TRUE;
 }
 
@@ -848,30 +933,30 @@ static int s_read_masks_from_bitfields(BMPREAD_R rp)
 			return FALSE;
 		}
 		rp->bytes_read += 12;
-		rp->colormask.mask.red   = r;
-		rp->colormask.mask.green = g;
-		rp->colormask.mask.blue  = b;
+		rp->cmask.mask.red   = r;
+		rp->cmask.mask.green = g;
+		rp->cmask.mask.blue  = b;
 		if (rp->ih->compression == BI_ALPHABITFIELDS) {
 			if (!read_u32_le(rp->file, &a)) {
 				logsyserr(rp->log, "Reading BMP color masks");
 				return FALSE;
 			}
 			rp->bytes_read += 4;
-			rp->colormask.mask.alpha = a;
+			rp->cmask.mask.alpha = a;
 		}
 
 	}
 	else {
-		rp->colormask.mask.red   = rp->ih->redmask;
-		rp->colormask.mask.green = rp->ih->greenmask;
-		rp->colormask.mask.blue  = rp->ih->bluemask;
+		rp->cmask.mask.red   = rp->ih->redmask;
+		rp->cmask.mask.green = rp->ih->greenmask;
+		rp->cmask.mask.blue  = rp->ih->bluemask;
 		if (rp->ih->version >= BMPINFO_V3_ADOBE2)
-			rp->colormask.mask.alpha = rp->ih->alphamask;
+			rp->cmask.mask.alpha = rp->ih->alphamask;
 	}
 
-	for (i = 0; i < (rp->colormask.mask.alpha ? 4 : 3); i++) {
-		rp->colormask.bits.value[i]  = s_calc_bits_for_mask(rp->colormask.mask.value[i]);
-		rp->colormask.shift.value[i] = s_calc_shift_for_mask(rp->colormask.mask.value[i]);
+	for (i = 0; i < (rp->cmask.mask.alpha ? 4 : 3); i++) {
+		rp->cmask.bits.value[i]  = s_calc_bits_for_mask(rp->cmask.mask.value[i]);
+		rp->cmask.shift.value[i] = s_calc_shift_for_mask(rp->cmask.mask.value[i]);
 	}
 
 	return TRUE;
@@ -907,17 +992,17 @@ static int s_create_implicit_colormasks(BMPREAD_R rp)
 
 
 	for (i = 0; i < 3; i++) {
-		rp->colormask.shift.value[i] = (2-i) * bits_per_channel;
-		rp->colormask.mask.value[i]  =
-			   ((1ULL<<bits_per_channel)-1) << rp->colormask.shift.value[i];
-		rp->colormask.bits.value[i]  = s_calc_bits_for_mask(rp->colormask.mask.value[i]);
+		rp->cmask.shift.value[i] = (2-i) * bits_per_channel;
+		rp->cmask.mask.value[i]  =
+			   ((1ULL<<bits_per_channel)-1) << rp->cmask.shift.value[i];
+		rp->cmask.bits.value[i]  = s_calc_bits_for_mask(rp->cmask.mask.value[i]);
 	}
 
 	if (rp->ih->bitcount == 64) {
-		rp->colormask.shift.alpha = 3 * bits_per_channel;
-		rp->colormask.mask.alpha  =
-			   ((1ULL<<bits_per_channel)-1) << rp->colormask.shift.alpha;
-		rp->colormask.bits.alpha  = s_calc_bits_for_mask(rp->colormask.mask.alpha);
+		rp->cmask.shift.alpha = 3 * bits_per_channel;
+		rp->cmask.mask.alpha  =
+			   ((1ULL<<bits_per_channel)-1) << rp->cmask.shift.alpha;
+		rp->cmask.bits.alpha  = s_calc_bits_for_mask(rp->cmask.mask.alpha);
 
 	}
 
@@ -1314,10 +1399,10 @@ API BMPRESULT bmpread_info_channel_bits(BMPHANDLE h, int *r, int *g, int *b, int
 	                rp->getinfo_return == BMP_RESULT_INSANE)))
 		return BMP_RESULT_ERROR;
 
-	*r = rp->colormask.bits.red;
-	*g = rp->colormask.bits.green;
-	*b = rp->colormask.bits.blue;
-	*a = rp->colormask.bits.alpha;
+	*r = rp->cmask.bits.red;
+	*g = rp->cmask.bits.green;
+	*b = rp->cmask.bits.blue;
+	*a = rp->cmask.bits.alpha;
 
 	return BMP_RESULT_OK;
 }

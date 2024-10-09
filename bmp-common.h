@@ -101,7 +101,7 @@ struct Bmpread {
 	int               we_allocated_buffer;
 	int               line_by_line;
 	struct Palette   *palette;
-	struct Colormask  colormask;
+	struct Colormask  cmask;
 	/* result image dimensions */
 	enum Bmpconv64    conv64;
 	int               result_channels;
@@ -109,6 +109,7 @@ struct Bmpread {
 	int               result_bits_per_pixel;
 	int               result_bytes_per_pixel;
 	int               result_bits_per_channel;
+	enum BmpFormat    result_format;
 	size_t            result_size;
 	/* state */
 	int               getinfo_called;

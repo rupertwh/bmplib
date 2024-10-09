@@ -67,6 +67,34 @@ API const char* bmp_errmsg(BMPHANDLE h)
 
 
 /********************************************************
+ * 	bmp_set_number_format
+ *******************************************************/
+
+API BMPRESULT bmp_set_number_format(BMPHANDLE h, enum BmpFormat format)
+{
+	if (!h)
+		return BMP_RESULT_ERROR;
+
+	switch (h->magic) {
+	case HMAGIC_READ:
+		return br_set_number_format((BMPREAD)(void*)h, format);
+
+	//case HMAGIC_WRITE:
+	//	return bw_set_number_format((BMPWRITE)(void*)h, format);
+
+	default:
+#ifdef DEBUG
+		printf("bmp_set_number_format() called with invalid handle (0x%04x)\n",
+		                   (unsigned int) h->magic);
+#endif
+		break;
+	}
+	return BMP_RESULT_ERROR;
+}
+
+
+
+/********************************************************
  * 	bmp_free
  *******************************************************/
 
