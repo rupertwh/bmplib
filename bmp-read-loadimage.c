@@ -173,7 +173,7 @@ static BMPRESULT s_load_image_or_line(BMPREAD_R rp, unsigned char **restrict buf
 			goto abort;
 		}
 		/* skip to actual bitmap data: */
-		if (!cm_gobble_up(rp->file, rp->fh->offbits - rp->bytes_read, rp->log)) {
+		if (!cm_gobble_up(rp, rp->fh->offbits - rp->bytes_read)) {
 			logerr(rp->log, "while seeking start of bitmap data");
 			goto abort;
 		}
@@ -377,7 +377,7 @@ static int s_read_rgb_line(BMPREAD_R rp, unsigned char *restrict line)
 		}
 	}
 	padding = cm_align4padding((rp->width * rp->ih->bitcount + 7) / 8);
-	if (!cm_gobble_up(rp->file, padding, rp->log)) {
+	if (!cm_gobble_up(rp, padding)) {
 		s_set_file_error(rp);
 		return FALSE;
 	}

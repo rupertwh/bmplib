@@ -141,16 +141,20 @@ int cm_check_is_read_handle(BMPHANDLE h)
  * 	cm_gobble_up
  *******************************************************/
 
-int cm_gobble_up(FILE *file, int count, LOG log)
+int cm_gobble_up(BMPREAD_R rp, int count)
 {
 	int i;
 
 	for (i = 0; i < count; i++) {
-		if (EOF == getc(file)) {
-			if (feof(file))
-				logerr(log, "unexpected end of file");
-			else
-				logsyserr(log, "error reading from file");
+		if (EOF == getc(rp->file)) {
+			if (feof(rp->file)) {
+				rp->lasterr = BMP_ERR_TRUNCATED;
+				logerr(rp->log, "unexpected end of file");
+			}
+			else {
+				rp->lasterr = BMP_ERR_FILEIO;
+				logsyserr(rp->log, "error reading from file");
+			}
 			return FALSE;
 		}
 	}

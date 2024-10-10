@@ -114,6 +114,7 @@ struct Bmpread {
 	int               result_format_explicit;
 	size_t            result_size;
 	/* state */
+	unsigned long     lasterr;
 	int               getinfo_called;
 	int               getinfo_return;
 	int               jpeg;
@@ -149,7 +150,7 @@ int cm_align4padding(unsigned long a);
 int cm_align2padding(unsigned long a);
 int cm_count_bits(unsigned long v);
 
-int cm_gobble_up(FILE *file, int count, LOG log);
+int cm_gobble_up(BMPREAD_R rp, int count);
 int cm_check_is_read_handle(BMPHANDLE h);
 
 const char* cm_conv64_name(enum Bmpconv64 conv);

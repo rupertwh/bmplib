@@ -265,10 +265,36 @@ const char* bmp_errmsg(BMPHANDLE h);
 const char* bmp_version(void);
 
 
+
+#define BMP_ERRTYPE_HARD    0x0000000f
+#define BMP_ERR_FILEIO      0x00000001
+#define BMP_ERR_MEMORY      0x00000002
+#define BMP_ERR_INTERNAL    0x00000004
+
+#define BMP_ERRTYPE_DATA    0x0000fff0
+#define BMP_ERR_PIXEL       0x00000010
+#define BMP_ERR_TRUNCATED   0x00000020
+#define BMP_ERR_HEADER      0x00000040
+#define BMP_ERR_INSANE      0x00000080
+#define BMP_ERR_UNSUPPORTED 0x00000100
+#define BMP_ERR_JPEG        0x00000200
+#define BMP_ERR_PNG         0x00000400
+#define BMP_ERR_DIMENSIONS  0x00000800
+#define BMP_ERR_INVALID     0x00001000
+
+#define BMP_ERRTYPE_USER    0x0fff0000
+#define BMP_ERR_CONV64      0x00010000
+#define BMP_ERR_FORMAT      0x00020000
+#define BMP_ERR_NULL        0x00040000
+#define BMP_ERR_PALETTE     0x00080000
+#define BMP_ERR_NOINFO      0x00100000
+#define BMP_ERR_UNDEFMODE   0x00200000
+
+
+
 /* these functions are kept for binary compatibility and will be
  * removed from future versions:
  */
-
 
 int  DEPR("use bmpread_orientation() instead") bmpread_topdown(BMPHANDLE h);
 void DEPR("use bmpread_set_undefined instead") bmpread_set_undefined_to_alpha(BMPHANDLE h, int mode);
