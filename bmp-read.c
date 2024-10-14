@@ -425,6 +425,7 @@ API int bmpread_resolution_ydpi(BMPHANDLE h)
 static int s_single_dim_val(BMPHANDLE h, enum Dimint dim)
 {
 	BMPREAD rp;
+	int     ret;
 
 	if (!(h && cm_check_is_read_handle(h)))
 		return 0;
@@ -436,28 +437,37 @@ static int s_single_dim_val(BMPHANDLE h, enum Dimint dim)
 	switch (dim) {
 	case DIM_WIDTH:
 		rp->dim_queried_width = TRUE;
-		return rp->width;
+		ret = rp->width;
+		break;
 	case DIM_HEIGHT:
 		rp->dim_queried_height = TRUE;
-		return rp->height;
+		ret = rp->height;
+		break;
 	case DIM_CHANNELS:
 		rp->dim_queried_channels = TRUE;
-		return rp->result_channels;
+		ret = rp->result_channels;
+		break;
 	case DIM_BITS_PER_CHANNEL:
 		rp->dim_queried_bits_per_channel = TRUE;
-		return rp->result_bits_per_channel;
+		ret = rp->result_bits_per_channel;
+		break;
 	case DIM_ORIENTATION:
-		return (int) rp->orientation;
+		ret = (int) rp->orientation;
+		break;
 	case DIM_XDPI:
-		return rp->ih->xpelspermeter / 39.37 + 0.5;
+		ret = rp->ih->xpelspermeter / 39.37 + 0.5;
+		break;
 	case DIM_YDPI:
-		return rp->ih->ypelspermeter / 39.37 + 0.5;
+		ret = rp->ih->ypelspermeter / 39.37 + 0.5;
+		break;
+	default:
+		return 0;
 	}
 	if (rp->dim_queried_width && rp->dim_queried_height &&
 	    rp->dim_queried_channels &&
 	    rp->dim_queried_bits_per_channel)
 		rp->dimensions_queried = TRUE;
-	return 0;
+	return ret;
 }
 
 
