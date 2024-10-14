@@ -357,16 +357,30 @@ static int s_read_rgb_line(BMPREAD_R rp, unsigned char *restrict line)
 				exit(1);
 			}
 #endif
-			for (i = 0; i < rp->result_channels; i++) {
-				((float*)line)[offs + i] = (double) px.value[i] /
-				                           (double) ((1ULL<<rp->cmask.bits.value[i])-1);
+			if (rp->ih->bitcount == 64) {
+				for (i = 0; i < rp->result_channels; i++) {
+					((float*)line)[offs+i] = (double) px.value[i] / 8192.0;
+				}
+			}
+			else {
+				for (i = 0; i < rp->result_channels; i++) {
+					((float*)line)[offs + i] = (double) px.value[i] /
+					                           (double) ((1ULL<<rp->cmask.bits.value[i])-1);
+				}
 			}
 			break;
 
 		case BMP_FORMAT_S2_13:
-			for (i = 0; i < rp->result_channels; i++) {
-				((uint16_t*)line)[offs+i] = (uint16_t) ((double) px.value[i] /
-				                     (double) ((1ULL<<rp->cmask.bits.value[i])-1) * 8192.0 + 0.5);
+			if (rp->ih->bitcount == 64) {
+				for (i = 0; i < rp->result_channels; i++) {
+					((uint16_t*)line)[offs+i] = px.value[i];
+				}
+			}
+			else {
+				for (i = 0; i < rp->result_channels; i++) {
+					((uint16_t*)line)[offs+i] = (uint16_t) ((double) px.value[i] /
+					                     (double) ((1ULL<<rp->cmask.bits.value[i])-1) * 8192.0 + 0.5);
+				}
 			}
 			break;
 

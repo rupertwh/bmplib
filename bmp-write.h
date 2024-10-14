@@ -20,3 +20,4 @@
 
 
 void bw_free(BMPWRITE wp);
+BMPRESULT bw_set_number_format(BMPWRITE wp, enum BmpFormat format);

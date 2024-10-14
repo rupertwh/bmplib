@@ -79,8 +79,8 @@ API BMPRESULT bmp_set_number_format(BMPHANDLE h, enum BmpFormat format)
 	case HMAGIC_READ:
 		return br_set_number_format((BMPREAD)(void*)h, format);
 
-	//case HMAGIC_WRITE:
-	//	return bw_set_number_format((BMPWRITE)(void*)h, format);
+	case HMAGIC_WRITE:
+		return bw_set_number_format((BMPWRITE)(void*)h, format);
 
 	default:
 #ifdef DEBUG
@@ -135,6 +135,19 @@ int cm_check_is_read_handle(BMPHANDLE h)
 	return FALSE;
 }
 
+
+/********************************************************
+ * 	bm_check_is_write_handle
+ *******************************************************/
+
+int cm_check_is_write_handle(BMPHANDLE h)
+{
+	BMPWRITE wp = (BMPWRITE)(void*)h;
+
+	if (wp && wp->magic == HMAGIC_WRITE)
+		return TRUE;
+	return FALSE;
+}
 
 
 /********************************************************
@@ -264,6 +277,27 @@ int cm_all_positive_int(int n, ...)
 	for (i = 0; i < n; i++) {
 		if (va_arg(ap, int) < 0) {
 			ret = FALSE;
+			break;
+		}
+	}
+	va_end(ap);
+
+	return ret;
+}
+
+
+int cm_is_one_of(int candidate, int n, ...)
+{
+	va_list ap;
+	int i, ret = FALSE;
+
+	if (n < 1)
+		return TRUE;
+
+	va_start(ap, n);
+	for (i = 0; i < n; i++) {
+		if (va_arg(ap, int) == candidate) {
+			ret = TRUE;
 			break;
 		}
 	}

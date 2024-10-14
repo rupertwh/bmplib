@@ -74,9 +74,21 @@ struct Colormask {
 			int	alpha;
 		};
 	} bits;
+	union {
+		double val[4];
+		struct {
+			double red;
+			double green;
+			double blue;
+			double alpha;
+		};
+	} maxval;
 };
 
+typedef struct Bmpread  *BMPREAD;
+typedef struct Bmpwrite *BMPWRITE;
 typedef struct Bmpread * restrict BMPREAD_R;
+typedef struct Bmpwrite * restrict BMPWRITE_R;
 
 struct Palette {
 	int         numcolors;
@@ -141,9 +153,54 @@ struct Bmpread {
 
 };
 
+
+struct Bmpwrite {
+	struct {
+		uint32_t magic;
+		LOG      log;
+	};
+	FILE            *file;
+	struct Bmpfile  *fh;
+	struct Bmpinfo  *ih;
+	int              width;
+	int              height;
+	/* input */
+	int              source_channels;
+	int              source_bitsperchannel;
+	int              source_bytes_per_pixel;
+	int              source_format;
+	struct Palette  *palette;
+	int              palette_size; /* sizeof palette in bytes */
+	/* output */
+	size_t           bytes_written;
+	size_t           bytes_written_before_bitdata;
+	int              has_alpha;
+	enum BmpOrient   outorientation;
+	struct Colormask cmask;
+	int              rle_requested;
+	int              rle;
+	int              allow_2bit; /* Windows CE, but many will not read it */
+	int              out64bit;
+	int              outbytes_per_pixel;
+	int              outpixels_per_byte;
+	int              padding;
+	int             *group;
+	int              group_count;
+	/* state */
+	int              outbits_set;
+	int              dimensions_set;
+	int              saveimage_done;
+	int              line_by_line;
+	int              lbl_y;
+};
+
+
+
 int cm_all_lessoreq_int(int limit, int n, ...);
 int cm_all_equal_int(int n, ...);
 int cm_all_positive_int(int n, ...);
+int cm_is_one_of(int candidate, int n, ...);
+
 #define cm_align4size(a)     ((((a) + 3) >> 2) << 2)
 #define cm_align2size(a)     ((((a) + 1) >> 1) << 1)
 int cm_align4padding(unsigned long a);
@@ -152,6 +209,7 @@ int cm_count_bits(unsigned long v);
 
 int cm_gobble_up(BMPREAD_R rp, int count);
 int cm_check_is_read_handle(BMPHANDLE h);
+int cm_check_is_write_handle(BMPHANDLE h);
 
 const char* cm_conv64_name(enum Bmpconv64 conv);
 const char* cm_format_name(enum BmpFormat format);
@@ -171,10 +229,6 @@ int read_s32_le(FILE *file, int32_t *val);
 
 #define HMAGIC_READ	 (0x44414552UL)
 #define HMAGIC_WRITE (0x54495257UL)
-
-typedef struct Bmpread  *BMPREAD;
-typedef struct Bmpwrite *BMPWRITE;
-
 
 #define BMPFILE_BM (0x4d42)
 #define BMPFILE_BA (0x4142)
