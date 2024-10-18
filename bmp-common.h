@@ -182,7 +182,6 @@ struct Bmpwrite {
 	int              allow_2bit; /* Windows CE, but many will not read it */
 	int              out64bit;
 	int              outbytes_per_pixel;
-	int              outpixels_per_byte;
 	int              padding;
 	int             *group;
 	int              group_count;

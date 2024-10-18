@@ -585,7 +585,7 @@ static void s_read_rle_line(BMPREAD_R rp, unsigned char *restrict line,
 {
 	int     repeat = FALSE, left_in_run = 0;
 	int     right, up;
-	int     padding = FALSE, odd = FALSE, v, r, g, b = 0;
+	int     padding = FALSE, odd = FALSE, v, r = 0, g = 0, b = 0;
 	size_t  offs;
 	int     bits = rp->ih->bitcount;
 

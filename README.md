@@ -33,6 +33,7 @@
 
 ### Writing BMP files:
   - RGB(A) 16/24/32 bit.
+  - 64-bit RGBA
   - any bit-depth combination for the RGBA channels.
   - Indexed 1/2/4/8 bit, optional RLE4 and RLE8 compression.
   - write BI_RGB when possible, BI_BITFIELDS only when
