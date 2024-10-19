@@ -53,7 +53,7 @@ API BMPHANDLE bmpread_new(FILE *file)
 	rp->magic = HMAGIC_READ;
 	rp->undefined_mode = BMP_UNDEFINED_TO_ALPHA;
 	rp->orientation    = BMP_ORIENT_BOTTOMUP;
-	rp->conv64         = BMP_CONV64_16BIT_SRGB;
+	rp->conv64         = BMP_CONV64_SRGB;
 	rp->result_format  = BMP_FORMAT_INT;
 
 	if (!(rp->log = logcreate()))
@@ -228,14 +228,8 @@ API BMPRESULT bmpread_set_64bit_conv(BMPHANDLE h, enum Bmpconv64 conv)
 	rp = (BMPREAD)(void*)h;
 
 	switch (conv) {
-	case BMP_CONV64_16BIT_SRGB:
-        case BMP_CONV64_16BIT:
-        	if (rp->result_format != BMP_FORMAT_INT) {
-        		logerr(rp->log, "64-bit conversion %s imcompatible with chosen number format %s.\n",
-        		                cm_conv64_name(conv), cm_format_name(rp->result_format));
-        		rp->lasterr = BMP_ERR_CONV64;
-        		return BMP_RESULT_ERROR;
-        	}
+	case BMP_CONV64_SRGB:
+        case BMP_CONV64_LINEAR:
         	rp->conv64 = conv;
         	rp->conv64_explicit = TRUE;
         	break;
@@ -247,7 +241,11 @@ API BMPRESULT bmpread_set_64bit_conv(BMPHANDLE h, enum Bmpconv64 conv)
         		rp->lasterr = BMP_ERR_CONV64;
         		return BMP_RESULT_ERROR;
         	}
-        	rp->conv64 = conv;
+        	else {
+        		rp->result_format = BMP_FORMAT_S2_13;
+        		rp->result_format_explicit = TRUE;
+        	}
+        	rp->conv64 = BMP_CONV64_LINEAR;
         	rp->conv64_explicit = TRUE;
         	break;
         default:
@@ -339,12 +337,6 @@ BMPRESULT br_set_number_format(BMPREAD_R rp, enum BmpFormat format)
 		break;
 
 	case BMP_FORMAT_FLOAT:
-		if (rp->conv64_explicit) {
-			logerr(rp->log, "format %s imcompatible with 64bit conversion %s.",
-			                cm_format_name(format), cm_conv64_name(rp->conv64));
-			rp->lasterr = BMP_ERR_FORMAT;
-			return BMP_RESULT_ERROR;
-		}
 	case BMP_FORMAT_S2_13:
 		if (rp->getinfo_called && rp->result_indexed) {
 			logerr(rp->log, "Cannot load color index as float or s2.13");

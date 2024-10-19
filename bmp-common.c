@@ -202,10 +202,9 @@ int cm_count_bits(unsigned long v)
 const char* cm_conv64_name(enum Bmpconv64 conv)
 {
 	switch (conv) {
-	case BMP_CONV64_16BIT_SRGB: return "BMP_CONV64_16BIT_SRGB";
-        case BMP_CONV64_16BIT     : return "BMP_CONV64_16BIT";
-        case BMP_CONV64_NONE      : return "BMP_CONV64_NONE";
-	}
+	case BMP_CONV64_SRGB  : return "BMP_CONV64_SRGB";
+        case BMP_CONV64_LINEAR: return "BMP_CONV64_LINEAR";
+	case BMP_CONV64_NONE  : return "BMP_CONV64_NONE";}
 	return "(invalid)";
 }
 

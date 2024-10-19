@@ -89,19 +89,22 @@ typedef enum Bmpresult BMPRESULT;
 /*
  * 64-bit BMPs: conversion of RGBA (16bit) values
  *
- * BMP_CONV64_16BIT_SRGB  (default) convert components to 'normal'
- *                        16bit with sRGB gamma. Assumes components
- *                        are stored as s2.13 linear.
+ * BMP_CONV64_SRGB   (default) Assume components are
+ *                   stored in linear light and convert
+ *                   to sRGB gamma.
  *
- * BMP_CONV64_16BIT       convert components from s2.13 to
- *                        'normal' 16bit. No gamma conversion.
+ * BMP_CONV64_LINEAR No gamma conversion.
  *
- * BMP_CONV64_NONE        Leave components as they are, which
- *                        might always(?) be s2.13 linear.
+ * BMP_CONV64_NONE   Leave components as they are. This is
+ *                   a shortcut for the combination
+ *                    - bmpread_set_64bit_conv(BMP_CONV_LINEAR) and
+ *                    - bmp_set_number_format(BMP_FORMAT_S2_13).
  */
 enum Bmpconv64 {
-        BMP_CONV64_16BIT_SRGB, /* default */
-        BMP_CONV64_16BIT,
+        BMP_CONV64_SRGB   = 0,  /* default */
+        BMP_CONV64_LINEAR = 1,
+        BMP_CONV64_16BIT_SRGB DEPR("use BMP_CONV64_SRGB instead")   = 0,
+        BMP_CONV64_16BIT      DEPR("use BMP_CONV64_LINEAR instead") = 1,
         BMP_CONV64_NONE
 };
 typedef enum Bmpconv64 BMPCONV64;
@@ -298,7 +301,7 @@ const char* bmp_version(void);
  */
 
 int  DEPR("use bmpread_orientation() instead") bmpread_topdown(BMPHANDLE h);
-void DEPR("use bmpread_set_undefined instead") bmpread_set_undefined_to_alpha(BMPHANDLE h, int mode);
+void DEPR("use bmpread_set_undefined() instead") bmpread_set_undefined_to_alpha(BMPHANDLE h, int mode);
 
 #ifdef __cplusplus
 }
