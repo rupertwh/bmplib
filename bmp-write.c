@@ -74,12 +74,6 @@ API BMPHANDLE bmpwrite_new(FILE *file)
 	if (!(wp->log = logcreate()))
 		goto abort;
 
-
-	if (sizeof(int) < 4 || sizeof(unsigned int) < 4) {
-		logerr(wp->log, "code doesn't work on %d-bit platforms!\n", (int)(8 * sizeof(int)));
-		goto abort;
-	}
-
 	if (!file) {
 		logerr(wp->log, "Must supply file handle");
 		goto abort;

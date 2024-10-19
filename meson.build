@@ -29,6 +29,14 @@ bmplib_sources = ['bmp-read.c',
                   'bmp-common.c',
                   'logging.c']
 
+
+if cc.sizeof('float') != 4
+  error('sizeof(float) must be 4 bytes.')
+elif cc.sizeof('int') < 4
+  error('sizeof(int) must be at least 32 bit.')
+endif
+
+
 bmplib = shared_library('bmp',
                         bmplib_sources,
                         version: meson.project_version(),

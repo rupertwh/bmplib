@@ -25,7 +25,6 @@
 #include <limits.h>
 #include <stdarg.h>
 
-#include "platform.h"
 #include "config.h"
 #include "bmplib.h"
 #include "logging.h"
@@ -330,12 +329,6 @@ BMPRESULT br_set_number_format(BMPREAD_R rp, enum BmpFormat format)
 	      format == BMP_FORMAT_FLOAT ||
 	      format == BMP_FORMAT_S2_13)) {
 		logerr(rp->log, "Invalid number format (%d) specified", (int) format);
-		rp->lasterr = BMP_ERR_FORMAT;
-		return BMP_RESULT_ERROR;
-	}
-
-	if (format == BMP_FORMAT_FLOAT && sizeof (float) != 4) {
-		logerr(rp->log, "Cannot use float on platforms with sizeof(float)=%d\n", (int)sizeof(float));
 		rp->lasterr = BMP_ERR_FORMAT;
 		return BMP_RESULT_ERROR;
 	}
