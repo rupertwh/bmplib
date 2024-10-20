@@ -6,15 +6,15 @@
 - Write any sensible BMP
 - Robustness! Don't let malformed BMPs bother us
 
-## Current status (v1.4.6):
+## Current status (v1.4.7):
 ### Reading BMP files:
   - 16/24/32 bit RGB(A) with any bits/channel combination
     (BI_RGB, BI_BITFIELDS, BI_ALPHABITFIELDS).
   - 64 bit RGBA (caveat see below)
   - 1/2/4/8 bit indexed (palette), including RLE4 and RLE8 compressed.
   - RLE24 compressed (OS/2).
-  - optional line-by-line reading of BMPs, even RLE.
-  - optionally return image data as float or s2.13
+  - optional line-by-line reading of BMPs.
+  - optionally return image data as float or s2.13 fixed point.
 
   successful results from reading sample images from Jason Summers'
   fantastic [BMP Suite](https://entropymine.com/jason/bmpsuite/):
@@ -39,6 +39,7 @@
   - write BI_RGB when possible, BI_BITFIELDS only when
     necessary.
   - optional line-by-line writing of BMPs.
+  - optionally supply image data as float or s2.13 fixed point.
 
 
 ## Installation
@@ -46,7 +47,7 @@
 ### Download and compile bmplib library
 
 To install the latest development version of the library under the default
-`/usr/local` prefix:
+`/usr/local` prefix on debian-like Linux:
 
 ```
 sudo apt install build-essential git meson pkg-config
@@ -90,35 +91,39 @@ see API.md for the API documentation
 
 64bit BMPs are a special breed. First of all, there is very little information
 about the format out there, let alone an 'official' spec from MS. It seems
-that the RGBA components are (always?) stored as s2.13 fixed-point numbers.
-And according to Jason Summers' BMP Suite the RGB components are encoded in
+that the RGBA components are stored as s2.13 fixed-point numbers. And
+according to Jason Summers' BMP Suite the RGB components are encoded in
 linear light. As that's the only sample of a 64-bit BMP I have, that's what I
 am going with for now. But that also means that there is no one obvious
 format in which to return the data.
 
 Possible choices are:
 1. return the values untouched, which means the caller has to
-   be aware of the s2.13 format. (BMP_CONV64_NONE)
-2. return the values as normal 16bit values, left in linear
-   light (BMP_CONV64_16BIT)
-3. return the values as normal 16bit values, converted to sRGB
-   gamma. (BMP_CONV64_16BIT_SRGB)
+   be aware of the s2.13 format and linear gamma. (BMP_CONV64_NONE)
+2. return the values converted to 16-bit integers (or other selected
+   number format), left in linear light (BMP_CONV64_LINEAR)
+3. return the values converted to 16-bit integers (or other selected
+   numer format), converted to sRGB gamma. (BMP_CONV64_SRGB)
 
-Choice 3 (16bit sRGB gamma) seems to be the most sensible default(and I made
+Choice 3 (16bit sRGB gamma) seems to be the most sensible default (and I made
 it the default), as it will work well for all callers which are not
 aware/don't care about 64bit BMPs and just want to use/diplay them like any
 other BMP. (Even though this goes against my original intent to not have
 bmplib do any color conversions.)
 
 Note: the s2.13 format allows for negative values and values greater than 1!
-When converting to normal 16bit (BMP_CONV64_16BIT and BMP_CONV64_16BIT_SRGB),
-these values will be clipped to 0...1.
+When converting to 16bit integers, these values will be clipped to 0...1. In
+order to preserve the full possible range of 64bit BMP pixel values, the
+number format should be set to either BMP_FORMAT_FLOAT or BMP_FORMAT_S2_13.
 
-In case the default (BMP_CONV64_16BIT_SRGB) doesn't work for you, bmplib now
-provides these two functions to check if a BMP is 64bit and to set the
+bmplib provides these functions to check if a BMP is 64bit and to set the
 conversion:
 - `bmpread_is_64bit()`
 - `bmpread_set_64bit_conv()`
+- `bmp_set_number_format()`
+
+As to writing BMPs, by default bmplib will not write 64bit BMPs, as they are so exotic that only few applications will read them (other than native Microsoft tools, the new GIMP 3.0 is the only one I am aware of).
+Use `bmpwrite_set_64bit()` in order to write 64bit BMPs.
 
 
 ## TODOs:
@@ -127,7 +132,7 @@ conversion:
    - [x] write indexed images.
    - [x] write RLE-compressed images (RLE4/RLE8 only. No OS/2 v2 BMPs).
    - [x] read RLE24-encoded BMPs.
-   - [ ] read Huffman-encoded BMPs.
+   - [ ] read Huffman-encoded BMPs. (Still haven't found any real-life examples)
    - [x] line-by-line reading/writing. ~~Right now, the image can only be
      passed as a whole to/from bmplib.~~
    - [ ] read/write icc-profile and chromaticity/gamma values

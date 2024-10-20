@@ -1,25 +1,8 @@
-# API -- Rupert's bmplib
+# Rupert's bmplib -- Full API Description
 
-The API has grown quite a bit more than I had originally anticipated. But most
-of the provided functions are optional. So, to not scare you off right away,
-here is a short overview of the basic functions needed, which will be
-sufficient for many/most use cases (see also the two examples at the end of
-this document):
+Refer to the *Quick Start Guide* (API-quick-start.md) for a quick intro to bmplib which describes only the minimal set of functions needed to read/write BMP files.
 
-### Reading BMPs:
-```
-bmpread_new()
-bmpread_dimensions()
-bmpread_load_image()
-bmp_free()
-```
-### Writing BMPs:
-```
-bmpwrite_new()
-bmpwrite_set_dimensions()
-bmpwrite_save_image()
-bmp_free()
-```
+
 ## 1. Functions for reading BMP files
 
 ### Get a handle
@@ -34,6 +17,7 @@ handle.
 The handle cannot be reused to read multiple files.
 
 
+
 ### Read the file header
 ```
 BMPRESULT bmpread_load_info(BMPHANDLE h)
@@ -41,11 +25,13 @@ BMPRESULT bmpread_load_info(BMPHANDLE h)
 
 bmplib reads the file header and checks validity. Possible return values are:
 - `BMP_RESULT_OK`: All is good, you can proceed to read the file.
-- `BMP_INSANE`: The file is valid, but huge. The default limit is 500MB. If
-  you want to read the file anyway, use `bmpread_set_insanity_limit()` to
-  increase the allowed file size. Otherwise, `bmpread_load_image()` will
-  refuse to load the image.(You can build the library with a different
-  default limit, using the meson option '-Dinsanity_limit_mb=nnn')
+- `BMP_INSANE`: The file is valid, but huge. The default limit is 500MB
+  (relevant is the required buffer size to hold the complete image, not the
+  file size. If you want to read the file anyway, use
+  `bmpread_set_insanity_limit()` to increase the allowed file size.
+  Otherwise, `bmpread_load_image()` will refuse to load the image. (You can
+  build the library with a different default limit, using the meson
+  option '-Dinsanity_limit_mb=nnn')
 - `BMP_RESULT_PNG` / `BMP_RESULT_JPEG`: It's not really a BMP file, but a
   wrapped PNG or JPEG. The file pointer is left in the correct state to be
   passed on to e.g. libpng or libjpeg.
@@ -79,7 +65,7 @@ at a time, each returned as an `int`. Getting the horizontal and vertical
 resolutions in DPI is only available via these single functions.
 
 Note, in order to use these functions, -- unlike with `bmpread_dimensions
-()` -- you must first(successfully) call `bmpread_load_info()`, otherwise
+()` -- you must first (successfully) call `bmpread_load_info()`, otherwise
 they will all return 0!
 
 ```
@@ -99,12 +85,12 @@ int       bmpread_resolution_ydpi(BMPHANDLE h)
  - `BMPORIENT_BOTTOMUP`
  - `BMPORIENT_TOPDOWN`
 
- `bmpread_orientation()` or the orientation value returned by
+ `bmpread_orientation()` or the `orientation` value returned by
  `bmpread_dimensions()` **is only relevant if you load the BMP file
  line-by-line**. In line-by-line mode (using `bmpread_load_line()`), the
  image data is always delivered in the order it is in the BMP file. The
  `orientation` value will tell you if it's top-down or bottom-up. On the
- other hand, when the whole image is loaded at once(using `bmpread_load_image
+ other hand, when the whole image is loaded at once (using `bmpread_load_image
  ()`), bmplib will **always** return the image top-down, regardless of how
  the BMP file is oriented. The `orientation` value will still indicate the
  orientation of the original BMP.
@@ -119,7 +105,7 @@ Returns the buffer size you have to allocate for the whole image.
 ### Indexed BMPs
 
 By default, bmplib will interpret indexed (color palette) BMPs and return the
-image as 24-bit RGB data.
+image as 24-bit RGB data, same as non-indexed (RGB) BMPs.
 
 If instead you want to keep the image as indexed, you have the option do so
 with these two functions:
@@ -144,7 +130,7 @@ let bmplib allocate it for you (and then `free()` it, once you are done):
 
 ```
 unsigned char *palette;
-int numcolors;
+int            numcolors;
 
 numcolors = bmpread_num_palette_colors(h);
 
@@ -205,23 +191,33 @@ BMPRESULT bmpread_set_64bit_conv(BMPHANDLE h, BMPCONV64 conv)
 ```
 
 If you don't do anything, 64bit BMPs will be read like any other BMP and the
-data will be returned as 16bit/channel sRGB RGBA. (Hopefully, see README.md)
+data will be returned as 16bit/channel sRGB RGBA.
 
 But if you want to access the original s2.13 fixed-point components, or you
-don't want the linear-to-sRGB conversion, you can call `bmpread_is_64bit
-()` to inquire if a BMP file is 64bit and subsequently call
-`bmpread_set_64bit_conv()` with `conv` set to one of the following values:
+don't want the linear-to-sRGB conversion, you can use `bmpread_set_64bit_conv
+()` and `bmp_set_number_format()` to control how the image is returned:
 
-- `BMP_CONV64_NONE`: no conversion is done, image data is returned as is
-  (probably 16 bit per channel RGBA in s2.13 fixed-point)
-- `BMP_CONV64_16BIT`: image is returned as normal 16bit per channel, without
-  converting from linear to sRGB-gamma.
-- `BMP_CONV64_16BIT_SRGB`: the default, original data is assumed to be s2.13
-  fixed-point linear and converted to normal 16bit per channel with
-  sRGB-gamma.
+Options for `bmpread_set_64bit()` are:
+
+- `BMP_CONV64_SRGB`: the default, original data is assumed to be s2.13
+  fixed-point linear and converted to sRGB-gamma.
+- `BMP_CONV64_LINEAR`: no gamma-conversion is applied to the image data.
+- `BMP_CONV64_NONE`: this option is just a shorthand for setting
+  BMP_CONV64_LINEAR *and* BMP_FORMAT_S2_13. Image values are returned exactly
+  as they are in the BMP file, without any conversion or attempt at
+  interpretation.
 
 
-### Floating point
+### Setting a number format
+
+By default, bmplib will always return the image data as 8-,16-, or 32-bit integer values. You can instead set the number format to floating point or fixed using:
+
+```
+BMPRESULT bmp_set_number_format(BMPHANDLE h, BMPFORMAT format)
+```
+
+(see below, *3. General functions for both reading/writing BMPs*)
+
 
 
 ### Huge files: bmpread_set_insanity_limit()
@@ -337,6 +333,20 @@ BMPRESULT   bmpread_info_channel_bits(BMPHANDLE h, int *r, int *g, int *b, int *
 ```
 
 
+### Release the handle
+
+```
+void bmp_free(BMPHANDLE h)
+```
+
+Frees all resources associated with the handle `h`. **Image data is not
+affected**, so you can call bmp_free() immediately after `bmpread_load_image
+()` and still use the returned image data.
+
+Note: Any error message strings returned by `bmp_errmsg()` are invalidated by
+`bmp_free()` and must not be used anymore!
+
+
 
 
 ## 2. Functions for writing BMP files
@@ -360,8 +370,8 @@ BMPRESULT bmpwrite_set_resolution(BMPHANDLE h, int xdpi, int ydpi)
 
 Note: the dimensions set with `bmpwrite_set_dimensions()` describe the source
 data that you pass to bmplib, *not* the output BMP format. Use
-`bmpwrite_set_output_bits()` and `bmpwrite_set_palette()` to modify the
-format written to the BMP file.
+`bmpwrite_set_output_bits()`, `bmpwrite_set_palette()`, and
+`bmpwrite_set_64bit()` to modify the format written to the BMP file.
 
 
 ### Set the output format
@@ -443,6 +453,26 @@ provide the image lines in the order according to the orientation you have
 chosen for the BMP file.
 
 
+
+
+### 64-bit RGBA BMPs
+
+By default, bmplib will not write 64-bit BMPs because they are rather exotic and hardly any
+software can open them.
+
+If you do want to write 64-bit BMPs, call
+
+```
+BMPRESULT bmpwrite_set_64bit(BMPHANDLE h)
+```
+
+In order to make use of the extended range available in 64-bit BMPs (-4.0 to +3.999...), you will probably want to provide the image buffer either as 32-bit float or as 16-bit s2.13 (and call `bmp_set_number_format()` accordingly).
+
+Note: 64-bit BMPs store pixel values in *linear light*. Unlike when *reading* 64-bit BMPs, bmplib will not make any gamma/linear conversion while writing BMPs. You have to provide the proper linear values in the image buffer.
+
+
+
+
 ### Write the image
 
 ```
@@ -475,7 +505,7 @@ set with `bmpwrite_set_orientation()` (see above).
 ### bmp_free()
 
 ```
-void        bmp_free(BMPHANDLE h)
+void bmp_free(BMPHANDLE h)
 ```
 
 Frees all resources associated with the handle `h`. Image data is not
@@ -494,6 +524,21 @@ const char* bmp_errmsg(BMPHANDLE h)
 Returns a zero-terminated character string containing the last error
 description(s). The returned string is safe to use until any other
 bmplib-function is called with the same handle.
+
+
+### bmp_set_number_format()
+
+```
+BMPRESULT bmp_set_number_format(BMPHANDLE h, BMPFORMAT format)
+```
+
+sets the number format of the image buffer received from / passed to bmplib. `format` can be one of
+
+- `BMP_FORMAT_INT` image buffer values are expected/returned as 8-, 16-, or 32-bit integers. (this is the default)
+- `BMP_FORMAT_FLOAT` image buffer values are expected/returned as 32-bit floating point numbers (C `float`).
+- `BMP_FORMAT_S2_13` image buffer values are expected/returned as s2.13 fixed point numbers. s2.13 is a 16-bit format with one sign bit, 2 integer bits, and 13 bits for the fractional part. Range is from -4.0 to +3.999...
+
+For indexed images, `BMP_FORMAT_INT` is the only valid format.
 
 
 ### bmp_version()
@@ -576,12 +621,21 @@ Can safely be cast from/to int.
 
 #### `BMPCONV64`
 
-Used in `bmpread_set_64bit_conv()`. Possible value are:
-- `BMP_CONV64_16BIT_SRGB` (default)
-- `BMP_CONV64_16BIT`
+Used in `bmpread_set_64bit_conv()`. Possible values are:
+- `BMP_CONV64_SRGB` (default)
+- `BMP_CONV64_LINEAR`
 - `BMP_CONV64_NONE`
 
 Can safely be cast from/to int.
+
+#### `BMPFORMAT`
+
+Used in `bmp_set_number_format()`. Possible values are:
+- `BMP_FORMAT_INT` (default)
+- `BMP_FORMAT_FLOAT` 32-bit floating point
+- `BMP_FORMAT_S2_13` s2.13 fixed point
+
+
 
 ## 5. Sample code
 
