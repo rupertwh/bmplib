@@ -130,7 +130,7 @@ Use `bmpwrite_set_64bit()` in order to write 64bit BMPs.
 ### Definitely:
 
    - [x] write indexed images.
-   - [x] write RLE-compressed images (RLE4/RLE8 only. No OS/2 v2 BMPs).
+   - [x] write RLE-compressed images ~~(RLE4/RLE8 only. No OS/2 v2 BMPs)~~.
    - [x] read RLE24-encoded BMPs.
    - [ ] read Huffman-encoded BMPs. (Still haven't found any real-life examples)
    - [x] line-by-line reading/writing. ~~Right now, the image can only be
@@ -152,7 +152,7 @@ Use `bmpwrite_set_64bit()` in order to write 64bit BMPs.
      (which is the 'official' default) or let user pick one/multiple/all to
      be read in sequence.
    - [ ] Add a 'not-a-BMP-file' return type instead of just returning error.
-   - [ ] icon- and pointer-files ("CI", "CP", "IC", "PT").
+   - ~~[ ] icon- and pointer-files ("CI", "CP", "IC", "PT").~~
    - [x] 64-bits BMPs. (I changed my mind)
 
 ### Unclear:
@@ -164,7 +164,7 @@ Use `bmpwrite_set_64bit()` in order to write 64bit BMPs.
 
 ### Non-feature (internal):
 
-   - [x] complete API description (see API.md)
+   - [x] complete API description (see API-full.md and API-quick-start.md)
    - [x] bmp-read.c is getting too big, split into several files
 
 

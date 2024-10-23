@@ -307,12 +307,12 @@ int cm_is_one_of(int candidate, int n, ...)
 
 
 
-int cm_align4padding(unsigned long a)
+int cm_align4padding(unsigned long long a)
 {
 	return cm_align4size(a) - a;
 }
 
-int cm_align2padding(unsigned long a)
+int cm_align2padding(unsigned long long a)
 {
 	return cm_align2size(a) - a;
 }

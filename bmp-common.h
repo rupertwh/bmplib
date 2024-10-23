@@ -106,7 +106,7 @@ struct Bmpread {
 	struct Bmpinfo   *ih;
 	unsigned int      insanity_limit;
 	int               width;
-	int               height;
+	unsigned          height;
 	enum BmpOrient    orientation;
 	int               has_alpha;   /* original BMP has alpha channel */
 	enum BmpUndefined undefined_mode;
@@ -202,8 +202,8 @@ int cm_is_one_of(int candidate, int n, ...);
 
 #define cm_align4size(a)     ((((a) + 3) >> 2) << 2)
 #define cm_align2size(a)     ((((a) + 1) >> 1) << 1)
-int cm_align4padding(unsigned long a);
-int cm_align2padding(unsigned long a);
+int cm_align4padding(unsigned long long a);
+int cm_align2padding(unsigned long long a);
 int cm_count_bits(unsigned long v);
 
 int cm_gobble_up(BMPREAD_R rp, int count);

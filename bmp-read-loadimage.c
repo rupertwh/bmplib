@@ -147,7 +147,7 @@ static BMPRESULT s_load_image_or_line(BMPREAD_R rp, unsigned char **restrict buf
 	}
 
 	if (line_by_line)
-		buffer_size = rp->width * rp->result_bytes_per_pixel;
+		buffer_size = (size_t) rp->width * rp->result_bytes_per_pixel;
 	else
 		buffer_size = rp->result_size;
 	if (!*buffer) { /* no buffer supplied, we will allocate one */
@@ -220,7 +220,7 @@ static void s_read_whole_image(BMPREAD_R rp, unsigned char *restrict image)
 	int          x = 0, y, yoff = 1;
 	size_t       linesize, real_y;
 
-	linesize = (size_t) rp->width * (size_t) rp->result_bytes_per_pixel;
+	linesize = (size_t) rp->width * rp->result_bytes_per_pixel;
 
 	for (y = 0; y < rp->height; y += yoff) {
 		real_y = (rp->orientation == BMP_ORIENT_TOPDOWN) ? y : rp->height-1-y;
@@ -237,10 +237,10 @@ static void s_read_whole_image(BMPREAD_R rp, unsigned char *restrict image)
 		}
 		if (rp->rle_eof || s_stopping_error(rp))
 			break;
-	}
-	if (y > rp->height) {
-		logerr(rp->log, "RLE delta beyond image dimensions");
-		rp->invalid_delta = TRUE;
+		if (yoff > rp->height - y) {
+			logerr(rp->log, "RLE delta beyond image dimensions");
+			rp->invalid_delta = TRUE;
+		}
 	}
 }
 
@@ -271,11 +271,11 @@ static void s_read_one_line(BMPREAD_R rp, unsigned char *restrict line)
 			}
 
 			if (!(rp->rle_eof || s_stopping_error(rp))) {
-				rp->lbl_file_y += yoff;
-
-				if (rp->lbl_file_y > rp->height) {
+				if (yoff > rp->height - rp->lbl_file_y) {
 					rp->invalid_delta = TRUE;
 				}
+				rp->lbl_file_y += yoff;
+
 			}
 			if (rp->rle_eof)
 				rp->lbl_file_y = rp->height;
@@ -398,7 +398,7 @@ static int s_read_rgb_line(BMPREAD_R rp, unsigned char *restrict line)
 			return FALSE;
 		}
 	}
-	padding = cm_align4padding((rp->width * rp->ih->bitcount + 7) / 8);
+	padding = cm_align4padding(((uint64_t)rp->width * rp->ih->bitcount + 7) / 8);
 	if (!cm_gobble_up(rp, padding)) {
 		s_set_file_error(rp);
 		return FALSE;
@@ -548,7 +548,7 @@ static void s_read_indexed_line(BMPREAD_R rp, unsigned char *restrict line)
 				rp->invalid_index = TRUE;
 			}
 
-			offs = (size_t) x * (size_t) rp->result_bytes_per_pixel;
+			offs = (size_t) x * rp->result_bytes_per_pixel;
 			if (rp->result_indexed) {
 				line[offs] = v;
 			}
@@ -656,7 +656,7 @@ static void s_read_rle_line(BMPREAD_R rp, unsigned char *restrict line,
 				}
 			}
 
-			offs = (size_t) *x * (size_t) rp->result_bytes_per_pixel;
+			offs = (size_t) *x * rp->result_bytes_per_pixel;
 			if ((rp->undefined_mode == BMP_UNDEFINED_TO_ALPHA) && !rp->result_indexed)
 				line[offs+3] = 0xff; /* set alpha to 1.0 for defined pixels */
 			switch (bits) {
@@ -685,7 +685,7 @@ static void s_read_rle_line(BMPREAD_R rp, unsigned char *restrict line,
 					line[offs]   = rp->palette->color[v].red;
 					line[offs+1] = rp->palette->color[v].green;
 					line[offs+2] = rp->palette->color[v].blue;
-					s_int_to_result_format(rp, 8, line+offs);
+					s_int_to_result_format(rp, 8, line + offs);
 				}
 				break;
 			}
@@ -938,31 +938,5 @@ static inline int s_read_one_byte(BMPREAD_R rp)
 
 static inline unsigned long s_scaleint(unsigned long val, int frombits, int tobits)
 {
-	return (unsigned long) ((double) val * ((1<<tobits)-1) / ((1<<frombits)-1) + 0.5);
-
-#ifdef NEVER
-	/* nice, but has some slight off-by-one rounding errors */
-	unsigned long result;
-	int           spaceleft;
-
-	/* scaling down, easy */
-	if (frombits >= tobits)
-		return val >> (frombits - tobits);
-
-	if (frombits < 1)
-		return 0UL;
-
-	/* scaling up */
-	result = val << (tobits - frombits);
-	spaceleft = tobits - frombits;
-
-	while (spaceleft > 0) {
-		if (spaceleft >= frombits)
-			result |= val << (spaceleft - frombits);
-		else
-			result |= val >> (frombits - spaceleft);
-		spaceleft -= frombits;
-	}
-	return result;
-#endif
+	return (unsigned long) ((double) val * ((1ULL<<tobits)-1) / ((1ULL<<frombits)-1) + 0.5);
 }
