@@ -115,7 +115,6 @@ API BMPRESULT bmpwrite_set_dimensions(BMPHANDLE h,
                                        unsigned  source_channels,
                                        unsigned  source_bitsperchannel)
 {
-	int total_bits;
 	BMPWRITE wp;
 
 	if (!cm_check_is_write_handle(h))
@@ -141,13 +140,10 @@ API BMPRESULT bmpwrite_set_dimensions(BMPHANDLE h,
 	}
 
 	wp->source_bytes_per_pixel = source_bitsperchannel / 8 * source_channels;
-	total_bits = cm_count_bits(width) +
-	             cm_count_bits(height) +
-	             cm_count_bits(wp->source_bytes_per_pixel);
 
 	if (width > INT32_MAX || height > INT32_MAX ||
 	    width < 1 || height < 1 ||
-	    total_bits > 8*sizeof(size_t) ) {
+	    (uint64_t) width * height > SIZE_MAX / wp->source_bytes_per_pixel) {
 		logerr(wp->log, "Invalid dimensions %ux%ux%u @ %ubits",
 		                          width, height, source_channels,
 		                          source_bitsperchannel);
@@ -720,25 +716,26 @@ static int s_save_header(BMPWRITE_R wp)
  * after the image is saved. Thus, we have to fseek()
  * back into the header, which will fail on unseekable
  * files like pipes etc.
- * We ignore such errors quietly, as there's nothing we
+ * We ignore any errors quietly, as there's nothing we
  * can do and most (all?) readers ignore those sizes in
- * the header, anyway.
+ * the header, anyway. Same goes for file/bitmap sizes
+ * which are too big for the respective fields.
  *****************************************************************************/
 
 static int s_try_saving_image_size(BMPWRITE_R wp)
 {
-	uint32_t image_size, file_size;
+	uint64_t image_size, file_size;
 
 	image_size = wp->bytes_written - wp->bytes_written_before_bitdata;
 	file_size  = wp->bytes_written;
 
 	if (fseek(wp->file, 2, SEEK_SET))        /* file header -> bfSize */
 		return FALSE;
-	if (!write_u32_le(wp->file, file_size))
+	if (file_size <= UINT32_MAX && !write_u32_le(wp->file, file_size))
 		return FALSE;
 	if (fseek(wp->file, 14 + 20, SEEK_SET))  /* info header -> biSizeImage */
 		return FALSE;
-	if (!write_u32_le(wp->file, image_size))
+	if (image_size <= UINT32_MAX && !write_u32_le(wp->file, image_size))
 		return FALSE;
 	return TRUE;
 }
@@ -1074,8 +1071,8 @@ void bw_free(BMPWRITE wp)
 
 static void s_decide_outformat(BMPWRITE_R wp)
 {
-	int    bitsum, bytes_per_line;
-	size_t bitmapsize;
+	int      bitsum;
+	uint64_t bitmapsize, filesize, bytes_per_line;
 
 	if ((wp->source_channels == 4 || wp->source_channels == 2) &&
 	    ((wp->outbits_set && wp->cmask.bits.alpha) || !wp->outbits_set) ) {
@@ -1175,12 +1172,13 @@ static void s_decide_outformat(BMPWRITE_R wp)
 		}
 	}
 
-	bytes_per_line = (wp->ih->bitcount * wp->width + 7) / 8;
+	bytes_per_line = ((uint64_t) wp->width * wp->ih->bitcount + 7) / 8;
 	wp->padding = cm_align4padding(bytes_per_line);
 	bitmapsize = (bytes_per_line + wp->padding) * wp->height;
+	filesize = bitmapsize + BMPFHSIZE + wp->ih->size + wp->palette_size;
 
 	wp->fh->type = 0x4d42; /* "BM" */
-	wp->fh->size = wp->rle ? 0 : BMPFHSIZE + wp->ih->size + wp->palette_size + bitmapsize;
+	wp->fh->size = (wp->rle || filesize > UINT32_MAX) ? 0 : filesize;
 	wp->fh->offbits = BMPFHSIZE + wp->ih->size + wp->palette_size;
 
 	wp->ih->width = wp->width;
@@ -1189,7 +1187,7 @@ static void s_decide_outformat(BMPWRITE_R wp)
 	else
 		wp->ih->height = -wp->height;
 	wp->ih->planes = 1;
-	wp->ih->sizeimage = wp->rle ? 0 : bitmapsize;
+	wp->ih->sizeimage = (wp->rle || bitmapsize > UINT32_MAX) ? 0 : bitmapsize;
 }
 
 
