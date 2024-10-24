@@ -66,6 +66,9 @@ static void s_read_indexed_line(BMPREAD_R rp, unsigned char *restrict line);
 static void s_read_rle_line(BMPREAD_R rp, unsigned char *restrict line,
                                int *restrict x, int *restrict yoff);
 
+_Static_assert(sizeof(float) == 4, "sizeof(float) must be 4. Cannot build bmplib.");
+_Static_assert(sizeof(int) >= 4, "int must be at least 32bit. Cannot build bmplib.");
+
 
 /********************************************************
  * 	bmpread_load_image
@@ -80,7 +83,6 @@ API BMPRESULT bmpread_load_image(BMPHANDLE h, unsigned char **restrict buffer)
 	rp = (BMPREAD)(void*)h;
 
 	return s_load_image_or_line(rp, buffer, FALSE);
-
 }
 
 
