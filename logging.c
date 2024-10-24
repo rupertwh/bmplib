@@ -231,8 +231,7 @@ static int s_allocate(LOG log, size_t add_chars)
 		if (log->size == 0)
 			log->buffer[0] = 0;
 		log->size = newsize;
-	}
-	else
+	} else
 		return 0;
 
 	return 1;

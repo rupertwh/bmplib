@@ -158,8 +158,7 @@ static BMPRESULT s_load_image_or_line(BMPREAD_R rp, unsigned char **restrict buf
 			return BMP_RESULT_ERROR;
 		}
 		rp->we_allocated_buffer = TRUE;
-	}
-	else {
+	} else {
 		rp->we_allocated_buffer = FALSE;
 	}
 
@@ -186,8 +185,7 @@ static BMPRESULT s_load_image_or_line(BMPREAD_R rp, unsigned char **restrict buf
 		rp->line_by_line = TRUE;  /* don't set this earlier, or we won't */
 		                          /* be able to identify first line      */
 		s_read_one_line(rp, *buffer);
-	}
-	else {
+	} else {
 		s_read_whole_image(rp, *buffer);
 	}
 
@@ -196,8 +194,7 @@ static BMPRESULT s_load_image_or_line(BMPREAD_R rp, unsigned char **restrict buf
 		rp->truncated = TRUE;
 		rp->image_loaded = TRUE;
 		return BMP_RESULT_TRUNCATED;
-	}
-	else if (s_cont_error(rp))
+	} else if (s_cont_error(rp))
 		return BMP_RESULT_INVALID;
 
 	return BMP_RESULT_OK;
@@ -230,11 +227,9 @@ static void s_read_whole_image(BMPREAD_R rp, unsigned char *restrict image)
 			s_read_rle_line(rp, image + real_y * linesize, &x, &yoff);
 			if (x >= rp->width)
 				x = 0;
-		}
-		else if (rp->ih->bitcount <= 8) {
+		} else if (rp->ih->bitcount <= 8) {
 			s_read_indexed_line(rp, image + real_y * linesize);
-		}
-		else {
+		} else {
 			s_read_rgb_line(rp, image + real_y * linesize);
 		}
 		if (rp->rle_eof || s_stopping_error(rp))
@@ -263,12 +258,10 @@ static void s_read_one_line(BMPREAD_R rp, unsigned char *restrict line)
 
 		if (rp->lbl_file_y > rp->lbl_y) {
 			; /* nothing to do, RLE skipped line */
-		}
-		else {
+		} else {
 			if (rp->rle) {
 				s_read_rle_line(rp, line, &rp->lbl_x, &yoff);
-			}
-			else {
+			} else {
 				s_read_indexed_line(rp, line);
 			}
 
@@ -282,8 +275,7 @@ static void s_read_one_line(BMPREAD_R rp, unsigned char *restrict line)
 			if (rp->rle_eof)
 				rp->lbl_file_y = rp->height;
 		}
-	}
-	else {
+	} else {
 		s_read_rgb_line(rp, line);
 	}
 
@@ -367,8 +359,7 @@ static int s_read_rgb_line(BMPREAD_R rp, unsigned char *restrict line)
 						d = s_srgb_gamma_float(d);
 					((float*)line)[offs+i] = d;
 				}
-			}
-			else {
+			} else {
 				for (i = 0; i < rp->result_channels; i++) {
 					d = s_int_to_float(px.value[i], rp->cmask.bits.value[i]);
 					((float*)line)[offs + i] = d;
@@ -384,8 +375,7 @@ static int s_read_rgb_line(BMPREAD_R rp, unsigned char *restrict line)
 						s2_13 = s_srgb_gamma_s2_13(s2_13);
 					((uint16_t*)line)[offs+i] = s2_13;
 				}
-			}
-			else {
+			} else {
 				for (i = 0; i < rp->result_channels; i++) {
 					d = s_int_to_float(px.value[i], rp->cmask.bits.value[i]);
 					d = d * 8192.0 + 0.5;
@@ -452,8 +442,7 @@ static inline void s_convert64srgb(uint16_t *val64)
 			v = (double) s / (1<<13);
 			v = s_srgb_gamma_float(v);
 			s = (int32_t) (v * (double) 0xffff);
-		}
-		else {  /* don't apply gamma to alpha channel */
+		} else {  /* don't apply gamma to alpha channel */
 			s *= 0xffff;
 			s >>= 13;
 		}
@@ -553,8 +542,7 @@ static void s_read_indexed_line(BMPREAD_R rp, unsigned char *restrict line)
 			offs = (size_t) x * rp->result_bytes_per_pixel;
 			if (rp->result_indexed) {
 				line[offs] = v;
-			}
-			else {
+			} else {
 				line[offs]   = rp->palette->color[v].red;
 				line[offs+1] = rp->palette->color[v].green;
 				line[offs+2] = rp->palette->color[v].blue;
@@ -682,8 +670,7 @@ static void s_read_rle_line(BMPREAD_R rp, unsigned char *restrict line,
 				}
 				if (rp->result_indexed) {
 					line[offs] = v;
-				}
-				else {
+				} else {
 					line[offs]   = rp->palette->color[v].red;
 					line[offs+1] = rp->palette->color[v].green;
 					line[offs+2] = rp->palette->color[v].blue;

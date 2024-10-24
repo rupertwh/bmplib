@@ -157,8 +157,7 @@ API BMPRESULT bmpread_load_info(BMPHANDLE h)
 			logerr(rp->log, "embedded JPEG data");
 			rp->lasterr = BMP_ERR_JPEG;
 			return BMP_RESULT_JPEG;
-		}
-		else {
+		} else {
 			rp->png = TRUE;
 			rp->getinfo_return = BMP_RESULT_PNG;
 			logerr(rp->log, "embedded PNG data");
@@ -174,8 +173,7 @@ API BMPRESULT bmpread_load_info(BMPHANDLE h)
 	if (rp->ih->bitcount <= 8) { /* indexed */
 		if (!(rp->palette = s_read_palette(rp)))
 			goto abort;
-	}
-	else if (!rp->rle) {  /* RGB  */
+	} else if (!rp->rle) {  /* RGB  */
 		memset(&rp->cmask, 0, sizeof rp->cmask);
 		if (!s_read_colormasks(rp))
 			goto abort;
@@ -200,8 +198,7 @@ API BMPRESULT bmpread_load_info(BMPHANDLE h)
 		logerr(rp->log, "file is insanely large");
 		rp->lasterr = BMP_ERR_INSANE;
 		rp->getinfo_return = BMP_RESULT_INSANE;
-	}
-	else {
+	} else {
 		rp->getinfo_return = BMP_RESULT_OK;
 	}
 	rp->getinfo_called = TRUE;
@@ -240,8 +237,7 @@ API BMPRESULT bmpread_set_64bit_conv(BMPHANDLE h, enum Bmpconv64 conv)
         		                cm_conv64_name(conv), cm_format_name(rp->result_format));
         		rp->lasterr = BMP_ERR_CONV64;
         		return BMP_RESULT_ERROR;
-        	}
-        	else {
+        	} else {
         		rp->result_format = BMP_FORMAT_S2_13;
         		rp->result_format_explicit = TRUE;
         	}
@@ -761,8 +757,7 @@ static struct Palette* s_read_palette(BMPREAD_R rp)
 
 	if (0 == (colors_in_file = rp->ih->clrused)) {
 		colors_in_file = MIN(colors_full_palette, max_colors_in_file);
-	}
-	else if (colors_in_file > max_colors_in_file) {
+	} else if (colors_in_file > max_colors_in_file) {
 		logerr(rp->log, "given palette size too large for available data");
 		rp->lasterr = BMP_ERR_INVALID;
 		return NULL;
@@ -789,8 +784,7 @@ static struct Palette* s_read_palette(BMPREAD_R rp)
 		    	if (feof(rp->file)) {
 				logerr(rp->log, "file ended reading palette entries");
 				rp->lasterr = BMP_ERR_TRUNCATED;
-			}
-			else {
+			} else {
 				logsyserr(rp->log, "reading palette entries");
 				rp->lasterr = BMP_ERR_FILEIO;
 			}
@@ -851,8 +845,7 @@ static int s_read_colormasks(BMPREAD_R rp)
 	if (rp->cmask.mask.alpha) {
 		rp->has_alpha = TRUE;
 		rp->result_channels = 4;
-	}
-	else {
+	} else {
 		rp->has_alpha = FALSE;
 		rp->result_channels = 3;
 	}
@@ -950,8 +943,7 @@ int br_set_resultbits(BMPREAD_R rp)
 				rp->lasterr = BMP_ERR_INSANE;
 				rp->getinfo_return = BMP_RESULT_INSANE;
 			}
-		}
-		else if (rp->getinfo_return == BMP_RESULT_INSANE)
+		} else if (rp->getinfo_return == BMP_RESULT_INSANE)
 			rp->getinfo_return = BMP_RESULT_OK;
 	}
 	return TRUE;
@@ -982,8 +974,7 @@ static int s_read_masks_from_bitfields(BMPREAD_R rp)
 		      	if (feof(rp->file)) {
 		      		logerr(rp->log, "File ended reading color masks");
 		      		rp->lasterr = BMP_ERR_TRUNCATED;
-		      	}
-			else {
+		      	} else {
 				logsyserr(rp->log, "Reading BMP color masks");
 				rp->lasterr = BMP_ERR_FILEIO;
 			}
@@ -998,8 +989,7 @@ static int s_read_masks_from_bitfields(BMPREAD_R rp)
 			      	if (feof(rp->file)) {
 			      		logerr(rp->log, "File ended reading color masks");
 			      		rp->lasterr = BMP_ERR_TRUNCATED;
-			      	}
-				else {
+			      	} else {
 					logsyserr(rp->log, "Reading BMP color masks");
 					rp->lasterr = BMP_ERR_FILEIO;
 				}
@@ -1009,8 +999,7 @@ static int s_read_masks_from_bitfields(BMPREAD_R rp)
 			rp->cmask.mask.alpha = a;
 		}
 
-	}
-	else {
+	} else {
 		rp->cmask.mask.red   = rp->ih->redmask;
 		rp->cmask.mask.green = rp->ih->greenmask;
 		rp->cmask.mask.blue  = rp->ih->bluemask;
@@ -1140,8 +1129,7 @@ static int s_read_file_header(BMPREAD_R rp)
 		logerr(rp->log, "unexpected end-of-file while reading "
 				    "file header");
 		rp->lasterr = BMP_ERR_TRUNCATED;
-	}
-	else {
+	} else {
 		logsyserr(rp->log, "error reading file header");
 		rp->lasterr = BMP_ERR_FILEIO;
 	}
@@ -1312,8 +1300,7 @@ abort_file_err:
 	if (feof(rp->file)) {
 		logerr(rp->log, "Unexpected end of file while reading BMP info header");
 		rp->lasterr = BMP_ERR_TRUNCATED;
-	}
-	else {
+	} else {
 		logsyserr(rp->log, "While reading BMP info header");
 		rp->lasterr = BMP_ERR_FILEIO;
 	}
@@ -1337,16 +1324,14 @@ static void s_detect_os2_compression(BMPREAD_R rp)
 				rp->ih->version     = BMPINFO_OS22;
 				rp->ih->compression = BI_OS2_HUFFMAN;
 			}
-		}
-		else if (rp->ih->compression == BI_OS2_RLE24_DUP) {
+		} else if (rp->ih->compression == BI_OS2_RLE24_DUP) {
 			/* might be RLE24 or JPEG */
 			if (rp->ih->bitcount == 24) {
 				rp->ih->version     = BMPINFO_OS22;
 				rp->ih->compression = BI_OS2_RLE24;
 			}
 		}
-	}
-	else if (rp->ih->version <= BMPINFO_OS22) {
+	} else if (rp->ih->version <= BMPINFO_OS22) {
 		switch (rp->ih->compression) {
 		case BI_OS2_HUFFMAN_DUP:   /* = BI_BITFIELDS */
 			rp->ih->compression = BI_OS2_HUFFMAN;

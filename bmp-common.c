@@ -163,8 +163,7 @@ int cm_gobble_up(BMPREAD_R rp, int count)
 			if (feof(rp->file)) {
 				rp->lasterr = BMP_ERR_TRUNCATED;
 				logerr(rp->log, "unexpected end of file");
-			}
-			else {
+			} else {
 				rp->lasterr = BMP_ERR_FILEIO;
 				logsyserr(rp->log, "error reading from file");
 			}
