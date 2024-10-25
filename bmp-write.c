@@ -24,6 +24,7 @@
 #include <stdint.h>
 #include <limits.h>
 #include <stdarg.h>
+#include <math.h>
 
 #include "config.h"
 #include "bmplib.h"
@@ -1312,14 +1313,17 @@ static inline unsigned long long s_set_outpixel_rgb(BMPWRITE_R wp,
 
 static inline uint16_t float_to_s2_13(double d)
 {
-	uint16_t  s2_13;
+	uint16_t s2_13;
 
-	if (d >= 4.0)
-		s2_13 = 0x7fff; /* max positive value */
-	else if (d < -4.0)
-		s2_13 = 0x8000; /* min negative value */
-	else
-		s2_13 = (uint16_t) (0xffff & (int) (d * 8192.0 + (d >= 0.0 ? 0.5 : -0.5)));
+	d = round(d * 8192.0);
+
+        if (d >= 32768.0)
+                s2_13 = 0x7fff; /* max positive value */
+        else if (d < -32768.0)
+                s2_13 = 0x8000; /* min negative value */
+        else
+                s2_13 = (uint16_t) (0xffff & (int)d);
+
 
 	return s2_13;
 }
