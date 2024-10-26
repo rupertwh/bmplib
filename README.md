@@ -6,6 +6,8 @@
 - Write any sensible BMP
 - Robustness! Don't let malformed BMPs bother us
 
+Download [bmplib on github](https://github.com/rupertwh/bmplib).
+
 ## Current status (v1.4.7):
 ### Reading BMP files:
   - 16/24/32 bit RGB(A) with any bits/channel combination
