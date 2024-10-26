@@ -304,7 +304,7 @@ static int s_read_rgb_line(BMPREAD_R rp, unsigned char *restrict line)
 	int           i, x, padding;
 	union Pixel   px;
 	size_t        offs;
-	int           bits = rp->result_bits_per_channel;
+	int           bits = rp->result_bitsperchannel;
 	uint32_t      pxval;
 	double        d;
 	uint16_t      s2_13;
@@ -499,7 +499,7 @@ static inline int s_read_rgb_pixel(BMPREAD_R rp, union Pixel *restrict px)
 	if (rp->has_alpha)
 		px->alpha = (v & rp->cmask.mask.alpha) >> rp->cmask.shift.alpha;
 	else
-		px->alpha = (1<<rp->result_bits_per_channel) - 1;
+		px->alpha = (1<<rp->result_bitsperchannel) - 1;
 
 	return TRUE;
 }
@@ -794,8 +794,8 @@ static inline void s_int_to_result_format(BMPREAD_R rp, int frombits, unsigned c
 	if (rp->result_format == BMP_FORMAT_INT)
 		return;
 #ifdef DEBUG
-	if (frombits > rp->result_bits_per_channel) {
-		printf("This is bad, frombits must be <= bits_per_channel");
+	if (frombits > rp->result_bitsperchannel) {
+		printf("This is bad, frombits must be <= result_bitsperchannel");
 		exit(1);
 	}
 #endif

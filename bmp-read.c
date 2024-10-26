@@ -296,15 +296,33 @@ API BMPRESULT bmpread_dimensions(BMPHANDLE h, int* restrict width,
 		return rp->getinfo_return;
 	}
 
-	if (width)          *width          = rp->width;
-	if (height)         *height         = (int) rp->height;
-	if (channels)       *channels       = rp->result_channels;
-	if (bitsperchannel) *bitsperchannel = rp->result_bits_per_channel;
-	if (orientation)    *orientation    = rp->orientation;
+	if (width) {
+		*width = rp->width;
+		rp->dim_queried_width = TRUE;
+	}
+	if (height) {
+		*height = (int) rp->height;
+		rp->dim_queried_height = TRUE;
+	}
+	if (channels) {
+		*channels = rp->result_channels;
+		rp->dim_queried_channels = TRUE;
+	}
+	if (bitsperchannel) {
+		*bitsperchannel = rp->result_bitsperchannel;
+		rp->dim_queried_bitsperchannel = TRUE;
+	}
+	if (orientation) {
+		*orientation = rp->orientation;
+	}
 
-	rp->dimensions_queried = TRUE;
+	if (rp->dim_queried_width    && rp->dim_queried_height &&
+	    rp->dim_queried_channels && rp->dim_queried_bitsperchannel)
+		rp->dimensions_queried = TRUE;
+
 	return rp->getinfo_return;
 }
+
 
 
 /*****************************************************************************
@@ -382,6 +400,9 @@ API int bmpread_height(BMPHANDLE h)
 API int bmpread_channels(BMPHANDLE h)
 { return s_single_dim_val(h, DIM_CHANNELS); }
 
+API int bmpread_bitsperchannel(BMPHANDLE h)
+{ return s_single_dim_val(h, DIM_BITS_PER_CHANNEL); }
+
 API int bmpread_bits_per_channel(BMPHANDLE h)
 { return s_single_dim_val(h, DIM_BITS_PER_CHANNEL); }
 
@@ -429,8 +450,8 @@ static int s_single_dim_val(BMPHANDLE h, enum Dimint dim)
 		ret = rp->result_channels;
 		break;
 	case DIM_BITS_PER_CHANNEL:
-		rp->dim_queried_bits_per_channel = TRUE;
-		ret = rp->result_bits_per_channel;
+		rp->dim_queried_bitsperchannel = TRUE;
+		ret = rp->result_bitsperchannel;
 		break;
 	case DIM_ORIENTATION:
 		ret = (int) rp->orientation;
@@ -446,7 +467,7 @@ static int s_single_dim_val(BMPHANDLE h, enum Dimint dim)
 	}
 	if (rp->dim_queried_width && rp->dim_queried_height &&
 	    rp->dim_queried_channels &&
-	    rp->dim_queried_bits_per_channel)
+	    rp->dim_queried_bitsperchannel)
 		rp->dimensions_queried = TRUE;
 	return ret;
 }
@@ -927,12 +948,12 @@ int br_set_resultbits(BMPREAD_R rp)
 
 	}
 
-	if (newbits != rp->result_bits_per_channel) {
-		rp->dim_queried_bits_per_channel = FALSE;
+	if (newbits != rp->result_bitsperchannel) {
+		rp->dim_queried_bitsperchannel = FALSE;
 		rp->dimensions_queried = FALSE;
 	}
-	rp->result_bits_per_channel = newbits;
-	rp->result_bits_per_pixel = rp->result_bits_per_channel * rp->result_channels;
+	rp->result_bitsperchannel = newbits;
+	rp->result_bits_per_pixel = rp->result_bitsperchannel * rp->result_channels;
 	rp->result_bytes_per_pixel = rp->result_bits_per_pixel / 8;
 
 	rp->result_size = (size_t) rp->width * rp->height * rp->result_bytes_per_pixel;
@@ -1023,20 +1044,20 @@ static int s_read_masks_from_bitfields(BMPREAD_R rp)
 
 static int s_create_implicit_colormasks(BMPREAD_R rp)
 {
-	int i, bits_per_channel;
+	int i, bitsperchannel;
 
 	switch (rp->ih->bitcount) {
 	case 16:
-		bits_per_channel = 5;
+		bitsperchannel = 5;
 		break;
 
 	case 24:
 	case 32:
-		bits_per_channel = 8;
+		bitsperchannel = 8;
 		break;
 
 	case 64:
-		bits_per_channel = 16;
+		bitsperchannel = 16;
 		break;
 	default:
 		logerr(rp->log, "Invalid bitcount for BMP (%d)", (int) rp->ih->bitcount);
@@ -1046,16 +1067,16 @@ static int s_create_implicit_colormasks(BMPREAD_R rp)
 
 
 	for (i = 0; i < 3; i++) {
-		rp->cmask.shift.value[i] = (2-i) * bits_per_channel;
+		rp->cmask.shift.value[i] = (2-i) * bitsperchannel;
 		rp->cmask.mask.value[i]  =
-			   ((1ULL<<bits_per_channel)-1) << rp->cmask.shift.value[i];
+			   ((1ULL<<bitsperchannel)-1) << rp->cmask.shift.value[i];
 		rp->cmask.bits.value[i]  = s_calc_bits_for_mask(rp->cmask.mask.value[i]);
 	}
 
 	if (rp->ih->bitcount == 64) {
-		rp->cmask.shift.alpha = 3 * bits_per_channel;
+		rp->cmask.shift.alpha = 3 * bitsperchannel;
 		rp->cmask.mask.alpha  =
-			   ((1ULL<<bits_per_channel)-1) << rp->cmask.shift.alpha;
+			   ((1ULL<<bitsperchannel)-1) << rp->cmask.shift.alpha;
 		rp->cmask.bits.alpha  = s_calc_bits_for_mask(rp->cmask.mask.alpha);
 
 	}

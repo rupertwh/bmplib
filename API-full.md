@@ -72,7 +72,7 @@ they will all return 0!
 int       bmpread_width(BMPHANDLE h)
 int       bmpread_height(BMPHANDLE h)
 int       bmpread_channels(BMPHANDLE h)
-int       bmpread_bits_per_channel(BMPHANDLE h)
+int       bmpread_bitsperchannel(BMPHANDLE h)
 BMPORIENT bmpread_orientation(BMPHANDLE h)
 
 int       bmpread_resolution_xdpi(BMPHANDLE h)
@@ -286,12 +286,12 @@ are done with it.
 To determine the required buffer size, either divide the value from
 `bmpread_buffersize()` by the number of scanlines (= `bmpread_height()`), or
 calculate from the image dimensions returned by bmplib as width * channels *
-bits_per_channel / 8.
+bitsperchannel / 8.
 
 ```
 single_line_buffersize = bmpread_buffersize(h) / bmpread_height(h);
 /* or */
-single_line_buffersize = bmpread_width(h) * bmpread_channels(h) * bmpread_bits_per_channel(h) / 8;
+single_line_buffersize = bmpread_width(h) * bmpread_channels(h) * bmpread_bitsperchannel(h) / 8;
 ```
 
 Repeated calls to `bmpread_load_line()` will return each scan line, one after
@@ -362,7 +362,7 @@ BMPRESULT bmpwrite_set_dimensions(BMPHANDLE h,
                                   unsigned  width,
                                   unsigned  height,
                                   unsigned  channels,
-                                  unsigned  bits_per_channel)
+                                  unsigned  bitsperchannel)
 
 BMPRESULT bmpwrite_set_resolution(BMPHANDLE h, int xdpi, int ydpi)
 
@@ -668,7 +668,7 @@ Used in `bmp_set_number_format()`. Possible values are:
     width          = bmpread_width(h);
     height         = bmpread_height(h);
     channels       = bmpread_channels(h);
-    bitsperchannel = bmpread_bits_per_channel(h);
+    bitsperchannel = bmpread_bitsperchannel(h);
 
 
     /* get required size for memory buffer and allocate memory */

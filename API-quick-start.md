@@ -127,7 +127,7 @@ BMPRESULT bmpwrite_set_dimensions(BMPHANDLE h,
                                   unsigned  width,
                                   unsigned  height,
                                   unsigned  channels,
-                                  unsigned  bits_per_channel)
+                                  unsigned  bitsperchannel)
 ```
 
 Note: the dimensions set with `bmpwrite_set_dimensions()` describe the source

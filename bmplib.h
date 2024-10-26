@@ -208,7 +208,7 @@ BMPRESULT bmpread_dimensions(BMPHANDLE  h,
 int       bmpread_width(BMPHANDLE h);
 int       bmpread_height(BMPHANDLE h);
 int       bmpread_channels(BMPHANDLE h);
-int       bmpread_bits_per_channel(BMPHANDLE h);
+int       bmpread_bitsperchannel(BMPHANDLE h);
 BMPORIENT bmpread_orientation(BMPHANDLE h);
 
 int       bmpread_resolution_xdpi(BMPHANDLE h);
@@ -247,7 +247,7 @@ BMPRESULT bmpwrite_set_dimensions(BMPHANDLE h,
                                   unsigned  width,
                                   unsigned  height,
                                   unsigned  channels,
-                                  unsigned  bits_per_channel);
+                                  unsigned  bitsperchannel);
 BMPRESULT bmpwrite_set_resolution(BMPHANDLE h, int xdpi, int ydpi);
 BMPRESULT bmpwrite_set_output_bits(BMPHANDLE h, int red, int green, int blue, int alpha);
 BMPRESULT bmpwrite_set_palette(BMPHANDLE h, int numcolors, const unsigned char *palette);
@@ -269,6 +269,9 @@ const char* bmp_errmsg(BMPHANDLE h);
 const char* bmp_version(void);
 
 
+/* these errorcodes aren't part of the API yet, but will be.
+ * currently only used internally by bmplib.
+ */
 
 #define BMP_ERRTYPE_HARD    0x0000000f
 #define BMP_ERR_FILEIO      0x00000001
@@ -300,8 +303,9 @@ const char* bmp_version(void);
  * removed from future versions:
  */
 
-int  DEPR("use bmpread_orientation() instead") bmpread_topdown(BMPHANDLE h);
-void DEPR("use bmpread_set_undefined() instead") bmpread_set_undefined_to_alpha(BMPHANDLE h, int mode);
+int  DEPR("use bmpread_orientation() instead")    bmpread_topdown(BMPHANDLE h);
+void DEPR("use bmpread_set_undefined() instead")  bmpread_set_undefined_to_alpha(BMPHANDLE h, int mode);
+int  DEPR("use bmpread_bitsperchannel() instead") bmpread_bits_per_channel(BMPHANDLE h);
 
 #ifdef __cplusplus
 }

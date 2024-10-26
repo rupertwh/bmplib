@@ -121,7 +121,7 @@ struct Bmpread {
 	int               result_indexed;
 	int               result_bits_per_pixel;
 	int               result_bytes_per_pixel;
-	int               result_bits_per_channel;
+	int               result_bitsperchannel;
 	enum BmpFormat    result_format;
 	int               result_format_explicit;
 	size_t            result_size;
@@ -135,7 +135,7 @@ struct Bmpread {
 	int               dim_queried_width;
 	int               dim_queried_height;
 	int               dim_queried_channels;
-	int               dim_queried_bits_per_channel;
+	int               dim_queried_bitsperchannel;
 	int               image_loaded;
 	int               rle;
 	int               rle_eol;
