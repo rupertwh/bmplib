@@ -42,8 +42,8 @@ BMPRESULT bmpread_dimensions(BMPHANDLE  h,
 ```
 
 Use `bmpread_dimensions()` to get all dimensions with one call. The return
-value will be the same as for `bmpread_load_info()` (see *Full API
-Description*).
+value will be the same as for `bmpread_load_info()` (see "3. Result codes"
+below and *Full API Description*).
 
 The dimensions describe the image returned by bmplib, *not* necessarily the
 original BMP file.
@@ -65,7 +65,7 @@ In the latter case, you will have to `free()` the buffer, once you are done
 with it.
 
 If you allocate the buffer yourself, the buffer must be at least as large as
-the size returned by `bmpread_buffersize()` (see Full API description).
+the size returned by `bmpread_buffersize()` (see *Full API description*).
 
 ```
 unsigned char *buffer;
@@ -133,8 +133,8 @@ BMPRESULT bmpwrite_set_dimensions(BMPHANDLE h,
 Note: the dimensions set with `bmpwrite_set_dimensions()` describe the source
 data that you pass to bmplib, *not* the output BMP format. Use
 `bmpwrite_set_output_bits()`, `bmpwrite_set_palette()`, and
-`bmpwrite_set_64bit()` to modify the format written to the BMP file.(see Full
-API description)
+`bmpwrite_set_64bit()` to modify the format written to the BMP file. (see *Full
+API description*)
 
 
 
