@@ -1,0 +1,48 @@
+# For more information, see:
+#
+#   https://clang.llvm.org/docs/ClangFormat.html
+#   https://clang.llvm.org/docs/ClangFormatStyleOptions.html
+#
+---
+
+BasedOnStyle: WebKit
+
+AlignAfterOpenBracket: Align
+AlignArrayOfStructures: Right
+AlignConsecutiveAssignments:
+  Enabled: true
+  AcrossEmptyLines: false
+  AcrossComments: true
+  AlignCompound: true
+  AlignFunctionPointers: false
+  PadOperators: true
+AlignConsecutiveDeclarations: Consecutive
+AlignConsecutiveMacros: Consecutive
+AlignEscapedNewlines: Left
+
+AllowAllParametersOfDeclarationOnNextLine: true
+BreakAfterReturnType: Automatic
+BinPackArguments: true
+BinPackParameters: true
+BreakBeforeBraces: Linux
+IndentWidth: 8
+PointerAlignment: Right
+UseTab: ForIndentation
+
+SpaceBeforeParens: ControlStatementsExceptControlMacros
+SpaceAfterLogicalNot: false
+SpaceAfterCStyleCast: false
+
+
+
+
+
+ColumnLimit: 80
+PenaltyBreakAssignment: 60
+PenaltyBreakBeforeFirstCallParameter: 100
+PenaltyBreakOpenParenthesis: 40
+PenaltyExcessCharacter: 1
+# Strings are more often longer by usage, so let's give these slightly
+# more space to breath.
+PenaltyBreakString: 60
+PenaltyReturnTypeOnItsOwnLine: 90
