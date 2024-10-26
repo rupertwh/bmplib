@@ -193,10 +193,10 @@ Can safely be cast from/to int. BMP_RESULT_OK is guaranteed to have the value 0.
 ```
     /* (all error checking left out for clarity) */
 
-    BMPHANDLE h;
-    FILE     *file;
-    int       width, height, channels, bitsperchannel, orientation;
-    uint8_t  *image_buffer;
+    BMPHANDLE      h;
+    FILE          *file;
+    int            width, height, channels, bitsperchannel, orientation;
+    unsigned char *image_buffer;
 
 
     /* open a file and call bmpread_new() to get a BMPHANDLE,
@@ -204,7 +204,7 @@ Can safely be cast from/to int. BMP_RESULT_OK is guaranteed to have the value 0.
      */
 
     file = fopen("someimage.bmp", "rb");
-    h = bmpread_new(file);
+    h    = bmpread_new(file);
 
 
     /* get image dimensions
@@ -212,25 +212,17 @@ Can safely be cast from/to int. BMP_RESULT_OK is guaranteed to have the value 0.
      * that bmplib will return, NOT necessarily the BMP file.
      */
 
-    bmpread_load_info(h);
-
-    width          = bmpread_width(h);
-    height         = bmpread_height(h);
-    channels       = bmpread_channels(h);
-    bitsperchannel = bmpread_bits_per_channel(h);
-
-
-    /* get required size for memory buffer and allocate memory */
-
-    image_buffer = malloc(bmpread_buffersize(h));
+    bmpread_dimensions(h, &width, &height, &channels, &bitsperchannel, &orientation);
 
 
     /* load the image and clean up: */
 
+    image_buffer = NULL;
     bmpread_load_image(h, &image_buffer);
 
     bmp_free(h);
     fclose(file);
+
 
     /* ready to use the image written to image_buffer */
 
@@ -246,10 +238,10 @@ Can safely be cast from/to int. BMP_RESULT_OK is guaranteed to have the value 0.
 ```
     /* (all error checking left out for clarity) */
 
-    BMPHANDLE h;
-    FILE     *file;
-    uint8_t  *image_buffer;
-    int       width, height, channels, bitsperchannel;
+    BMPHANDLE      h;
+    FILE          *file;
+    unsigned char *image_buffer;
+    int            width, height, channels, bitsperchannel;
 
     /* 'image_buffer' contains the image to be saved as either
      * 8, 16, or 32 bits per channel RGB or RGBA data in

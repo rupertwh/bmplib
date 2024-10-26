@@ -227,15 +227,15 @@ BMPRESULT bmpread_load_palette(BMPHANDLE h, unsigned char **palette);
 void      bmpread_set_undefined(BMPHANDLE h, BMPUNDEFINED mode);
 void      bmpread_set_insanity_limit(BMPHANDLE h, size_t limit);
 
-int bmpread_is_64bit(BMPHANDLE h);
+int       bmpread_is_64bit(BMPHANDLE h);
 BMPRESULT bmpread_set_64bit_conv(BMPHANDLE h, BMPCONV64 conv);
 
 BMPINFOVER  bmpread_info_header_version(BMPHANDLE h);
+const char* bmpread_info_header_name(BMPHANDLE h);
 int         bmpread_info_header_size(BMPHANDLE h);
 int         bmpread_info_compression(BMPHANDLE h);
-int         bmpread_info_bitcount(BMPHANDLE h);
-const char* bmpread_info_header_name(BMPHANDLE h);
 const char* bmpread_info_compression_name(BMPHANDLE h);
+int         bmpread_info_bitcount(BMPHANDLE h);
 BMPRESULT   bmpread_info_channel_bits(BMPHANDLE h, int *r, int *g, int *b, int *a);
 
 
