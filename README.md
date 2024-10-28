@@ -8,13 +8,14 @@
 
 Download [bmplib on github](https://github.com/rupertwh/bmplib).
 
-## Current status (v1.5.0):
+## Current status (v1.6.0):
 ### Reading BMP files:
   - 16/24/32 bit RGB(A) with any bits/channel combination
     (BI_RGB, BI_BITFIELDS, BI_ALPHABITFIELDS).
   - 64 bit RGBA (caveat see below)
   - 1/2/4/8 bit indexed (palette), including RLE4 and RLE8 compressed.
   - RLE24 compressed (OS/2).
+  - Huffman encoded (OS/2).
   - optional line-by-line reading of BMPs.
   - optionally return image data as float or s2.13 fixed point.
 
@@ -29,7 +30,6 @@ Download [bmplib on github](https://github.com/rupertwh/bmplib).
     BMP_RESULT_PNG and leave the file pointer in the correct state to be
     passed on to either libpng or libjpeg. Works as designed. Don't want to
     create dependency on those libs.
-  - Huffman-encoded OS/2 BMPs: see TODO.
   - We currently ignore icc-profiles and chromaticity/gamma values. See TODO.
 
 
@@ -134,7 +134,7 @@ Use `bmpwrite_set_64bit()` in order to write 64bit BMPs.
    - [x] write indexed images.
    - [x] write RLE-compressed images ~~(RLE4/RLE8 only. No OS/2 v2 BMPs)~~.
    - [x] read RLE24-encoded BMPs.
-   - [ ] read Huffman-encoded BMPs. (Still haven't found any real-life examples)
+   - [x] read Huffman-encoded BMPs. (Still haven't found any real-life examples)
    - [x] line-by-line reading/writing. ~~Right now, the image can only be
      passed as a whole to/from bmplib.~~
    - [ ] read/write icc-profile and chromaticity/gamma values
