@@ -8,7 +8,7 @@
 
 Download [bmplib on github](https://github.com/rupertwh/bmplib).
 
-## Current status (v1.6.0):
+## Current status (v1.6.1):
 ### Reading BMP files:
   - 16/24/32 bit RGB(A) with any bits/channel combination
     (BI_RGB, BI_BITFIELDS, BI_ALPHABITFIELDS).

@@ -64,10 +64,22 @@ static int initialized = FALSE;
 #endif
 
 
-int huff_decode(int *result, uint32_t bits, int nbits, int black)
+
+/*****************************************************************************
+ * huff_decode()
+ *
+ * Decodes the <nbits> long bit sequence given in <bits>.
+ * Direction is from lowest to highest bit. The result is _added_ to *result.
+ * For repeated 2560 codes, <callagain> is set until we find a terminating
+ * code.
+ * Returns the number of bits that were used.
+ * EOL is _not_ handled, must be done by caller.
+ ****************************************************************************/
+
+int huff_decode(int *result, uint32_t bits, int nbits, int black, int *callagain)
 {
 	struct Node *node;
-	int    bits_used = 0, sub, subresult;
+	int    bits_used = 0, sub, subresult = 0;
 
 #ifndef __STDC_NO_THREADS__
 	call_once(&build_once, s_buildtree);
@@ -77,6 +89,9 @@ int huff_decode(int *result, uint32_t bits, int nbits, int black)
 		initialized = TRUE;
 	}
 #endif
+
+	if (callagain)
+		*callagain = FALSE;
 
 	node = black ? black_tree : white_tree;
 
@@ -95,21 +110,31 @@ int huff_decode(int *result, uint32_t bits, int nbits, int black)
 	}
 
 	if (node->makeup) {
-		sub = huff_decode(&subresult, bits, nbits - bits_used, black);
+		sub = huff_decode(&subresult, bits, nbits - bits_used, black, NULL);
 		if (!sub) {
 			return 0;
 		}
 		else {
-			*result = node->value + subresult;
+			*result += node->value + subresult;
+			if (subresult == 2560 && callagain) {
+				/* very long sequences can have repeated 2560 makeup
+				 * codes. In that case, we request to be called again
+				 */
+				*callagain = TRUE;
+			}
 			return bits_used + sub;
 		}
 	} else {
-		*result = node->value;
+		*result += node->value;
 		return bits_used;
 	}
 }
 
 
+
+/*****************************************************************************
+ * s_buildtree()
+ ****************************************************************************/
 
 static void s_buildtree(void)
 {
@@ -138,6 +163,10 @@ static void s_buildtree(void)
 
 
 
+/*****************************************************************************
+ * add_node()
+ ****************************************************************************/
+
 static void add_node(struct Node **node, const char *bits, int value, int makeup)
 {
 	if (!*node) {
@@ -164,6 +193,10 @@ static void add_node(struct Node **node, const char *bits, int value, int makeup
 
 
 #ifdef NEVER
+
+/* keeping these around for a while in case I want to revisit
+ * construction of the trees.
+ */
 static void print_table(struct Huffcode *table, int size)
 {
 	int i;

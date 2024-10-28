@@ -18,4 +18,4 @@
  * If not, see <https://www.gnu.org/licenses/>
  */
 
-int huff_decode(int *result, uint32_t bits, int nbits, int black);
+int huff_decode(int *result, uint32_t bits, int nbits, int black, int *callagain);

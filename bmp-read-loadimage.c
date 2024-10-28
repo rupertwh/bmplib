@@ -795,10 +795,10 @@ static void s_read_rle_line(BMPREAD_R rp, unsigned char *restrict line,
 
 static void s_read_huffman_line(BMPREAD_R rp, unsigned char *restrict line)
 {
-	int      count;
+	int      count = 0;
 	size_t   x = 0, offs;
 	int      byte, eol = FALSE, ndecoded;
-	int      black = 0;
+	int      black = 0, callagain;
 
 	while(1)  {
 		while (rp->hufbuf_len <= 24) {
@@ -829,7 +829,7 @@ static void s_read_huffman_line(BMPREAD_R rp, unsigned char *restrict line)
 			break;
 		}
 
-		ndecoded = huff_decode(&count, rp->hufbuf, rp->hufbuf_len, black);
+		ndecoded = huff_decode(&count, rp->hufbuf, rp->hufbuf_len, black, &callagain);
 		if (ndecoded == 0) {
 			/* code was invalid, throw away one bit and try again */
 			rp->hufbuf >>= 1;
@@ -838,6 +838,9 @@ static void s_read_huffman_line(BMPREAD_R rp, unsigned char *restrict line)
 		}
 		rp->hufbuf >>= ndecoded;
 		rp->hufbuf_len -= ndecoded;
+
+		if (callagain)
+			continue;
 
 		count = MIN(count, rp->width - x);
 
@@ -854,6 +857,7 @@ static void s_read_huffman_line(BMPREAD_R rp, unsigned char *restrict line)
 			x++;
 		}
 		black = !black;
+		count = 0;
 	}
 }
 

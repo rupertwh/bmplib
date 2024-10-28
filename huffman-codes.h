@@ -1,6 +1,6 @@
 /* bmplib - huffman-codes.h
  *
- * Copyright (c) 2024, Rupert Weber, Luong Chi Mai.
+ * Copyright (c) 2024, Rupert Weber.
  *
  * This file is part of bmplib.
  * bmplib is free software: you can redistribute it and/or modify
@@ -18,42 +18,6 @@
  * If not, see <https://www.gnu.org/licenses/>
  */
 
-
-/*
- * Modified Huffman terminating and makeup codes
- *
- * Source:
- *
- *        INTRODUCTION TO COMPUTER VISION
- *              AND IMAGE PROCESSING
- *        by Luong Chi Mai
- *        Department of Pattern Recognition and Knowledge Engineering
- *        Institute of Information Technology, Hanoi, Vietnam
- *        E-mail: lcmai@ioit.ncst.ac.vn
- *
- * http://www.netnam.vn:80/unescocourse/computervision/104.htm
- * (via Wayback machine, original site seems defunct)
- *
- * Excerpt:
- *
- *    [...] Each line is coded as a series of alternating runs of white and black
- *    bits. Runs of 63 or less are coded with a terminating code. Runs of 64
- *    or greater require that a makeup code prefix the terminating code. The
- *    makeup codes are used to describe runs in multiples of 64 from 64 to
- *    2560.
- *
- *    [...] The protocol also assumes that the line begins with a run of white
- *    bits. If it doesn't, a run of white bits of 0 length must begin the
- *    encoded line. The encoding then alternates between black bits and white
- *    bits to the end of the line. Each scan line ends with a special EOL
- *    (end of line) character consisting of eleven zeros and a 1
- *    (000000000001).
- *
- *    [...] a decoder seeing eight [zeroes] will recognize the end of line and
- *    continue scanning for a 1. Upon receiving the 1, it will then start a
- *    new line.
- *
- */
 
 struct Huffcode {
 	int         number;
@@ -97,7 +61,7 @@ static struct Huffcode huff_term_white[] = { {  0, "00110101" },
                                              { 34, "00010011" },
                                              { 35, "00010100" },
                                              { 36, "00010101" },
-                                             { 37, "00010110" }, /* 00010110 ? orig: 00001110 */
+                                             { 37, "00010110" },
                                              { 38, "00010111" },
                                              { 39, "00101000" },
                                              { 40, "00101001" },
@@ -122,7 +86,7 @@ static struct Huffcode huff_term_white[] = { {  0, "00110101" },
                                              { 59, "01001010" },
                                              { 60, "01001011" },
                                              { 61, "00110010" },
-                                             { 62, "00110011" }, /* 001110011 */
+                                             { 62, "00110011" },
                                              { 63, "00110100" },
 };
 
@@ -205,7 +169,7 @@ static struct Huffcode huff_makeup_white[] = { {   64, "11011" },
                                                {  704, "011001100" },
                                                {  768, "011001101" },
                                                {  832, "011010010" },
-                                               {  896, "011010011" },  /* original 101010011 */
+                                               {  896, "011010011" },
                                                {  960, "011010100" },
                                                { 1024, "011010101" },
                                                { 1088, "011010110" },
@@ -235,8 +199,8 @@ static struct Huffcode huff_makeup_white[] = { {   64, "11011" },
                                             /* {  EOL, "000000000001" }, */
 };
 
-static struct Huffcode huff_makeup_black[] = { {   64, "0000001111" }, /* 000000111*/
-                                               {  128, "000011001000" }, /* 00011001000 */
+static struct Huffcode huff_makeup_black[] = { {   64, "0000001111" },
+                                               {  128, "000011001000" },
                                                {  192, "000011001001" },
                                                {  256, "000001011011" },
                                                {  320, "000000110011" },

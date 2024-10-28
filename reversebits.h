@@ -20,7 +20,7 @@
 
 
 
-static int reversebits[] = {
+static const int reversebits[] = {
 	0x00, 0x80, 0x40, 0xc0, 0x20, 0xa0, 0x60, 0xe0,
 	0x10, 0x90, 0x50, 0xd0, 0x30, 0xb0, 0x70, 0xf0,
 	0x08, 0x88, 0x48, 0xc8, 0x28, 0xa8, 0x68, 0xe8,
@@ -54,3 +54,41 @@ static int reversebits[] = {
 	0x0f, 0x8f, 0x4f, 0xcf, 0x2f, 0xaf, 0x6f, 0xef,
 	0x1f, 0x9f, 0x5f, 0xdf, 0x3f, 0xbf, 0x7f, 0xff,
 };
+
+
+/* table generated with: */
+
+/*
+ * #include <stdio.h>
+ *
+ * static int reverse(int val, int bits)
+ * {
+ *         int mask;
+ *
+ *         bits /= 2;
+ *         if (bits == 0)
+ *                 return val;
+ *
+ *         mask = (1 << bits) - 1;
+ *
+ *         return (reverse(val & mask, bits) << bits)
+ *                | reverse(val >> bits, bits);
+ * }
+ *
+ * int main(void)
+ * {
+ *         int reversed;
+ *
+ *         printf("static const int reversebits[] = {\n\t");
+ *         for (int i = 0; i < 256; i++) {
+ *                 reversed = reverse(i, 8);
+ *                 printf("0x%02x, ", reversed);
+ *                 if ((i+1) % 8 == 0 && i < 255)
+ *                         printf("\n\t");
+ *         }
+ *         printf("\n};\n");
+ *
+ *         return 0;
+ * }
+ *
+ */
