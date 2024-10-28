@@ -27,6 +27,7 @@ bmplib_sources = ['bmp-read.c',
                   'bmp-read-loadimage.c',
                   'bmp-read-loadindexed.c',
                   'bmp-common.c',
+                  'huffman.c',
                   'logging.c']
 
 

@@ -29,6 +29,7 @@
 #include "logging.h"
 #include "bmp-common.h"
 #include "bmp-read.h"
+#include "huffman.h"
 #include "bmp-write.h"
 
 

@@ -143,6 +143,8 @@ struct Bmpread {
 	int               lbl_x;  /* remember where we are in the image  */
 	int               lbl_y;  /* for line by line reading            */
 	int               lbl_file_y;  /* RLE files may be ahead of the image y */
+	uint32_t          hufbuf;
+	int               hufbuf_len;
 	int               truncated;
 	int               invalid_index;
 	int               invalid_delta;

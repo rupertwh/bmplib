@@ -171,7 +171,9 @@ API BMPRESULT bmpread_load_info(BMPHANDLE h)
 
 	rp->result_channels = 3;
 	if (rp->ih->bitcount <= 8) { /* indexed */
-		if (!(rp->palette = s_read_palette(rp)))
+		rp->palette = s_read_palette(rp);
+		// if (!rp->palette && rp->ih->compression != BI_OS2_HUFFMAN)
+		if (!rp->palette)
 			goto abort;
 	} else if (!rp->rle) {  /* RGB  */
 		memset(&rp->cmask, 0, sizeof rp->cmask);
@@ -597,12 +599,6 @@ static int s_is_bmptype_supported(BMPREAD_R rp)
 		return FALSE;
 	}
 
-	if (rp->ih->compression == BI_OS2_HUFFMAN) {
-		logerr(rp->log, "Huffman compression not supported");
-		rp->lasterr = BMP_ERR_UNSUPPORTED;
-		return FALSE;
-	}
-
 	if (rp->ih->bitcount <= 8)
 		return s_is_bmptype_supported_indexed(rp);
 	else
@@ -688,8 +684,10 @@ static int s_is_bmptype_supported_indexed(BMPREAD_R rp)
 	case BI_RGB:
 	case BI_RLE4:
 	case BI_RLE8:
+	case BI_OS2_HUFFMAN:
 		if ( (rp->ih->compression == BI_RLE4 && rp->ih->bitcount != 4) ||
-		     (rp->ih->compression == BI_RLE8 && rp->ih->bitcount != 8) ) {
+		     (rp->ih->compression == BI_RLE8 && rp->ih->bitcount != 8) ||
+		     (rp->ih->compression == BI_OS2_HUFFMAN && rp->ih->bitcount != 1)) {
 			logerr(rp->log, "Unsupported compression %s for %d-bit data",
 			                  s_compression_name(rp->ih->compression),
 			                  (int) rp->ih->bitcount);

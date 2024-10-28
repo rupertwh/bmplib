@@ -28,7 +28,9 @@
 #include "bmplib.h"
 #include "logging.h"
 #include "bmp-common.h"
+#include "huffman.h"
 #include "bmp-read.h"
+#include "reversebits.h"
 
 
 /*
@@ -65,6 +67,7 @@ static int s_read_rgb_line(BMPREAD_R rp, unsigned char *restrict line);
 static void s_read_indexed_line(BMPREAD_R rp, unsigned char *restrict line);
 static void s_read_rle_line(BMPREAD_R rp, unsigned char *restrict line,
                                int *restrict x, int *restrict yoff);
+static void s_read_huffman_line(BMPREAD_R rp, unsigned char *restrict line);
 
 _Static_assert(sizeof(float) == 4, "sizeof(float) must be 4. Cannot build bmplib.");
 _Static_assert(sizeof(int) >= 4, "int must be at least 32bit. Cannot build bmplib.");
@@ -228,7 +231,10 @@ static void s_read_whole_image(BMPREAD_R rp, unsigned char *restrict image)
 			if (x >= rp->width)
 				x = 0;
 		} else if (rp->ih->bitcount <= 8) {
-			s_read_indexed_line(rp, image + real_y * linesize);
+			if (rp->ih->compression == BI_OS2_HUFFMAN)
+				s_read_huffman_line(rp, image + real_y * linesize);
+			else
+				s_read_indexed_line(rp, image + real_y * linesize);
 		} else {
 			s_read_rgb_line(rp, image + real_y * linesize);
 		}
@@ -262,7 +268,11 @@ static void s_read_one_line(BMPREAD_R rp, unsigned char *restrict line)
 			if (rp->rle) {
 				s_read_rle_line(rp, line, &rp->lbl_x, &yoff);
 			} else {
-				s_read_indexed_line(rp, line);
+				if (rp->ih->compression == BI_OS2_HUFFMAN) {
+					s_read_huffman_line(rp, line);
+				} else {
+					s_read_indexed_line(rp, line);
+				}
 			}
 
 			if (!(rp->rle_eof || s_stopping_error(rp))) {
@@ -775,6 +785,75 @@ static void s_read_rle_line(BMPREAD_R rp, unsigned char *restrict line,
 		logerr(rp->log, "Should never get here! (x=%d, byte=%d)", (int) *x, (int) v);
 		rp->panic = TRUE;
 		break;
+	}
+}
+
+
+/********************************************************
+ * 	s_read_huffman_line
+ *******************************************************/
+
+static void s_read_huffman_line(BMPREAD_R rp, unsigned char *restrict line)
+{
+	int      count;
+	size_t   x = 0, offs;
+	int      byte, eol = FALSE, ndecoded;
+	int      black = 0;
+
+	while(1)  {
+		while (rp->hufbuf_len <= 24) {
+			if (EOF == (byte = s_read_one_byte(rp)))
+				break;
+			byte = reversebits[byte];
+			rp->hufbuf |= ((uint32_t)byte) << rp->hufbuf_len;
+			rp->hufbuf_len += 8;
+		}
+		if (rp->hufbuf_len == 0)
+			break;
+
+		if (eol || ((rp->hufbuf & 0x00ff) == 0)) {
+			/* EOL, look for next 1, ignore any number of 0's */
+			if (rp->hufbuf == 0) {
+				eol = TRUE;
+				rp->hufbuf_len = 0;
+				continue;
+			}
+			while ((rp->hufbuf & 0x0001) == 0) {
+				rp->hufbuf >>= 1;
+				rp->hufbuf_len--;
+			}
+			rp->hufbuf >>= 1;
+			rp->hufbuf_len--;
+			if (x == 0) /* ignore eol at start of line */
+				continue;
+			break;
+		}
+
+		ndecoded = huff_decode(&count, rp->hufbuf, rp->hufbuf_len, black);
+		if (ndecoded == 0) {
+			/* code was invalid, throw away one bit and try again */
+			rp->hufbuf >>= 1;
+			rp->hufbuf_len--;
+			continue;
+		}
+		rp->hufbuf >>= ndecoded;
+		rp->hufbuf_len -= ndecoded;
+
+		count = MIN(count, rp->width - x);
+
+		for (int i = 0; i < count; i++) {
+			offs = x * rp->result_bytes_per_pixel;
+			if (rp->result_indexed) {
+				line[offs] = black;
+			} else {
+				line[offs]   = rp->palette->color[black].red;
+				line[offs+1] = rp->palette->color[black].green;
+				line[offs+2] = rp->palette->color[black].blue;
+				s_int_to_result_format(rp, 8, line + x);
+			}
+			x++;
+		}
+		black = !black;
 	}
 }
 
