@@ -171,9 +171,7 @@ API BMPRESULT bmpread_load_info(BMPHANDLE h)
 
 	rp->result_channels = 3;
 	if (rp->ih->bitcount <= 8) { /* indexed */
-		rp->palette = s_read_palette(rp);
-		// if (!rp->palette && rp->ih->compression != BI_OS2_HUFFMAN)
-		if (!rp->palette)
+		if (!(rp->palette = s_read_palette(rp)))
 			goto abort;
 	} else if (!rp->rle) {  /* RGB  */
 		memset(&rp->cmask, 0, sizeof rp->cmask);

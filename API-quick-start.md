@@ -195,7 +195,7 @@ Can safely be cast from/to int. BMP_RESULT_OK is guaranteed to have the value 0.
 
     BMPHANDLE      h;
     FILE          *file;
-    int            width, height, channels, bitsperchannel, orientation;
+    int            width, height, channels, bitsperchannel;
     unsigned char *image_buffer;
 
 
@@ -212,7 +212,7 @@ Can safely be cast from/to int. BMP_RESULT_OK is guaranteed to have the value 0.
      * that bmplib will return, NOT necessarily the BMP file.
      */
 
-    bmpread_dimensions(h, &width, &height, &channels, &bitsperchannel, &orientation);
+    bmpread_dimensions(h, &width, &height, &channels, &bitsperchannel, NULL);
 
 
     /* load the image and clean up: */
