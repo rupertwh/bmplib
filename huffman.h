@@ -18,4 +18,5 @@
  * If not, see <https://www.gnu.org/licenses/>
  */
 
-int huff_decode(int *result, uint32_t bits, int nbits, int black, int *callagain);
+int huff_decode(BMPREAD_R rp, int black);
+void huff_fillbuf(BMPREAD_R rp);

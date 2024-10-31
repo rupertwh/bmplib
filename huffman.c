@@ -32,6 +32,7 @@
 #include "bmplib.h"
 #include "logging.h"
 #include "bmp-common.h"
+#include "reversebits.h"
 #include "huffman-codes.h"
 #include "huffman.h"
 
@@ -55,6 +56,7 @@ static struct Node *white_tree;
 
 static void s_buildtree(void);
 static void add_node(struct Node **node, const char *bits, int value, int makeup);
+static int s_findnode(uint32_t bits, int nbits, int black, struct Node **found);
 
 
 #ifndef __STDC_NO_THREADS__
@@ -68,18 +70,17 @@ static int initialized = FALSE;
 /*****************************************************************************
  * huff_decode()
  *
- * Decodes the <nbits> long bit sequence given in <bits>.
- * Direction is from lowest to highest bit. The result is _added_ to *result.
- * For repeated 2560 codes, <callagain> is set until we find a terminating
- * code.
- * Returns the number of bits that were used.
+ * Decodes the rp->hufbuf_len long bit sequence given in rp->hufbuf.
+ * Direction is from lowest to highest bit.
+ * Returns -1 if no valid terminating code is found.
  * EOL is _not_ handled, must be done by caller.
  ****************************************************************************/
 
-int huff_decode(int *result, uint32_t bits, int nbits, int black, int *callagain)
+int huff_decode(BMPREAD_R rp, int black)
 {
 	struct Node *node;
-	int    bits_used = 0, sub, subresult = 0;
+	int    bits_used = 0;
+	int    result = 0;
 
 #ifndef __STDC_NO_THREADS__
 	call_once(&build_once, s_buildtree);
@@ -90,8 +91,28 @@ int huff_decode(int *result, uint32_t bits, int nbits, int black, int *callagain
 	}
 #endif
 
-	if (callagain)
-		*callagain = FALSE;
+	do {
+		huff_fillbuf(rp);
+		bits_used = s_findnode(rp->hufbuf, rp->hufbuf_len, black, &node);
+		if (!node) {
+			/* invalid code */
+			return -1;
+		}
+
+		result += node->value;
+		rp->hufbuf >>= bits_used;
+		rp->hufbuf_len -= bits_used;
+
+	} while (node->makeup && result < INT_MAX - 2560);
+
+	return node->makeup ? -1 : result;
+}
+
+
+static int s_findnode(uint32_t bits, int nbits, int black, struct Node **found)
+{
+	struct Node *node;
+	int          bits_used = 0;
 
 	node = black ? black_tree : white_tree;
 
@@ -103,30 +124,27 @@ int huff_decode(int *result, uint32_t bits, int nbits, int black, int *callagain
 		bits_used++;
 		bits >>= 1;
 	}
+	*found = node;
+	return node ? bits_used : 0;
+}
 
-	if (!node) {
-		/* invalid code */
-		return 0;
-	}
 
-	if (node->makeup) {
-		sub = huff_decode(&subresult, bits, nbits - bits_used, black, NULL);
-		if (!sub) {
-			return 0;
-		}
-		else {
-			*result += node->value + subresult;
-			if (subresult == 2560 && callagain) {
-				/* very long sequences can have repeated 2560 makeup
-				 * codes. In that case, we request to be called again
-				 */
-				*callagain = TRUE;
-			}
-			return bits_used + sub;
-		}
-	} else {
-		*result += node->value;
-		return bits_used;
+
+/*****************************************************************************
+ * huff_fillbuf()
+ ****************************************************************************/
+
+void huff_fillbuf(BMPREAD_R rp)
+{
+	int byte;
+
+	while (rp->hufbuf_len <= 24) {
+		if (EOF == (byte = getc(rp->file)))
+			break;
+		rp->bytes_read++;
+		byte = reversebits[byte];
+		rp->hufbuf |= ((uint32_t)byte) << rp->hufbuf_len;
+		rp->hufbuf_len += 8;
 	}
 }
 

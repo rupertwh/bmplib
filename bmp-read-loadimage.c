@@ -795,19 +795,13 @@ static void s_read_rle_line(BMPREAD_R rp, unsigned char *restrict line,
 
 static void s_read_huffman_line(BMPREAD_R rp, unsigned char *restrict line)
 {
-	int      count = 0;
 	size_t   x = 0, offs;
-	int      byte, eol = FALSE, ndecoded;
-	int      black = 0, callagain;
+	int      eol = FALSE, runlen;
+	int      black = 0;
 
 	while(1)  {
-		while (rp->hufbuf_len <= 24) {
-			if (EOF == (byte = s_read_one_byte(rp)))
-				break;
-			byte = reversebits[byte];
-			rp->hufbuf |= ((uint32_t)byte) << rp->hufbuf_len;
-			rp->hufbuf_len += 8;
-		}
+		huff_fillbuf(rp);
+
 		if (rp->hufbuf_len == 0)
 			break;
 
@@ -829,22 +823,17 @@ static void s_read_huffman_line(BMPREAD_R rp, unsigned char *restrict line)
 			break;
 		}
 
-		ndecoded = huff_decode(&count, rp->hufbuf, rp->hufbuf_len, black, &callagain);
-		if (ndecoded == 0) {
+		runlen = huff_decode(rp, black);
+		if (runlen == -1) {
 			/* code was invalid, throw away one bit and try again */
 			rp->hufbuf >>= 1;
 			rp->hufbuf_len--;
 			continue;
 		}
-		rp->hufbuf >>= ndecoded;
-		rp->hufbuf_len -= ndecoded;
 
-		if (callagain)
-			continue;
+		runlen = MIN(runlen, rp->width - x);
 
-		count = MIN(count, rp->width - x);
-
-		for (int i = 0; i < count; i++) {
+		for (int i = 0; i < runlen; i++) {
 			offs = x * rp->result_bytes_per_pixel;
 			if (rp->result_indexed) {
 				line[offs] = black;
@@ -857,7 +846,6 @@ static void s_read_huffman_line(BMPREAD_R rp, unsigned char *restrict line)
 			x++;
 		}
 		black = !black;
-		count = 0;
 	}
 }
 
