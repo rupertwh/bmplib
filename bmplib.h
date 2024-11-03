@@ -307,6 +307,11 @@ int  DEPR("use bmpread_orientation() instead")    bmpread_topdown(BMPHANDLE h);
 void DEPR("use bmpread_set_undefined() instead")  bmpread_set_undefined_to_alpha(BMPHANDLE h, int mode);
 int  DEPR("use bmpread_bitsperchannel() instead") bmpread_bits_per_channel(BMPHANDLE h);
 
+
+#ifdef DEBUG
+void print_huff_table(void);
+#endif
+
 #ifdef __cplusplus
 }
 #endif

@@ -38,15 +38,25 @@ elif cc.sizeof('int') < 4
 endif
 
 
+gen_huffman = executable('gen-huffman', 'gen-huffman.c')
+
+huff_codes = custom_target('huffman-codes.h',
+                           output: 'huffman-codes.h',
+                           command: [gen_huffman, '@OUTPUT@'],
+)
+
 bmplib = shared_library('bmp',
-                        bmplib_sources,
+                        [bmplib_sources, huff_codes[0]],
                         version: meson.project_version(),
                         install: true,
-                        dependencies: m_dep)
+                        dependencies: m_dep,
+)
 
 pkg_mod = import('pkgconfig')
 pkg_mod.generate(libraries: bmplib,
                  version: meson.project_version(),
                  name: 'libbmp',
                  filebase: 'libbmp',
-                 description: 'Library for reading/writing Windows BMP files.')
+                 description: 'Library for reading/writing Windows BMP files.',
+)
+

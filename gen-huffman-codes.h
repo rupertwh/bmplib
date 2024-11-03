@@ -1,4 +1,4 @@
-/* bmplib - huffman-codes.h
+/* bmplib - gen-huffman-codes.h
  *
  * Copyright (c) 2024, Rupert Weber.
  *
