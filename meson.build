@@ -39,14 +39,20 @@ endif
 
 
 gen_huffman = executable('gen-huffman', 'gen-huffman.c')
-
 huff_codes = custom_target('huffman-codes.h',
                            output: 'huffman-codes.h',
                            command: [gen_huffman, '@OUTPUT@'],
 )
 
+gen_reversebits = executable('gen-reversebits', 'gen-reversebits.c')
+reversebits = custom_target('reversebits.h',
+                            output: 'reversebits.h',
+                            command: [gen_reversebits, '@OUTPUT@'],
+)
+
+
 bmplib = shared_library('bmp',
-                        [bmplib_sources, huff_codes[0]],
+                        [bmplib_sources, huff_codes[0], reversebits[0]],
                         version: meson.project_version(),
                         install: true,
                         dependencies: m_dep,
