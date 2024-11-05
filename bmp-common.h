@@ -182,6 +182,7 @@ struct Bmpwrite {
 	int              rle_requested;
 	int              rle;
 	int              allow_2bit; /* Windows CE, but many will not read it */
+	int              allow_huffman;
 	int              out64bit;
 	int              outbytes_per_pixel;
 	int              padding;
@@ -193,6 +194,8 @@ struct Bmpwrite {
 	int              saveimage_done;
 	int              line_by_line;
 	int              lbl_y;
+	uint32_t         hufbuf;
+	int              hufbuf_len;
 };
 
 
@@ -228,20 +231,21 @@ int read_s32_le(FILE *file, int32_t *val);
 #define API __attribute__ ((visibility ("default")))
 
 
-#define HMAGIC_READ	 (0x44414552UL)
-#define HMAGIC_WRITE (0x54495257UL)
+#define HMAGIC_READ  0x44414552UL
+#define HMAGIC_WRITE 0x54495257UL
 
-#define BMPFILE_BM (0x4d42)
-#define BMPFILE_BA (0x4142)
-#define BMPFILE_CI (0x4943)
-#define BMPFILE_CP (0x5043)
-#define BMPFILE_IC (0x4349)
-#define BMPFILE_PT (0x5450)
+#define BMPFILE_BM 0x4d42
+#define BMPFILE_BA 0x4142
+#define BMPFILE_CI 0x4943
+#define BMPFILE_CP 0x5043
+#define BMPFILE_IC 0x4349
+#define BMPFILE_PT 0x5450
 
 
-#define BMPFHSIZE     (14)
-#define BMPIHSIZE_V3  (40)
-#define BMPIHSIZE_V4 (108)
+#define BMPFHSIZE           14
+#define BMPIHSIZE_V3        40
+#define BMPIHSIZE_V4       108
+#define BMPIHSIZE_OS22      64
 
 typedef uint16_t WORD;
 typedef uint32_t DWORD;

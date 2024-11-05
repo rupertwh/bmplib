@@ -49,6 +49,7 @@ static int white_tree = -1;
 
 static void s_buildtree(void);
 static void add_node(int *nodeidx, const char *bits, int value, int makeup);
+static unsigned short str2bits(const char *str);
 
 
 int main(int argc, char *argv[])
@@ -98,19 +99,87 @@ int main(int argc, char *argv[])
 	      "\tshort        value;\n"
 	      "\tchar         terminal;\n"
 	      "\tchar         makeup;\n"
-	      "};\n\n", file);
+	      "};\n\n",
+	      file);
+
+	fputs("struct Huffcode {\n"
+	      "\tunsigned char bits;\n"
+	      "\tunsigned char nbits;\n"
+	      "};\n\n",
+	      file);
 
 	fprintf(file, "static const int blackroot = %d;\n", black_tree);
 	fprintf(file, "static const int whiteroot = %d;\n\n\n", white_tree);
 	fprintf(file, "static const struct Node nodebuffer[] = {\n");
 	for (i = 0; i < ARR_SIZE(nodebuffer); i++) {
 		fprintf(file, "\t{ %3d, %3d, %4d, %d, %d },\n",
-		       n[i].l, n[i].r, n[i].value, n[i].terminal, n[i].makeup);
+		        n[i].l, n[i].r, n[i].value, n[i].terminal, n[i].makeup);
 	}
-	fputs("};\n", file);
+	fputs("};\n\n", file);
+
+	fputs("static const struct Huffcode huff_term_black[] = {\n\t", file);
+	for (i = 0; i < ARR_SIZE(huff_term_black); i++) {
+		fprintf(file, "{ 0x%02hx, %2d },",
+		        str2bits(huff_term_black[i].bits),
+		        (int) strlen(huff_term_black[i].bits));
+		if ((i+1) % 4 == 0 && i != ARR_SIZE(huff_term_black) - 1)
+			fputs("\n\t", file);
+		else
+			fputs(" ", file);
+	}
+	fputs("\n};\n\n", file);
+
+	fputs("static const struct Huffcode huff_term_white[] = {\n\t", file);
+	for (i = 0; i < ARR_SIZE(huff_term_white); i++) {
+		fprintf(file, "{ 0x%02hx, %2d },",
+		        str2bits(huff_term_white[i].bits),
+		        (int) strlen(huff_term_white[i].bits));
+		if ((i+1) % 4 == 0 && i != ARR_SIZE(huff_term_white) - 1)
+			fputs("\n\t", file);
+		else
+			fputs(" ", file);
+	}
+	fputs("\n};\n\n", file);
+
+	fputs("static const struct Huffcode huff_makeup_black[] = {\n\t", file);
+	for (i = 0; i < ARR_SIZE(huff_makeup_black); i++) {
+		fprintf(file, "{ 0x%02hx, %2d },",
+		        str2bits(huff_makeup_black[i].bits),
+		        (int) strlen(huff_makeup_black[i].bits));
+		if ((i+1) % 4 == 0 && i != ARR_SIZE(huff_makeup_black) - 1)
+			fputs("\n\t", file);
+		else
+			fputs(" ", file);
+	}
+	fputs("\n};\n\n", file);
+
+	fputs("static const struct Huffcode huff_makeup_white[] = {\n\t", file);
+	for (i = 0; i < ARR_SIZE(huff_makeup_white); i++) {
+		fprintf(file, "{ 0x%02hx, %2d },",
+		        str2bits(huff_makeup_white[i].bits),
+		        (int) strlen(huff_makeup_white[i].bits));
+		if ((i+1) % 4 == 0 && i != ARR_SIZE(huff_makeup_white) - 1)
+			fputs("\n\t", file);
+		else
+			fputs(" ", file);
+	}
+	fputs("\n};\n\n", file);
+
 	return 0;
 }
 
+
+static unsigned short str2bits(const char *str)
+{
+	unsigned short value = 0;
+
+	while (*str) {
+		value <<= 1;
+		value |= *str - '0';
+		str++;
+	}
+	return value;
+}
 
 
 /*****************************************************************************

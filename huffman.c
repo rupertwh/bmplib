@@ -114,3 +114,66 @@ void huff_fillbuf(BMPREAD_R rp)
 		rp->hufbuf_len += 8;
 	}
 }
+
+
+static int s_push(BMPWRITE_R wp, int bits, int nbits)
+{
+	if (nbits > 32 - wp->hufbuf_len) {
+		if (!huff_flush(wp))
+			return FALSE;
+	}
+	wp->hufbuf <<= nbits;
+	wp->hufbuf |= bits;
+	wp->hufbuf_len += nbits;
+	return TRUE;
+}
+
+
+
+int huff_encode(BMPWRITE_R wp, int val, int black)
+{
+	const struct Huffcode *makeup, *term;
+
+	if (val == -1) {
+		/* eol */
+		return s_push(wp, 1, 12);
+	}
+
+	if (black) {
+		makeup = huff_makeup_black;
+		term   = huff_term_black;
+	} else {
+		makeup = huff_makeup_white;
+		term   = huff_term_white;
+	}
+
+	while (val > 63) {
+		int n = MIN(2560 / 64, val / 64);
+		if (!s_push(wp, makeup[n - 1].bits, makeup[n - 1].nbits))
+			return FALSE;
+		val -= n * 64;
+	}
+	if (!s_push(wp, term[val].bits, term[val].nbits))
+		return FALSE;
+
+	return TRUE;
+}
+
+int huff_flush(BMPWRITE_R wp)
+{
+	int byte;
+
+	while (wp->hufbuf_len >= 8) {
+		byte = 0x00ff & (wp->hufbuf >> (wp->hufbuf_len - 8));
+		if (EOF == putc(byte, wp->file)) {
+			logsyserr(wp->log, "writing Huffman bitmap");
+			return FALSE;
+		}
+		wp->hufbuf_len -= 8;
+		wp->hufbuf &= (1UL << wp->hufbuf_len) - 1;
+	}
+	return TRUE;
+}
+
+
+

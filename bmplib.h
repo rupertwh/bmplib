@@ -252,6 +252,7 @@ BMPRESULT bmpwrite_set_resolution(BMPHANDLE h, int xdpi, int ydpi);
 BMPRESULT bmpwrite_set_output_bits(BMPHANDLE h, int red, int green, int blue, int alpha);
 BMPRESULT bmpwrite_set_palette(BMPHANDLE h, int numcolors, const unsigned char *palette);
 BMPRESULT bmpwrite_allow_2bit(BMPHANDLE h);
+BMPRESULT bmpwrite_allow_huffman(BMPHANDLE h);
 BMPRESULT bmpwrite_set_rle(BMPHANDLE h, BMPRLETYPE type);
 BMPRESULT bmpwrite_set_orientation(BMPHANDLE h, BMPORIENT orientation);
 BMPRESULT bmpwrite_set_64bit(BMPHANDLE h);
