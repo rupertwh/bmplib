@@ -412,13 +412,13 @@ static int s_read_rgb_line(BMPREAD_R rp, unsigned char *restrict line)
 
 static inline double s_s2_13_to_float(uint16_t s2_13)
 {
-	return ((double)((int16_t)s2_13)) / 8192.0;
+	return (int16_t)s2_13 / 8192.0;
 }
 
 
 static inline double s_int_to_float(unsigned long ul, int bits)
 {
-	return (double) ul / (double) ((1ULL<<bits)-1);
+	return (double) ul / ((1ULL<<bits)-1);
 }
 
 
@@ -478,7 +478,7 @@ static inline uint16_t s_srgb_gamma_s2_13(uint16_t s2_13)
 {
 	double d;
 
-	d = (double) ((int16_t)s2_13) / 8192.0;
+	d = (int16_t)s2_13 / 8192.0;
 	d = s_srgb_gamma_float(d);
 	return (uint16_t) (((int)(d * 8192.0 + 0.5)) & 0xffff);
 }
@@ -792,32 +792,27 @@ static void s_read_rle_line(BMPREAD_R rp, unsigned char *restrict line,
 /********************************************************
  * 	s_read_huffman_line
  *******************************************************/
+static int s_huff_skip_eol(BMPREAD_R rp);
+static int s_huff_find_eol(BMPREAD_R rp);
 
 static void s_read_huffman_line(BMPREAD_R rp, unsigned char *restrict line)
 {
 	size_t   x = 0, offs;
-	int      eol = FALSE, runlen;
+	int      runlen;
 	int      black = 0;
 
-	while(1)  {
+	while (x < rp->width)  {
 		huff_fillbuf(rp);
 
 		if (rp->hufbuf_len == 0)
 			break;
 
-		if (eol || ((rp->hufbuf & 0x00ff) == 0)) {
-			/* EOL, look for next 1, ignore any number of 0's */
-			if (rp->hufbuf == 0) {
-				eol = TRUE;
-				rp->hufbuf_len = 0;
-				continue;
+		if ((rp->hufbuf & 0x00ff) == 0) {
+			if (!s_huff_skip_eol(rp)) {
+				rp->truncated = TRUE;
+				break;
 			}
-			while ((rp->hufbuf & 0x0001) == 0) {
-				rp->hufbuf >>= 1;
-				rp->hufbuf_len--;
-			}
-			rp->hufbuf >>= 1;
-			rp->hufbuf_len--;
+
 			if (x == 0) /* ignore eol at start of line */
 				continue;
 			break;
@@ -825,15 +820,19 @@ static void s_read_huffman_line(BMPREAD_R rp, unsigned char *restrict line)
 
 		runlen = huff_decode(rp, black);
 		if (runlen == -1) {
-			/* code was invalid, throw away one bit and try again */
-			rp->hufbuf >>= 1;
-			rp->hufbuf_len--;
-			continue;
+			/* code was invalid, look for next eol */
+			rp->lasterr |= BMP_ERR_PIXEL;
+			if (!s_huff_find_eol(rp))
+				rp->truncated = TRUE;
+			break;
 		}
 
-		runlen = MIN(runlen, rp->width - x);
+		if (runlen > rp->width - x) {
+			rp->lasterr |= BMP_ERR_PIXEL;
+			runlen = rp->width - x;
+		}
 
-		for (int i = 0; i < runlen; i++) {
+		for (int i = 0; i < runlen; i++, x++) {
 			offs = x * rp->result_bytes_per_pixel;
 			if (rp->result_indexed) {
 				line[offs] = black;
@@ -841,12 +840,55 @@ static void s_read_huffman_line(BMPREAD_R rp, unsigned char *restrict line)
 				line[offs]   = rp->palette->color[black].red;
 				line[offs+1] = rp->palette->color[black].green;
 				line[offs+2] = rp->palette->color[black].blue;
-				s_int_to_result_format(rp, 8, line + x);
+				s_int_to_result_format(rp, 8, line + offs);
 			}
-			x++;
 		}
 		black = !black;
 	}
+}
+
+
+static int s_huff_skip_eol(BMPREAD_R rp)
+{
+	huff_fillbuf(rp);
+	while (rp->hufbuf_len > 0) {
+		if (rp->hufbuf == 0) {
+			rp->hufbuf_len = 0;
+			huff_fillbuf(rp);
+			continue;
+		}
+		while ((rp->hufbuf & 0x0001) == 0) {
+			rp->hufbuf >>= 1;
+			rp->hufbuf_len--;
+		}
+		rp->hufbuf >>= 1;
+		rp->hufbuf_len--;
+		return TRUE;
+	}
+	return FALSE;
+}
+
+
+
+static int s_huff_find_eol(BMPREAD_R rp)
+{
+    /* look for the next full 12-bit eol sequence,
+     * discard anything else
+     */
+    huff_fillbuf (rp);
+    while (rp->hufbuf_len > 11)
+      {
+        if ((rp->hufbuf & 0x07ff) == 0) {
+          rp->hufbuf >>= 11;
+          rp->hufbuf_len -= 11;
+          return s_huff_skip_eol (rp);
+        }
+        rp->hufbuf >>= 1;
+        rp->hufbuf_len -= 1;
+        if (rp->hufbuf_len < 12)
+          huff_fillbuf (rp);
+      }
+    return FALSE;
 }
 
 
@@ -871,6 +913,9 @@ static inline void s_int_to_result_format(BMPREAD_R rp, int frombits, unsigned c
 	}
 #endif
 	for (c = rp->result_channels - 1; c >= 0; c--) {
+		/* going backwards because we are converting in place and
+		 * always growing, never shrinking
+		 */
 		switch (frombits) {
 		case 8:
 			v = px[c];
