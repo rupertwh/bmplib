@@ -85,13 +85,13 @@ API BMPHANDLE bmpwrite_new(FILE *file)
 	wp->file = file;
 
 	if (!(wp->fh = malloc(sizeof *wp->fh))) {
-		logerr(wp->log, "allocating bmp file header");
+		logsyserr(wp->log, "allocating bmp file header");
 		goto abort;
 	}
 	memset(wp->fh, 0, sizeof *wp->fh);
 
 	if (!(wp->ih = malloc(sizeof *wp->ih))) {
-		logerr(wp->log, "allocating bmp info header");
+		logsyserr(wp->log, "allocating bmp info header");
 		goto abort;
 	}
 	memset(wp->ih, 0, sizeof *wp->ih);
@@ -129,13 +129,13 @@ API BMPRESULT bmpwrite_set_dimensions(BMPHANDLE h,
 	      s_is_setting_compatible(wp, "srcbits", source_bitsperchannel)))
 		return BMP_RESULT_ERROR;
 
-	if (!cm_is_one_of(source_bitsperchannel, 3, 8, 16, 32)) {
+	if (!cm_is_one_of(3, source_bitsperchannel, 8, 16, 32)) {
 		logerr(wp->log, "Invalid number of bits per channel: %d",
 		                                 (int) source_bitsperchannel);
 		return BMP_RESULT_ERROR;
 	}
 
-	if (!cm_is_one_of(source_channels, 4, 3, 4, 1, 2)) {
+	if (!cm_is_one_of(4, source_channels, 3, 4, 1, 2)) {
 		logerr(wp->log, "Invalid number of channels: %d", (int) source_channels);
 		return BMP_RESULT_ERROR;
 	}
@@ -330,7 +330,7 @@ API BMPRESULT bmpwrite_set_rle(BMPHANDLE h, enum BmpRLEtype type)
 	if (!s_is_setting_compatible(wp, "rle", type))
 		return BMP_RESULT_ERROR;
 
-	if (!cm_is_one_of((int)type, 3, (int) BMP_RLE_NONE, (int) BMP_RLE_AUTO, (int) BMP_RLE_RLE8)) {
+	if (!cm_is_one_of(3, (int) type, (int) BMP_RLE_NONE, (int) BMP_RLE_AUTO, (int) BMP_RLE_RLE8)) {
 		logerr(wp->log, "Invalid RLE type specified (%d)", (int) type);
 		return BMP_RESULT_ERROR;
 	}
@@ -454,11 +454,12 @@ static int s_check_already_saved(BMPWRITE_R wp)
 
 static int s_is_setting_compatible(BMPWRITE_R wp, const char *setting, ...)
 {
-	int            channels, bits;
-	enum BmpFormat format;
+	int             channels, bits;
+	enum BmpFormat  format;
 	enum BmpRLEtype rle;
-	int            ret = TRUE;
-	va_list        args;
+	enum BmpOrient  orientation;
+	int             ret = TRUE;
+	va_list         args;
 
 	va_start(args, setting);
 
@@ -544,7 +545,15 @@ static int s_is_setting_compatible(BMPWRITE_R wp, const char *setting, ...)
 		if (rle == BMP_RLE_AUTO || rle == BMP_RLE_RLE8) {
 			if (wp->outorientation != BMP_ORIENT_BOTTOMUP) {
 				logerr(wp->log, "RLE is invalid with top-down BMPs");
-				ret = FALSE;;
+				ret = FALSE;
+			}
+		}
+	} else if (!strcmp(setting, "orientation")) {
+		orientation = va_arg(args, enum BmpOrient);
+		if (orientation == BMP_ORIENT_TOPDOWN) {
+			if (wp->rle_requested != BMP_RLE_NONE) {
+				logerr(wp->log, "RLE is invalid with top-down BMPs");
+				ret = FALSE;
 			}
 		}
 	} else if (!strcmp(setting, "64bit")) {

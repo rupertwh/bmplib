@@ -285,7 +285,7 @@ int cm_all_positive_int(int n, ...)
 }
 
 
-int cm_is_one_of(int candidate, int n, ...)
+int cm_is_one_of(int n, int candidate, ...)
 {
 	va_list ap;
 	int i, ret = FALSE;
@@ -293,7 +293,7 @@ int cm_is_one_of(int candidate, int n, ...)
 	if (n < 1)
 		return TRUE;
 
-	va_start(ap, n);
+	va_start(ap, candidate);
 	for (i = 0; i < n; i++) {
 		if (va_arg(ap, int) == candidate) {
 			ret = TRUE;
