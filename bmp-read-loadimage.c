@@ -3,18 +3,18 @@
  * Copyright (c) 2024, Rupert Weber.
  *
  * This file is part of bmplib.
- * bmplib is free software: you can redistribute it and/or modify 
- * it under the terms of the GNU Lesser General Public License as 
+ * bmplib is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Lesser General Public License as
  * published by the Free Software Foundation, either version 3 of
  * the License, or (at your option) any later version.
- * 
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
  * GNU Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with this library. 
+ * License along with this library.
  * If not, see <https://www.gnu.org/licenses/>
  */
 
@@ -42,16 +42,18 @@
  *                                       \               /
  * common prep work,                      \             /
  * buffer allocation,                 s_load_image_or_line()
- * sanity checks, etc.                    /             \
- *                                       /               \
- *                                      /                 \
- * 'supervision'          s_read_whole_image()        s_read_one_line()
- *                                      \                 /
- *                                       \               /
- *                                        \             /
+ * sanity checks, etc.                     |           |
+ *                                         |           |
+ *                                         |           |
+ *                            s_read_whole_image()     |
+ *                                         \           |
+ *                                          \          |
+ *                                        s_read_one_line()
+ *                                               |
  *                                        s_read_rgb_line()
  * 'grunt work'                         s_read_indexed_line()
  *                                        s_read_rle_line()
+ *                                      s_read_huffman_line()
  */
 
 static inline unsigned long s_scaleint(unsigned long val, int frombits, int tobits) ATTR_CONST;
@@ -219,31 +221,16 @@ abort:
 
 static void s_read_whole_image(BMPREAD_R rp, unsigned char *restrict image)
 {
-	int          x = 0, y, yoff = 1;
+	int          y, yoff = 1;
 	size_t       linesize, real_y;
 
 	linesize = (size_t) rp->width * rp->result_bytes_per_pixel;
 
 	for (y = 0; y < rp->height; y += yoff) {
 		real_y = (rp->orientation == BMP_ORIENT_TOPDOWN) ? y : rp->height-1-y;
-		if (rp->rle) {
-			s_read_rle_line(rp, image + real_y * linesize, &x, &yoff);
-			if (x >= rp->width)
-				x = 0;
-		} else if (rp->ih->bitcount <= 8) {
-			if (rp->ih->compression == BI_OS2_HUFFMAN)
-				s_read_huffman_line(rp, image + real_y * linesize);
-			else
-				s_read_indexed_line(rp, image + real_y * linesize);
-		} else {
-			s_read_rgb_line(rp, image + real_y * linesize);
-		}
+		s_read_one_line(rp, image + real_y * linesize);
 		if (rp->rle_eof || s_stopping_error(rp))
 			break;
-		if (yoff > rp->height - y) {
-			logerr(rp->log, "RLE delta beyond image dimensions");
-			rp->invalid_delta = TRUE;
-		}
 	}
 }
 

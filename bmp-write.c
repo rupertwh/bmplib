@@ -35,9 +35,6 @@
 
 
 
-
-
-
 static void s_decide_outformat(BMPWRITE_R wp);
 static int s_write_palette(BMPWRITE_R wp);
 static int s_save_line_rgb(BMPWRITE_R wp, const unsigned char *line);
@@ -51,8 +48,6 @@ static int s_try_saving_image_size(BMPWRITE_R wp);
 static int s_calc_mask_values(BMPWRITE_R wp);
 static int s_is_setting_compatible(BMPWRITE_R wp, const char *setting, ...);
 static int s_check_already_saved(BMPWRITE_R wp);
-
-
 
 
 
@@ -385,6 +380,7 @@ API BMPRESULT bmpwrite_allow_2bit(BMPHANDLE h)
 }
 
 
+
 /*****************************************************************************
  * 	bmpwrite_allow_huffman
  *****************************************************************************/
@@ -404,6 +400,7 @@ API BMPRESULT bmpwrite_allow_huffman(BMPHANDLE h)
 
 	return BMP_RESULT_OK;
 }
+
 
 
 /*****************************************************************************

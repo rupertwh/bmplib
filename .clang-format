@@ -7,6 +7,7 @@
 
 BasedOnStyle: WebKit
 
+SortIncludes: false
 AlignAfterOpenBracket: Align
 AlignArrayOfStructures: Right
 AlignConsecutiveAssignments:
