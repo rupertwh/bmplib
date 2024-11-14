@@ -3,18 +3,18 @@
  * Copyright (c) 2024, Rupert Weber.
  *
  * This file is part of bmplib.
- * bmplib is free software: you can redistribute it and/or modify 
- * it under the terms of the GNU Lesser General Public License as 
+ * bmplib is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Lesser General Public License as
  * published by the Free Software Foundation, either version 3 of
  * the License, or (at your option) any later version.
- * 
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
  * GNU Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with this library. 
+ * License along with this library.
  * If not, see <https://www.gnu.org/licenses/>
  */
 
@@ -733,7 +733,7 @@ API BMPRESULT bmpwrite_save_image(BMPHANDLE h, const unsigned char *image)
 	if (wp->ih->compression == BI_OS2_HUFFMAN)
 		huff_encode(wp, -1, 0); /* leading eol */
 
-	linesize = (size_t) wp->width * (size_t) wp->source_bytes_per_pixel;
+	linesize = (size_t) wp->width * wp->source_bytes_per_pixel;
 	for (y = 0; y < wp->height; y++) {
 		real_y = (wp->outorientation == BMP_ORIENT_TOPDOWN) ? y : wp->height - y - 1;
 		offs = (size_t) real_y * linesize;

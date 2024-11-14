@@ -12,5 +12,7 @@
         "tab_size": 8,
         "translate_tabs_to_spaces": false,
         "trim_trailing_white_space_on_save": "all",
+        "trim_only_modified_white_space": false,
+		"ensure_newline_at_eof_on_save": true,
     },
 }
