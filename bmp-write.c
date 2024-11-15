@@ -244,7 +244,7 @@ API BMPRESULT bmpwrite_set_palette(BMPHANDLE h, int numcolors,
 	if (!s_is_setting_compatible(wp, "indexed"))
 		return BMP_RESULT_ERROR;
 
-	if (numcolors < 1 || numcolors > 256) {
+	if (numcolors < 2 || numcolors > 256) {
 		logerr(wp->log, "Invalid number of colors for palette (%d)",
 		                                          numcolors);
 		return BMP_RESULT_ERROR;
@@ -607,8 +607,7 @@ static void s_decide_outformat(BMPWRITE_R wp)
 				wp->rle = 8;
 				wp->ih->compression = BI_RLE8;
 				wp->ih->bitcount = 8;
-			} else if (wp->palette->numcolors > 2 ||
-			           !wp->allow_huffman) {
+			} else if (wp->palette->numcolors > 2 || !wp->allow_huffman) {
 				wp->rle = 4;
 				wp->ih->compression = BI_RLE4;
 				wp->ih->bitcount = 4;
@@ -727,9 +726,6 @@ API BMPRESULT bmpwrite_save_image(BMPHANDLE h, const unsigned char *image)
 	wp->saveimage_done = TRUE;
 	wp->bytes_written_before_bitdata = wp->bytes_written;
 
-	if (wp->ih->compression == BI_OS2_HUFFMAN)
-		huff_encode(wp, -1, 0); /* leading eol */
-
 	linesize = (size_t) wp->width * wp->source_bytes_per_pixel;
 	for (y = 0; y < wp->height; y++) {
 		real_y = (wp->outorientation == BMP_ORIENT_TOPDOWN) ? y : wp->height - y - 1;
@@ -762,14 +758,11 @@ API BMPRESULT bmpwrite_save_image(BMPHANDLE h, const unsigned char *image)
 			}
 		}
 		else {
-			huff_encode(wp, -1, 0);
-			huff_encode(wp, -1, 0);
-			huff_encode(wp, -1, 0);
-			huff_encode(wp, -1, 0);
-			huff_encode(wp, -1, 0);
-			huff_flush(wp);
+			if (!(huff_encode_rtc(wp) && huff_flush(wp))) {
+				logsyserr(wp->log, "Writing RTC end-of-file marker");
+				return BMP_RESULT_ERROR;
+			}
 		}
-
 		s_try_saving_image_size(wp);
 	}
 
@@ -799,8 +792,6 @@ API BMPRESULT bmpwrite_save_line(BMPHANDLE h, const unsigned char *line)
 			goto abort;
 		wp->bytes_written_before_bitdata = wp->bytes_written;
 		wp->line_by_line = TRUE;
-		if (wp->ih->compression == BI_OS2_HUFFMAN)
-			huff_encode(wp, -1, 0); /* leading eol */
 	}
 
 	switch (wp->rle) {
@@ -830,12 +821,10 @@ API BMPRESULT bmpwrite_save_line(BMPHANDLE h, const unsigned char *line)
 					goto abort;
 				}
 			} else {
-				huff_encode(wp, -1, 0);
-				huff_encode(wp, -1, 0);
-				huff_encode(wp, -1, 0);
-				huff_encode(wp, -1, 0);
-				huff_encode(wp, -1, 0);
-				huff_flush(wp);
+				if (!(huff_encode_rtc(wp) && huff_flush(wp))) {
+					logsyserr(wp->log, "Writing RTC end-of-file marker");
+					goto abort;
+				}
 			}
 			s_try_saving_image_size(wp);
 		}
@@ -1233,23 +1222,21 @@ abort:
 
 static int s_save_line_huff(BMPWRITE_R wp, const unsigned char *line)
 {
-	int x, len, total = 0;
+	int x = 0, len;
 	int black = FALSE;
 
-	x = 0;
+	if (!huff_encode_eol(wp)) /* each line starts with eol */
+		goto abort;
+
 	while (x < wp->width) {
 		len = 0;
 		while ((len < wp->width - x) && ((!!line[x + len]) == black))
 			len++;
 		if (!huff_encode(wp, len, black))
 			goto abort;
-		total += len;
 		black = !black;
 		x += len;
 	}
-	if (!huff_encode(wp, -1, 0)) /* eol */
-		goto abort;
-
 	return TRUE;
 abort:
 	logsyserr(wp->log, "Writing 1-D Huffman data to BMP file");

@@ -8,7 +8,7 @@
 
 Download [bmplib on github](https://github.com/rupertwh/bmplib).
 
-## Current status (v1.6.1):
+## Current status (v1.6.2):
 ### Reading BMP files:
   - 16/24/32 bit RGB(A) with any bits/channel combination
     (BI_RGB, BI_BITFIELDS, BI_ALPHABITFIELDS).
@@ -37,7 +37,7 @@ Download [bmplib on github](https://github.com/rupertwh/bmplib).
   - RGB(A) 16/24/32 bit.
   - 64-bit RGBA
   - any bit-depth combination for the RGBA channels.
-  - Indexed 1/2/4/8 bit, optional RLE4 and RLE8 compression.
+  - Indexed 1/2/4/8 bit, optional RLE4, RLE8, and 1-D Huffman compression.
   - write BI_RGB when possible, BI_BITFIELDS only when
     necessary.
   - optional line-by-line writing of BMPs.
@@ -86,7 +86,7 @@ Includes:
 #include <bmplib.h>
 ```
 
-see API.md for the API documentation
+see API-quick-start.md and API-full.md for the API documentation
 
 
 ### 64bit BMPs

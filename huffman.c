@@ -36,7 +36,7 @@
 
 
 static int s_findnode(uint32_t bits, int nbits, int black, int *found);
-
+static int s_zerofill(BMPWRITE_R wp);
 
 
 /*****************************************************************************
@@ -116,6 +116,11 @@ void huff_fillbuf(BMPREAD_R rp)
 }
 
 
+
+/*****************************************************************************
+ * s_push()
+ ****************************************************************************/
+
 static int s_push(BMPWRITE_R wp, int bits, int nbits)
 {
 	if (nbits > 32 - wp->hufbuf_len) {
@@ -129,6 +134,10 @@ static int s_push(BMPWRITE_R wp, int bits, int nbits)
 }
 
 
+
+/*****************************************************************************
+ * huff_encode()
+ ****************************************************************************/
 
 int huff_encode(BMPWRITE_R wp, int val, int black)
 {
@@ -159,6 +168,59 @@ int huff_encode(BMPWRITE_R wp, int val, int black)
 	return TRUE;
 }
 
+
+
+/*****************************************************************************
+ * huff_encode_eol()
+ ****************************************************************************/
+
+int huff_encode_eol(BMPWRITE_R wp)
+{
+	return huff_encode(wp, -1, 0);
+}
+
+
+
+/*****************************************************************************
+ * huff_encode_rtc()
+ ****************************************************************************/
+
+int huff_encode_rtc(BMPWRITE_R wp)
+{
+	if (!s_zerofill(wp))
+		return FALSE;
+
+	for (int i = 0; i < 6; i++) {
+		if (!huff_encode_eol(wp))
+			return FALSE;
+	}
+	return TRUE;
+}
+
+
+
+/*****************************************************************************
+ * s_zerofill()
+ *
+ * add fill 0s up to next byte boundary
+ ****************************************************************************/
+
+static int s_zerofill(BMPWRITE_R wp)
+{
+	int n = 8 - wp->hufbuf_len % 8;
+
+	if (n < 8)
+		return s_push(wp, 0, n);
+
+	return TRUE;
+}
+
+
+
+/*****************************************************************************
+ * huff_flush()
+ ****************************************************************************/
+
 int huff_flush(BMPWRITE_R wp)
 {
 	int byte;
@@ -169,6 +231,7 @@ int huff_flush(BMPWRITE_R wp)
 			logsyserr(wp->log, "writing Huffman bitmap");
 			return FALSE;
 		}
+		wp->bytes_written++;
 		wp->hufbuf_len -= 8;
 		wp->hufbuf &= (1UL << wp->hufbuf_len) - 1;
 	}

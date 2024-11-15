@@ -413,19 +413,28 @@ BMP for 3- or 4-color images, call `bmpwrite_allow_2bit()` before calling
 
 Indexed images may optionally be written as RLE4 or RLE8 compressed BMPs.
 Images with 16 or fewer colors can be written as either RLE4 or RLE8
-(default is RLE4), images with more than 16 colors only as RLE8.
+(default is RLE4), images with more than 16 colors only as RLE8. Images with
+only 2 colors can also be written with 1-D Huffman encoding, but only
+after explicitly allowing it by calling `bmpwrite_allow_huffman()`.
 
 To activate RLE compression, call
 
 ```
 BMPRESULT bmpwrite_set_rle(BMPHANDLE h, BMPRLETYPE type)
+BMPRESULT bmpwrite_allow_huffman(BMPHANDLE h)
 ```
 
 with `type` set to one of the following values:
 - `BMP_RLE_NONE` no RLE compression, same as not calling `bmpwrite_set_rle()`
   at all
-- `BMP_RLE_AUTO` choose RLE4 or RLE8 based on number of colors in palette
+- `BMP_RLE_AUTO` choose RLE4, RLE8, or 1-D Huffman based on number of colors
+  in palette
 - `BMP_RLE_RLE8` use RLE8, regardless of number of colors in palette
+
+In order to write 1-D Huffman encoded bitmpas, the provided palette must have
+2 colors, rle type must be set to `BMP_RLE_AUTO`, and `bmpwrite_allow_huffman
+()` must be called. Be aware that *very* few programs will be able to read
+Huffman encoded BMPs!
 
 
 ### top-down / bottom-up
