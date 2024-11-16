@@ -38,8 +38,6 @@
 static void s_decide_outformat(BMPWRITE_R wp);
 static int s_write_palette(BMPWRITE_R wp);
 static int s_save_line_rgb(BMPWRITE_R wp, const unsigned char *line);
-static inline unsigned long long s_set_outpixel_rgb(BMPWRITE_R wp,
-                            const unsigned char *restrict buffer, size_t offs);
 static int s_write_bmp_file_header(BMPWRITE_R wp);
 static int s_write_bmp_info_header(BMPWRITE_R wp);
 static inline int s_write_one_byte(int byte, BMPWRITE_R wp);
@@ -916,6 +914,8 @@ static int s_try_saving_image_size(BMPWRITE_R wp)
 /*****************************************************************************
  * 	s_save_line_rgb
  *****************************************************************************/
+static inline unsigned long long s_imgrgb_to_outbytes(BMPWRITE_R wp,
+	                                   const unsigned char *restrict imgpx);
 
 static int s_save_line_rgb(BMPWRITE_R wp, const unsigned char *line)
 {
@@ -924,7 +924,7 @@ static int s_save_line_rgb(BMPWRITE_R wp, const unsigned char *line)
 	int                i, x, bits_used = 0;
 
 	for (x = 0; x < wp->width; x++) {
-		offs = (size_t) x * (size_t) wp->source_channels;
+		offs = (size_t) x * (size_t) wp->source_bytes_per_pixel;
 		if (wp->palette) {
 			bytes <<= wp->ih->bitcount;
 			bytes |= line[offs];
@@ -938,7 +938,7 @@ static int s_save_line_rgb(BMPWRITE_R wp, const unsigned char *line)
 				bits_used = 0;
 			}
 		} else {
-			bytes = s_set_outpixel_rgb(wp, line, offs);
+			bytes = s_imgrgb_to_outbytes(wp, line + offs);
 			if (bytes == (unsigned long long)-1)
 				return BMP_RESULT_ERROR;
 
@@ -1272,13 +1272,13 @@ static int s_calc_mask_values(BMPWRITE_R wp)
 
 
 /*****************************************************************************
- * 	s_set_outpixel_rgb
+ * 	s_imgrgb_to_outbytes
  *****************************************************************************/
 
 static inline uint16_t float_to_s2_13(double d);
 
-static inline unsigned long long s_set_outpixel_rgb(BMPWRITE_R wp,
-	                      const unsigned char *restrict buffer, size_t offs)
+static inline unsigned long long s_imgrgb_to_outbytes(BMPWRITE_R wp,
+	                                   const unsigned char *restrict imgpx)
 {
 	unsigned long long bytes;
 	unsigned long      comp[4];
@@ -1299,26 +1299,26 @@ static inline unsigned long long s_set_outpixel_rgb(BMPWRITE_R wp,
 		source_max = (double) ((1ULL<<wp->source_bitsperchannel) - 1);
 		switch(wp->source_bitsperchannel) {
 		case 8:
-			comp[0] =       buffer[offs];
-			comp[1] = rgb ? buffer[offs+1] : comp[0];
-			comp[2] = rgb ? buffer[offs+2] : comp[0];
+			comp[0] =       imgpx[0];
+			comp[1] = rgb ? imgpx[1] : comp[0];
+			comp[2] = rgb ? imgpx[2] : comp[0];
 			if (wp->has_alpha)
-				comp[3] = buffer[offs+alpha_offs];
+				comp[3] = imgpx[alpha_offs];
 			break;
 		case 16:
-			comp[0] =       ((const uint16_t*)buffer)[offs];
-			comp[1] = rgb ? ((const uint16_t*)buffer)[offs+1] : comp[0];
-			comp[2] = rgb ? ((const uint16_t*)buffer)[offs+2] : comp[0];
+			comp[0] =       ((const uint16_t*)imgpx)[0];
+			comp[1] = rgb ? ((const uint16_t*)imgpx)[1] : comp[0];
+			comp[2] = rgb ? ((const uint16_t*)imgpx)[2] : comp[0];
 			if (wp->has_alpha)
-				comp[3] = ((const uint16_t*)buffer)[offs+alpha_offs];
+				comp[3] = ((const uint16_t*)imgpx)[alpha_offs];
 			break;
 
 		case 32:
-			comp[0] =       ((const uint32_t*)buffer)[offs];
-			comp[1] = rgb ? ((const uint32_t*)buffer)[offs+1] : comp[0];
-			comp[2] = rgb ? ((const uint32_t*)buffer)[offs+2] : comp[0];
+			comp[0] =       ((const uint32_t*)imgpx)[0];
+			comp[1] = rgb ? ((const uint32_t*)imgpx)[1] : comp[0];
+			comp[2] = rgb ? ((const uint32_t*)imgpx)[2] : comp[0];
 			if (wp->has_alpha)
-				comp[3] = ((const uint32_t*)buffer)[offs+alpha_offs];
+				comp[3] = ((const uint32_t*)imgpx)[alpha_offs];
 			break;
 
 		default:
@@ -1334,11 +1334,11 @@ static inline unsigned long long s_set_outpixel_rgb(BMPWRITE_R wp,
 
 	case BMP_FORMAT_FLOAT:
 
-		dcomp[0] =       ((const float*)buffer)[offs];
-		dcomp[1] = rgb ? ((const float*)buffer)[offs+1] : dcomp[0];
-		dcomp[2] = rgb ? ((const float*)buffer)[offs+2] : dcomp[0];
+		dcomp[0] =       ((const float*)imgpx)[0];
+		dcomp[1] = rgb ? ((const float*)imgpx)[1] : dcomp[0];
+		dcomp[2] = rgb ? ((const float*)imgpx)[2] : dcomp[0];
 		if (wp->has_alpha)
-			dcomp[3] = ((const float*)buffer)[offs+alpha_offs];
+			dcomp[3] = ((const float*)imgpx)[alpha_offs];
 
 		if (wp->out64bit) {
 			for (i = 0; i < outchannels; i++) {
@@ -1357,11 +1357,11 @@ static inline unsigned long long s_set_outpixel_rgb(BMPWRITE_R wp,
 		break;
 
 	case BMP_FORMAT_S2_13:
-		comp[0] =       ((const uint16_t*)buffer)[offs];
-		comp[1] = rgb ? ((const uint16_t*)buffer)[offs+1] : comp[0];
-		comp[2] = rgb ? ((const uint16_t*)buffer)[offs+2] : comp[0];
+		comp[0] =       ((const uint16_t*)imgpx)[0];
+		comp[1] = rgb ? ((const uint16_t*)imgpx)[1] : comp[0];
+		comp[2] = rgb ? ((const uint16_t*)imgpx)[2] : comp[0];
 		if (wp->has_alpha)
-			comp[3] = ((const uint16_t*)buffer)[offs+alpha_offs];
+			comp[3] = ((const uint16_t*)imgpx)[alpha_offs];
 
 		if (wp->out64bit) {
 			/* pass through s2.13 */
