@@ -1,4 +1,4 @@
-# Rupert's bmplib -- Full API Description
+# Rupert's bmplib -- Full API Description (v1.7.0)
 
 Refer to the *Quick Start Guide* (API-quick-start.md) for a quick intro to bmplib which describes only the minimal set of functions needed to read/write BMP files.
 
@@ -81,9 +81,9 @@ int       bmpread_resolution_ydpi(BMPHANDLE h)
 ```
 
 #### top-down / bottom-up
-`orientation` is one of:
- - `BMPORIENT_BOTTOMUP`
- - `BMPORIENT_TOPDOWN`
+`*orientation` is one of:
+ - `BMP_ORIENT_BOTTOMUP`
+ - `BMP_ORIENT_TOPDOWN`
 
  `bmpread_orientation()` or the `orientation` value returned by
  `bmpread_dimensions()` **is only relevant if you load the BMP file
@@ -175,8 +175,8 @@ void bmpread_set_undefined(BMPHANDLE h, BMPUNDEFINED mode)
 ```
 
 `mode` can be one of:
-- `BMPUNDEFINED_LEAVE`
-- `BMPUNDEFINED_TO_ALPHA` (default)
+- `BMP_UNDEFINED_LEAVE`
+- `BMP_UNDEFINED_TO_ALPHA` (default)
 
 Note: If you use `bmpread_load_palette()` to switch to loading the index data
 instead of RGB data, this setting will have no effect and undefined pixels
@@ -309,7 +309,8 @@ bottom-up. Almost all BMPs will be bottom-up. (see above)
 Invalid pixels may occur in indexed BMPs, both RLE and non-RLE. Invalid pixels
 either point beyond the given color palette, or they try to set pixels
 outside the image dimensions. Pixels containing an invalid color value will
-be set to zero, and attempts to point outside the image will be ignored.
+be set to the maximum allowed value, and attempts to point outside the image
+will be ignored.
 
 In both cases, `bmpread_load_image()` and `bmpread_load_line()` will return
 BMP_RESULT_INVALID, unless the image is also truncated, then
@@ -411,20 +412,21 @@ BMP for 3- or 4-color images, call `bmpwrite_allow_2bit()` before calling
 
 #### RLE
 
-Indexed images may optionally be written as RLE4 or RLE8 compressed BMPs.
-Images with 16 or fewer colors can be written as either RLE4 or RLE8
-(default is RLE4), images with more than 16 colors only as RLE8. Images with
-only 2 colors can also be written with 1-D Huffman encoding, but only
-after explicitly allowing it by calling `bmpwrite_allow_huffman()`.
-
-To activate RLE compression, call
-
 ```
 BMPRESULT bmpwrite_set_rle(BMPHANDLE h, BMPRLETYPE type)
 BMPRESULT bmpwrite_allow_huffman(BMPHANDLE h)
 ```
 
-with `type` set to one of the following values:
+Indexed images may optionally be written run-lenght-encoded (RLE) bitmaps.
+Images with 16 or fewer colors can be written as either RLE4 or RLE8
+(default is RLE4), images with more than 16 colors only as RLE8.
+
+Images with only 2 colors can also be written with 1-D Huffman encoding, but
+only after explicitly allowing it by calling `bmpwrite_allow_huffman()`
+(very few programs will be able to read Huffman encoded BMPs).
+
+To activate RLE compression, call `bmpwrite_set_rle()` with `type` set to one
+of the following values:
 - `BMP_RLE_NONE` no RLE compression, same as not calling `bmpwrite_set_rle()`
   at all
 - `BMP_RLE_AUTO` choose RLE4, RLE8, or 1-D Huffman based on number of colors
@@ -432,9 +434,20 @@ with `type` set to one of the following values:
 - `BMP_RLE_RLE8` use RLE8, regardless of number of colors in palette
 
 In order to write 1-D Huffman encoded bitmpas, the provided palette must have
-2 colors, rle type must be set to `BMP_RLE_AUTO`, and `bmpwrite_allow_huffman
+2 colors, RLE type must be set to `BMP_RLE_AUTO`, and `bmpwrite_allow_huffman
 ()` must be called. Be aware that *very* few programs will be able to read
 Huffman encoded BMPs!
+
+#### RLE24
+
+RLE24 is an old OS/2 compression method. As the name suggests, it's 24-bit RLE
+for non-indexed images. Like Huffman encoding, it's very uncommon and only
+very few programs will be able to read these BMPs. Writing RLE24 bitmaps must
+be explicitly allowed by first calling `bmpwrite_allow_rle24()`.
+
+In order to save an image as RLE24, the data must be provided as 8 bits per
+channel RGB (no alpha channel). Call `bmpwrite_set_rle()` with type set to
+`BMP_RLE_AUTO` and also call `bmpwrite_allow_rle24()` (in any order).
 
 
 ### top-down / bottom-up
@@ -659,7 +672,7 @@ Used in `bmp_set_number_format()`. Possible values are:
     uint8_t  *image_buffer;
 
 
-    /* open a file and call bmpread_new() to get a BMPHANDLE,
+    /* Open a file and call bmpread_new() to get a BMPHANDLE,
      * which will be used on all subsequent calls.
      */
 
@@ -667,8 +680,8 @@ Used in `bmp_set_number_format()`. Possible values are:
     h = bmpread_new(file);
 
 
-    /* get image dimensions
-     * the color information (channels/bits) describes the data
+    /* Get image dimensions
+     * The color information (channels/bits) describes the data
      * that bmplib will return, NOT necessarily the BMP file.
      */
 
@@ -680,21 +693,21 @@ Used in `bmp_set_number_format()`. Possible values are:
     bitsperchannel = bmpread_bitsperchannel(h);
 
 
-    /* get required size for memory buffer and allocate memory */
+    /* Get required size for memory buffer and allocate memory */
 
     image_buffer = malloc(bmpread_buffersize(h));
 
 
-    /* load the image and clean up: */
+    /* Load the image and clean up: */
 
     bmpread_load_image(h, &image_buffer);
 
     bmp_free(h);
     fclose(file);
 
-    /* ready to use the image written to image_buffer */
+    /* Ready to use the image written to image_buffer */
 
-    /* image data is always returned in host byte order as
+    /* Image data is always returned in host byte order as
      * 8, 16, or 32 bits per channel RGB or RGBA data.
      * No padding.
      */
@@ -717,13 +730,13 @@ Used in `bmp_set_number_format()`. Possible values are:
      */
 
 
-    /* open a file for writing and get a BMPHANDLE */
+    /* Open a file for writing and get a BMPHANDLE */
 
     file = fopen("image.bmp", "wb");
     h = bmpwrite_new(file);
 
 
-    /* inform bmplib of the image dimensions.
+    /* Inform bmplib of the image dimensions.
      * The color information (channels, bits) refer to the format
      * your image buffer is in, not the format the BMP file should
      * be written in.
@@ -732,7 +745,7 @@ Used in `bmp_set_number_format()`. Possible values are:
     bmpwrite_set_dimensions(h, width, height, channels, bitsperchannel);
 
 
-   /* Optional: choose bit-depths (independantly for each channel,
+   /* Optional: choose bit-depths (independently for each channel,
     * in the order R,G,B,A) for the BMP file. bmplib will choose
     * an appropriate BMP file format to accomodate those bitdepths.
     */
@@ -740,7 +753,7 @@ Used in `bmp_set_number_format()`. Possible values are:
     bmpwrite_set_output_bits(h, 5, 6, 5, 0);
 
 
-    /* save data to file */
+    /* Save data to file */
 
     bmpwrite_save_image(h, image_buffer);
 

@@ -1476,10 +1476,19 @@ API BMPRESULT bmpread_info_channel_bits(BMPHANDLE h, int *r, int *g, int *b, int
 	                rp->getinfo_return == BMP_RESULT_INSANE)))
 		return BMP_RESULT_ERROR;
 
-	*r = rp->cmask.bits.red;
-	*g = rp->cmask.bits.green;
-	*b = rp->cmask.bits.blue;
-	*a = rp->cmask.bits.alpha;
+	if (rp->ih->compression == BI_OS2_RLE24) {
+		*r = *g = *b = 8;
+		*a = 0;
+
+	} else if (rp->ih->bitcount <= 8) {
+		*r = *g = *b = *a = 0;
+
+	} else {
+		*r = rp->cmask.bits.red;
+		*g = rp->cmask.bits.green;
+		*b = rp->cmask.bits.blue;
+		*a = rp->cmask.bits.alpha;
+	}
 
 	return BMP_RESULT_OK;
 }

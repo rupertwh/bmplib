@@ -24,6 +24,7 @@
 #include <stdint.h>
 #include <limits.h>
 #include <stdarg.h>
+#include <assert.h>
 #include <math.h>
 
 #define BMPLIB_LIB
@@ -402,6 +403,28 @@ API BMPRESULT bmpwrite_allow_huffman(BMPHANDLE h)
 
 
 /*****************************************************************************
+ * 	bmpwrite_allow_rle24
+ *****************************************************************************/
+
+API BMPRESULT bmpwrite_allow_rle24(BMPHANDLE h)
+{
+	BMPWRITE wp;
+
+	if (!cm_check_is_write_handle(h))
+		return BMP_RESULT_ERROR;
+	wp = (BMPWRITE)(void*)h;
+
+	if (s_check_already_saved(wp))
+		return BMP_RESULT_ERROR;
+
+	wp->allow_rle24 = TRUE;
+
+	return BMP_RESULT_OK;
+}
+
+
+
+/*****************************************************************************
  * 	bmpwrite_set_64bit
  *****************************************************************************/
 
@@ -604,18 +627,21 @@ static void s_decide_outformat(BMPWRITE_R wp)
 			    wp->rle_requested == BMP_RLE_RLE8) {
 				wp->rle = 8;
 				wp->ih->compression = BI_RLE8;
-				wp->ih->bitcount = 8;
+				wp->ih->bitcount    = 8;
+
 			} else if (wp->palette->numcolors > 2 || !wp->allow_huffman) {
 				wp->rle = 4;
 				wp->ih->compression = BI_RLE4;
-				wp->ih->bitcount = 4;
+				wp->ih->bitcount    = 4;
+
 			} else {
 				wp->rle = 1;
 				wp->ih->compression = BI_OS2_HUFFMAN;
-				wp->ih->bitcount = 1;
-				wp->ih->version = BMPINFO_OS22;
-				wp->ih->size    = BMPIHSIZE_OS22;
+				wp->ih->bitcount    = 1;
+				wp->ih->version     = BMPINFO_OS22;
+				wp->ih->size        = BMPIHSIZE_OS22;
 			}
+
 		} else {
 			wp->ih->compression = BI_RGB;
 			wp->ih->bitcount = 1;
@@ -624,21 +650,29 @@ static void s_decide_outformat(BMPWRITE_R wp)
 			if (wp->ih->bitcount == 2 && !wp->allow_2bit)
 				wp->ih->bitcount = 4;
 		}
-	}
-	/* we need BI_BITFIELDS if any of the following is true and we are not
-	 * writing a 64bit BMP:
-	 *    - not all RGB-components have the same bitlength
-	 *    - we are writing an alpha-channel
-	 *    - bits per component are not either 5 or 8 (which have
-	 *      known RI_RGB representation)
-	 */
-	else if (bitsum < 64 && (!cm_all_equal_int(3, (int) wp->cmask.bits.red,
+
+	} else if (wp->allow_rle24 && wp->source_channels == 3 &&
+	           wp->source_bitsperchannel && wp->rle_requested == BMP_RLE_AUTO) {
+		wp->rle = 24;
+		wp->ih->compression = BI_OS2_RLE24;
+		wp->ih->bitcount    = 24;
+		wp->ih->version     = BMPINFO_OS22;
+		wp->ih->size        = BMPIHSIZE_OS22;
+
+	} else if (bitsum < 64 && (!cm_all_equal_int(3, (int) wp->cmask.bits.red,
 	                                              (int) wp->cmask.bits.green,
 	                                              (int) wp->cmask.bits.blue)
-	                         || wp->has_alpha
-                                 || (wp->cmask.bits.red > 0  &&
-                                     wp->cmask.bits.red != 5 &&
-                                     wp->cmask.bits.red != 8    )    )) {
+	                           || wp->has_alpha
+                                   || (wp->cmask.bits.red > 0  &&
+                                       wp->cmask.bits.red != 5 &&
+                                       wp->cmask.bits.red != 8    )    )) {
+		/* we need BI_BITFIELDS if any of the following is true and we are not
+		 * writing a 64bit BMP:
+		 *    - not all RGB-components have the same bitlength
+		 *    - we are writing an alpha-channel
+		 *    - bits per component are not either 5 or 8 (which have
+		 *      known RI_RGB representation)
+		 */
 
 		wp->ih->version     = BMPINFO_V4;
 		wp->ih->size        = BMPIHSIZE_V4;
@@ -648,11 +682,10 @@ static void s_decide_outformat(BMPWRITE_R wp)
 			wp->ih->bitcount = 16;
 		else
 			wp->ih->bitcount = 32;
-	}
-	/* otherwise, use BI_RGB with either 5 or 8 bits per component
-	 * resulting in bitcount of 16 or 24, or a 64bit BMP with 16 bits/comp.
-	 */
-	else {
+	} else {
+		/* otherwise, use BI_RGB with either 5 or 8 bits per component
+		 * resulting in bitcount of 16 or 24, or a 64bit BMP with 16 bits/comp.
+		 */
 		wp->ih->version     = BMPINFO_V3;
 		wp->ih->size        = BMPIHSIZE_V3;
 		wp->ih->compression = BI_RGB;
@@ -673,9 +706,9 @@ static void s_decide_outformat(BMPWRITE_R wp)
 	}
 
 	bytes_per_line = ((uint64_t) wp->width * wp->ih->bitcount + 7) / 8;
-	wp->padding = cm_align4padding(bytes_per_line);
-	bitmapsize = (bytes_per_line + wp->padding) * wp->height;
-	filesize = bitmapsize + BMPFHSIZE + wp->ih->size + wp->palette_size;
+	wp->padding    = cm_align4padding(bytes_per_line);
+	bitmapsize     = (bytes_per_line + wp->padding) * wp->height;
+	filesize       = bitmapsize + BMPFHSIZE + wp->ih->size + wp->palette_size;
 
 	wp->fh->type = 0x4d42; /* "BM" */
 	wp->fh->size = (DWORD) ((wp->rle || filesize > UINT32_MAX) ? 0 : filesize);
@@ -696,8 +729,7 @@ static void s_decide_outformat(BMPWRITE_R wp)
  * 	bmpwrite_save_image
  *****************************************************************************/
 static int s_save_line_rgb(BMPWRITE_R wp, const unsigned char *line);
-static int s_save_line_rle8(BMPWRITE_R wp, const unsigned char *line);
-static int s_save_line_rle4(BMPWRITE_R wp, const unsigned char *line);
+static int s_save_line_rle(BMPWRITE_R wp, const unsigned char *line);
 static int s_save_line_huff(BMPWRITE_R wp, const unsigned char *line);
 
 API BMPRESULT bmpwrite_save_image(BMPHANDLE h, const unsigned char *image)
@@ -729,11 +761,10 @@ API BMPRESULT bmpwrite_save_image(BMPHANDLE h, const unsigned char *image)
 		real_y = (wp->outorientation == BMP_ORIENT_TOPDOWN) ? y : wp->height - y - 1;
 		offs = (size_t) real_y * linesize;
 		switch (wp->rle) {
-		case 8:
-			res = s_save_line_rle8(wp, image + offs);
-			break;
 		case 4:
-			res = s_save_line_rle4(wp, image + offs);
+		case 8:
+		case 24:
+			res = s_save_line_rle(wp, image + offs);
 			break;
 		case 1:
 			res = s_save_line_huff(wp, image + offs);
@@ -793,11 +824,10 @@ API BMPRESULT bmpwrite_save_line(BMPHANDLE h, const unsigned char *line)
 	}
 
 	switch (wp->rle) {
-	case 8:
-		res = s_save_line_rle8(wp, line);
-		break;
 	case 4:
-		res = s_save_line_rle4(wp, line);
+	case 8:
+	case 24:
+		res = s_save_line_rle(wp, line);
 		break;
 	case 1:
 		res = s_save_line_huff(wp, line);
@@ -996,12 +1026,31 @@ static inline int s_length_of_runs(BMPWRITE_R wp, int x, int group, int minlen)
 
 
 /*****************************************************************************
- * 	s_save_line_rle8
+ * 	s_save_line_rle
  *****************************************************************************/
 
-static int s_save_line_rle8(BMPWRITE_R wp, const unsigned char *line)
+static int s_save_line_rle(BMPWRITE_R wp, const unsigned char *line)
 {
-	int i, j, k, x, l, dx;
+	int i, j, k, x, l, dx, even, outbyte = 0;
+	int small_number = 0, minlen = 0;
+
+	switch (wp->rle) {
+	case 4:
+		small_number = 7;
+		minlen = 3;
+		break;
+	case 8:
+		small_number = 5;
+		minlen = 2;
+		break;
+	case 24:
+		small_number = 3;
+		minlen = 2;
+		break;
+	default:
+		assert(0);
+		break;
+	}
 
 	if (!wp->group) {
 		if (!(wp->group = malloc(wp->width * sizeof *wp->group))) {
@@ -1018,17 +1067,37 @@ static int s_save_line_rle8(BMPWRITE_R wp, const unsigned char *line)
 	memset(wp->group, 0, wp->width * sizeof *wp->group);
 	for (x = 0, wp->group_count = 0; x < wp->width; x++) {
 		wp->group[wp->group_count]++;
-		if (x == wp->width - 1 || line[x] != line[x+1])
+
+		if (x == wp->width - 1) {
 			wp->group_count++;
+			break;
+		}
+
+		if (wp->rle == 4) {
+			if (wp->group[wp->group_count] > 1 && line[x-1] != line[x+1])
+				wp->group_count++;
+
+		} else if (wp->rle == 8) {
+			if (line[x] != line[x+1])
+				wp->group_count++;
+
+		} else if (wp->rle == 24) {
+			for (int c = 0; c < 3; c++) {
+				if (line[3*x + c] != line[3*(x+1) + c]) {
+					wp->group_count++;
+					break;
+				}
+			}
+		}
 	}
 
 	x = 0;
 	for (i = 0; i < wp->group_count; i++) {
 		l = 0;  /* l counts the number of groups in this literal run */
 		dx = 0; /* dx counts the number of pixels in this literal run */
-		while (i+l < wp->group_count && wp->group[i+l] == 1 && dx < 254) {
+		while (i+l < wp->group_count && wp->group[i+l] < minlen && (dx + wp->group[i+l]) < 255) {
 			/* start/continue a literal run */
-			dx++;
+			dx += wp->group[i+l];
 			l++;
 
 			/* if only a small number of repeated pixels comes up, include
@@ -1037,9 +1106,8 @@ static int s_save_line_rle8(BMPWRITE_R wp, const unsigned char *line)
 			 * run for e.g. two repeated pixels and then restarting the literal
 			 * run at a cost of 2-4 bytes (depending on padding)
 			 */
-			const int small_number = 5;
-			if (i+l < wp->group_count && s_length_of_runs(wp, x+dx, i+l, 2) <= small_number) {
-				while (i+l < wp->group_count && wp->group[i+l] > 1 && dx + wp->group[i+l] < 255) {
+			if (i+l < wp->group_count && s_length_of_runs(wp, x+dx, i+l, minlen) <= small_number) {
+				while (i+l < wp->group_count && wp->group[i+l] > (minlen-1) && dx + wp->group[i+l] < 255) {
 					dx += wp->group[i+l];
 					l++;
 				}
@@ -1053,14 +1121,45 @@ static int s_save_line_rle8(BMPWRITE_R wp, const unsigned char *line)
 			    EOF == s_write_one_byte(dx, wp)) {
 				goto abort;
 			}
+			even = TRUE;
 			for (j = 0; j < l; j++) {
 				for (k = 0; k < wp->group[i+j]; k++) {
-					if (EOF == s_write_one_byte(line[x++], wp)) {
-						goto abort;
+					if (wp->rle == 4) {
+						if (even)
+							outbyte = (line[x++] << 4) & 0xf0;
+						else {
+							outbyte |= line[x++] & 0x0f;
+							if (EOF == s_write_one_byte(outbyte, wp)) {
+								goto abort;
+							}
+						}
+						even = !even;
+					} else if (wp->rle == 8) {
+						if (EOF == s_write_one_byte(line[x++], wp)) {
+							goto abort;
+						}
+					} else if (wp->rle == 24) {
+						if (EOF == s_write_one_byte(line[3*x+2], wp) ||
+						    EOF == s_write_one_byte(line[3*x+1], wp) ||
+						    EOF == s_write_one_byte(line[3*x+0], wp)) {
+							goto abort;
+						}
+						x++;
+						even = !even;
 					}
+
 				}
 			}
-			if (dx & 0x01) {  /* pad odd-length literal run */
+			if (wp->rle == 4 && !even) {
+				/* write last nibble for RLE4 */
+				if (EOF == s_write_one_byte(outbyte, wp)) {
+					goto abort;
+				}
+			}
+			/* padding, if neccessary */
+			if ((wp->rle == 4 && (dx+1)%4 > 1) ||
+			    (wp->rle == 8 && (dx & 0x01)) ||
+			    (wp->rle == 24 && !even)) {
 				if (EOF == s_write_one_byte(0, wp)) {
 					goto abort;
 				}
@@ -1072,8 +1171,24 @@ static int s_save_line_rle8(BMPWRITE_R wp, const unsigned char *line)
 		if (EOF == s_write_one_byte(wp->group[i], wp)) {
 			goto abort;
 		}
-		if (EOF == s_write_one_byte(line[x], wp)) {
-			goto abort;
+
+		if (wp->rle == 4) {
+			outbyte = (line[x] << 4) & 0xf0;
+			if (wp->group[i] > 1)
+				outbyte |= line[x+1] & 0x0f;
+			if (EOF == s_write_one_byte(outbyte, wp)) {
+				goto abort;
+			}
+		} else if (wp->rle == 8) {
+			if (EOF == s_write_one_byte(line[x], wp)) {
+				goto abort;
+			}
+		} else if (wp->rle == 24) {
+			if (EOF == s_write_one_byte(line[3*x+2], wp) ||
+			    EOF == s_write_one_byte(line[3*x+1], wp) ||
+			    EOF == s_write_one_byte(line[3*x+0], wp)) {
+				goto abort;
+			}
 		}
 		x += wp->group[i];
 	}
@@ -1089,128 +1204,7 @@ abort:
 		wp->group = NULL;
 		wp->group_count = 0;
 	}
-	logsyserr(wp->log, "Writing RLE8 data to BMP file");
-	return FALSE;
-}
-
-
-
-/*****************************************************************************
- * 	s_save_line_rle4
- *****************************************************************************/
-
-static int s_save_line_rle4(BMPWRITE_R wp, const unsigned char *line)
-{
-	int i, j, k, x, dx, l, even, outbyte;
-
-	if (!wp->group) {
-		if (!(wp->group = malloc(wp->width * sizeof *wp->group))) {
-			logsyserr(wp->log, "allocating RLE buffer");
-			goto abort;
-		}
-	}
-
-	/* group contiguous alternating pixels and keep a list
-	 * of number of pixels/group in wp->group. Unlike RLE8,
-	 * there is not one unambiguos ways to group the pixels.
-	 * (Of course, the two repeated 4-bit values could also
-	 * be identical)
-	 * e.g.,a pixel line abcbcabaddacacab coule be grouped as:
-	 *                   14   3  2 5    1 = 1,4,3,2,5
-	 *               or  2 3  3  2 5    1 = 2,3,3,2,5
-	 * we'll use the second (greedy) one, which results in
-	 * groups of at least 2 pixels (except for the last group
-	 * in a row, which may be a 1-pixel group)
-	 */
-	memset(wp->group, 0, wp->width * sizeof *wp->group);
-	for (x = 0, wp->group_count = 0; x < wp->width; x++) {
-		wp->group[wp->group_count]++;
-		if (x == wp->width - 1) {
-			wp->group_count++;
-			break;
-		}
-		if (wp->group[wp->group_count] > 1 && line[x-1] != line[x+1]) {
-			wp->group_count++;
-		}
-	}
-
-	x = 0;
-	for (i = 0; i < wp->group_count; i++) {
-		l = 0;  /* l counts the number of groups in this literal run */
-		dx = 0; /* dx counts the number of pixels in this literal run */
-		while (i+l < wp->group_count && wp->group[i+l] <= 2 && (dx + wp->group[i+l]) < 255) {
-			/* start/continue a literal run */
-			dx += wp->group[i+l];
-			l++;
-
-			const int small_number = 7;
-			if (i+l < wp->group_count && s_length_of_runs(wp, x+dx, i+l, 3) <= small_number) {
-				while (i+l < wp->group_count && wp->group[i+l] > 2 && dx + wp->group[i+l] < 255) {
-					dx += wp->group[i+l];
-					l++;
-				}
-			}
-		}
-		if (dx >= 3) {
-			/* write literal run to file if it's at least 3 bytes long,
-			 * otherwise fall through to repeat-run
-			 */
-			if (EOF == s_write_one_byte(0, wp) ||
-			    EOF == s_write_one_byte(dx, wp)) {
-				goto abort;
-			}
-			even = TRUE;
-			for (j = 0; j < l; j++) {
-				for (k = 0; k < wp->group[i+j]; k++) {
-					if (even)
-						outbyte = (line[x++] << 4) & 0xf0;
-					else {
-						outbyte |= line[x++] & 0x0f;
-						if (EOF == s_write_one_byte(outbyte, wp)) {
-							goto abort;
-						}
-					}
-					even = !even;
-				}
-			}
-			if (!even) {
-				if (EOF == s_write_one_byte(outbyte, wp)) {
-					goto abort;
-				}
-			}
-			if ((dx+1)%4 > 1) {  /* pad literal run to 2 byte boundary */
-				if (EOF == s_write_one_byte(0, wp)) {
-					goto abort;
-				}
-			}
-			i += l-1;
-			continue;
-		}
-
-		/* write repeat-run to file */
-		if (EOF == s_write_one_byte(wp->group[i], wp)) {
-			goto abort;
-		}
-		outbyte = (line[x] << 4) & 0xf0;
-		if (wp->group[i] > 1)
-			outbyte |= line[x+1] & 0x0f;
-		if (EOF == s_write_one_byte(outbyte, wp)) {
-			goto abort;
-		}
-		x += wp->group[i];
-	}
-	if (EOF == s_write_one_byte(0, wp) || EOF == s_write_one_byte(0, wp)) {
-		goto abort;
-	}
-
-	return TRUE;
-abort:
-	if (wp->group) {
-		free(wp->group);
-		wp->group = NULL;
-		wp->group_count = 0;
-	}
-	logsyserr(wp->log, "Writing RLE8 data to BMP file");
+	logsyserr(wp->log, "Writing RLE data to BMP file");
 	return FALSE;
 }
 

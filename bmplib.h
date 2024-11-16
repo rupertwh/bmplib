@@ -264,6 +264,7 @@ APIDECL BMPRESULT bmpwrite_set_output_bits(BMPHANDLE h, int red, int green, int 
 APIDECL BMPRESULT bmpwrite_set_palette(BMPHANDLE h, int numcolors, const unsigned char *palette);
 APIDECL BMPRESULT bmpwrite_allow_2bit(BMPHANDLE h);
 APIDECL BMPRESULT bmpwrite_allow_huffman(BMPHANDLE h);
+APIDECL BMPRESULT bmpwrite_allow_rle24(BMPHANDLE h);
 APIDECL BMPRESULT bmpwrite_set_rle(BMPHANDLE h, BMPRLETYPE type);
 APIDECL BMPRESULT bmpwrite_set_orientation(BMPHANDLE h, BMPORIENT orientation);
 APIDECL BMPRESULT bmpwrite_set_64bit(BMPHANDLE h);

@@ -49,7 +49,7 @@ The dimensions describe the image returned by bmplib, *not* necessarily the
 original BMP file.
 
 `orientation` can be ignored, it is only relevant when loading the image
-line-by-line (see *Full API Description*)
+line-by-line. Can be set to NULL. (see *Full API Description*)
 
 
 ### Load the image
@@ -199,7 +199,7 @@ Can safely be cast from/to int. BMP_RESULT_OK is guaranteed to have the value 0.
     unsigned char *image_buffer;
 
 
-    /* open a file and call bmpread_new() to get a BMPHANDLE,
+    /* Open a file and call bmpread_new() to get a BMPHANDLE,
      * which will be used on all subsequent calls.
      */
 
@@ -207,15 +207,16 @@ Can safely be cast from/to int. BMP_RESULT_OK is guaranteed to have the value 0.
     h    = bmpread_new(file);
 
 
-    /* get image dimensions
-     * the color information (channels/bits) describes the data
+    /* Get image dimensions
+     * The color information (channels/bits) describes the data
      * that bmplib will return, NOT necessarily the BMP file.
+     * Setting orientation to NULL, image is always returned top-down.
      */
 
     bmpread_dimensions(h, &width, &height, &channels, &bitsperchannel, NULL);
 
 
-    /* load the image and clean up: */
+    /* Load the image and clean up: */
 
     image_buffer = NULL;
     bmpread_load_image(h, &image_buffer);
@@ -224,9 +225,9 @@ Can safely be cast from/to int. BMP_RESULT_OK is guaranteed to have the value 0.
     fclose(file);
 
 
-    /* ready to use the image written to image_buffer */
+    /* Ready to use the image written to image_buffer */
 
-    /* image data is always returned in host byte order as
+    /* Image data is always returned in host byte order as
      * 8, 16, or 32 bits per channel RGB or RGBA data.
      * No padding.
      */
@@ -249,13 +250,13 @@ Can safely be cast from/to int. BMP_RESULT_OK is guaranteed to have the value 0.
      */
 
 
-    /* open a file for writing and get a BMPHANDLE */
+    /* Open a file for writing and get a BMPHANDLE */
 
     file = fopen("image.bmp", "wb");
-    h = bmpwrite_new(file);
+    h    = bmpwrite_new(file);
 
 
-    /* inform bmplib of the image dimensions.
+    /* Inform bmplib of the image dimensions.
      * The color information (channels, bits) refer to the format
      * your image buffer is in, not the format the BMP file should
      * be written in.
@@ -264,7 +265,7 @@ Can safely be cast from/to int. BMP_RESULT_OK is guaranteed to have the value 0.
     bmpwrite_set_dimensions(h, width, height, channels, bitsperchannel);
 
 
-   /* Optional: choose bit-depths (independantly for each channel,
+   /* Optional: choose bit-depths (independently for each channel,
     * in the order R,G,B,A) for the BMP file. bmplib will choose
     * an appropriate BMP file format to accomodate those bitdepths.
     */
@@ -272,7 +273,7 @@ Can safely be cast from/to int. BMP_RESULT_OK is guaranteed to have the value 0.
     bmpwrite_set_output_bits(h, 5, 6, 5, 0);
 
 
-    /* save data to file */
+    /* Save data to file */
 
     bmpwrite_save_image(h, image_buffer);
 

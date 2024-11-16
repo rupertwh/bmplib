@@ -189,6 +189,7 @@ struct Bmpwrite {
 	int              rle;
 	int              allow_2bit; /* Windows CE, but many will not read it */
 	int              allow_huffman;
+	int              allow_rle24;
 	int              out64bit;
 	int              outbytes_per_pixel;
 	int              padding;
