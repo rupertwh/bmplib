@@ -3,3 +3,9 @@ _debug
 _release
 *.sublime-workspace
 *.patch
+.vs
+[Dd]ebug
+[Rr]elease
+bmplib
+gen-huffman
+gen-reversebits

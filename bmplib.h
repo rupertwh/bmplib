@@ -31,6 +31,17 @@
         #define DEPR(m)
 #endif
 
+#ifdef WIN32
+        #ifdef BMPLIB_LIB
+                #define APIDECL __declspec(dllexport)
+        #else
+                #define APIDECL __declspec(dllimport)
+        #endif
+#else
+        #define APIDECL
+#endif
+
+
 typedef struct Bmphandle *BMPHANDLE;
 
 
@@ -194,80 +205,80 @@ enum BmpFormat {
 typedef enum BmpFormat BMPFORMAT;
 
 
-BMPHANDLE bmpread_new(FILE *file);
+APIDECL BMPHANDLE bmpread_new(FILE *file);
 
-BMPRESULT bmpread_load_info(BMPHANDLE h);
+APIDECL BMPRESULT bmpread_load_info(BMPHANDLE h);
 
-BMPRESULT bmpread_dimensions(BMPHANDLE  h,
+APIDECL BMPRESULT bmpread_dimensions(BMPHANDLE  h,
                              int       *width,
                              int       *height,
                              int       *channels,
                              int       *bitsperchannel,
                              BMPORIENT *orientation);
 
-int       bmpread_width(BMPHANDLE h);
-int       bmpread_height(BMPHANDLE h);
-int       bmpread_channels(BMPHANDLE h);
-int       bmpread_bitsperchannel(BMPHANDLE h);
-BMPORIENT bmpread_orientation(BMPHANDLE h);
+APIDECL int       bmpread_width(BMPHANDLE h);
+APIDECL int       bmpread_height(BMPHANDLE h);
+APIDECL int       bmpread_channels(BMPHANDLE h);
+APIDECL int       bmpread_bitsperchannel(BMPHANDLE h);
+APIDECL BMPORIENT bmpread_orientation(BMPHANDLE h);
 
-int       bmpread_resolution_xdpi(BMPHANDLE h);
-int       bmpread_resolution_ydpi(BMPHANDLE h);
+APIDECL int       bmpread_resolution_xdpi(BMPHANDLE h);
+APIDECL int       bmpread_resolution_ydpi(BMPHANDLE h);
 
-size_t    bmpread_buffersize(BMPHANDLE h);
+APIDECL size_t    bmpread_buffersize(BMPHANDLE h);
 
-BMPRESULT bmpread_load_image(BMPHANDLE h, unsigned char **buffer);
-BMPRESULT bmpread_load_line(BMPHANDLE h, unsigned char **buffer);
-
-
-int       bmpread_num_palette_colors(BMPHANDLE h);
-BMPRESULT bmpread_load_palette(BMPHANDLE h, unsigned char **palette);
+APIDECL BMPRESULT bmpread_load_image(BMPHANDLE h, unsigned char **buffer);
+APIDECL BMPRESULT bmpread_load_line(BMPHANDLE h, unsigned char **buffer);
 
 
-void      bmpread_set_undefined(BMPHANDLE h, BMPUNDEFINED mode);
-void      bmpread_set_insanity_limit(BMPHANDLE h, size_t limit);
-
-int       bmpread_is_64bit(BMPHANDLE h);
-BMPRESULT bmpread_set_64bit_conv(BMPHANDLE h, BMPCONV64 conv);
-
-BMPINFOVER  bmpread_info_header_version(BMPHANDLE h);
-const char* bmpread_info_header_name(BMPHANDLE h);
-int         bmpread_info_header_size(BMPHANDLE h);
-int         bmpread_info_compression(BMPHANDLE h);
-const char* bmpread_info_compression_name(BMPHANDLE h);
-int         bmpread_info_bitcount(BMPHANDLE h);
-BMPRESULT   bmpread_info_channel_bits(BMPHANDLE h, int *r, int *g, int *b, int *a);
+APIDECL int       bmpread_num_palette_colors(BMPHANDLE h);
+APIDECL BMPRESULT bmpread_load_palette(BMPHANDLE h, unsigned char **palette);
 
 
+APIDECL void      bmpread_set_undefined(BMPHANDLE h, BMPUNDEFINED mode);
+APIDECL void      bmpread_set_insanity_limit(BMPHANDLE h, size_t limit);
+
+APIDECL int       bmpread_is_64bit(BMPHANDLE h);
+APIDECL BMPRESULT bmpread_set_64bit_conv(BMPHANDLE h, BMPCONV64 conv);
+
+APIDECL BMPINFOVER  bmpread_info_header_version(BMPHANDLE h);
+APIDECL const char* bmpread_info_header_name(BMPHANDLE h);
+APIDECL int         bmpread_info_header_size(BMPHANDLE h);
+APIDECL int         bmpread_info_compression(BMPHANDLE h);
+APIDECL const char* bmpread_info_compression_name(BMPHANDLE h);
+APIDECL int         bmpread_info_bitcount(BMPHANDLE h);
+APIDECL BMPRESULT   bmpread_info_channel_bits(BMPHANDLE h, int *r, int *g, int *b, int *a);
 
 
-BMPHANDLE bmpwrite_new(FILE *file);
 
-BMPRESULT bmpwrite_set_dimensions(BMPHANDLE h,
+
+APIDECL BMPHANDLE bmpwrite_new(FILE *file);
+
+APIDECL BMPRESULT bmpwrite_set_dimensions(BMPHANDLE h,
                                   unsigned  width,
                                   unsigned  height,
                                   unsigned  channels,
                                   unsigned  bitsperchannel);
-BMPRESULT bmpwrite_set_resolution(BMPHANDLE h, int xdpi, int ydpi);
-BMPRESULT bmpwrite_set_output_bits(BMPHANDLE h, int red, int green, int blue, int alpha);
-BMPRESULT bmpwrite_set_palette(BMPHANDLE h, int numcolors, const unsigned char *palette);
-BMPRESULT bmpwrite_allow_2bit(BMPHANDLE h);
-BMPRESULT bmpwrite_allow_huffman(BMPHANDLE h);
-BMPRESULT bmpwrite_set_rle(BMPHANDLE h, BMPRLETYPE type);
-BMPRESULT bmpwrite_set_orientation(BMPHANDLE h, BMPORIENT orientation);
-BMPRESULT bmpwrite_set_64bit(BMPHANDLE h);
+APIDECL BMPRESULT bmpwrite_set_resolution(BMPHANDLE h, int xdpi, int ydpi);
+APIDECL BMPRESULT bmpwrite_set_output_bits(BMPHANDLE h, int red, int green, int blue, int alpha);
+APIDECL BMPRESULT bmpwrite_set_palette(BMPHANDLE h, int numcolors, const unsigned char *palette);
+APIDECL BMPRESULT bmpwrite_allow_2bit(BMPHANDLE h);
+APIDECL BMPRESULT bmpwrite_allow_huffman(BMPHANDLE h);
+APIDECL BMPRESULT bmpwrite_set_rle(BMPHANDLE h, BMPRLETYPE type);
+APIDECL BMPRESULT bmpwrite_set_orientation(BMPHANDLE h, BMPORIENT orientation);
+APIDECL BMPRESULT bmpwrite_set_64bit(BMPHANDLE h);
 
-BMPRESULT bmpwrite_save_image(BMPHANDLE h, const unsigned char *image);
-BMPRESULT bmpwrite_save_line(BMPHANDLE h, const unsigned char *line);
+APIDECL BMPRESULT bmpwrite_save_image(BMPHANDLE h, const unsigned char *image);
+APIDECL BMPRESULT bmpwrite_save_line(BMPHANDLE h, const unsigned char *line);
 
 
-BMPRESULT bmp_set_number_format(BMPHANDLE h, BMPFORMAT format);
+APIDECL BMPRESULT bmp_set_number_format(BMPHANDLE h, BMPFORMAT format);
 
-void        bmp_free(BMPHANDLE h);
+APIDECL void        bmp_free(BMPHANDLE h);
 
-const char* bmp_errmsg(BMPHANDLE h);
+APIDECL const char* bmp_errmsg(BMPHANDLE h);
 
-const char* bmp_version(void);
+APIDECL const char* bmp_version(void);
 
 
 /* these errorcodes aren't part of the API yet, but will be.
@@ -304,14 +315,10 @@ const char* bmp_version(void);
  * removed from future versions:
  */
 
-int  DEPR("use bmpread_orientation() instead")    bmpread_topdown(BMPHANDLE h);
-void DEPR("use bmpread_set_undefined() instead")  bmpread_set_undefined_to_alpha(BMPHANDLE h, int mode);
-int  DEPR("use bmpread_bitsperchannel() instead") bmpread_bits_per_channel(BMPHANDLE h);
+APIDECL int  DEPR("use bmpread_orientation() instead")    bmpread_topdown(BMPHANDLE h);
+APIDECL void DEPR("use bmpread_set_undefined() instead")  bmpread_set_undefined_to_alpha(BMPHANDLE h, int mode);
+APIDECL int  DEPR("use bmpread_bitsperchannel() instead") bmpread_bits_per_channel(BMPHANDLE h);
 
-
-#ifdef DEBUG
-void print_huff_table(void);
-#endif
 
 #ifdef __cplusplus
 }

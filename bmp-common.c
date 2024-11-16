@@ -24,6 +24,8 @@
 #include <stdint.h>
 #include <stdarg.h>
 
+#define BMPLIB_LIB
+
 #include "config.h"
 #include "bmplib.h"
 #include "logging.h"
@@ -187,9 +189,6 @@ int cm_count_bits(unsigned long v)
 {
 	int bits = 0;
 
-	if (v < 0)
-		v = -v;
-
 	while (v) {
 		bits++;
 		v >>= 1;
@@ -309,12 +308,12 @@ int cm_is_one_of(int n, int candidate, ...)
 
 int cm_align4padding(unsigned long long a)
 {
-	return cm_align4size(a) - a;
+	return (int) (cm_align4size(a) - a);
 }
 
 int cm_align2padding(unsigned long long a)
 {
-	return cm_align2size(a) - a;
+	return (int) (cm_align2size(a) - a);
 }
 
 

@@ -36,6 +36,12 @@
 	#define ATTR_CONST
 #endif
 
+#ifdef WIN32
+        #define API
+#else
+	#define API __attribute__ ((visibility ("default")))
+#endif
+
 union Pixel {
 	unsigned int value[4];
 	struct {
@@ -48,7 +54,7 @@ union Pixel {
 
 struct Colormask {
 	union {
-		unsigned long value[4];
+		unsigned long long value[4];
 		struct {
 			unsigned long long red;
 			unsigned long long green;
@@ -57,21 +63,21 @@ struct Colormask {
 		};
 	} mask;
 	union {
-		unsigned long value[4];
+		int value[4];
 		struct {
-			unsigned long	red;
-			unsigned long	green;
-			unsigned long	blue;
-			unsigned long	alpha;
+			int red;
+			int green;
+			int blue;
+			int alpha;
 		};
 	} shift;
 	union {
 		int value[4];
 		struct {
-			int	red;
-			int	green;
-			int	blue;
-			int	alpha;
+			int red;
+			int green;
+			int blue;
+			int alpha;
 		};
 	} bits;
 	union {
@@ -228,7 +234,6 @@ int write_s32_le(FILE *file, int32_t val);
 int read_s16_le(FILE *file, int16_t *val);
 int read_s32_le(FILE *file, int32_t *val);
 
-#define API __attribute__ ((visibility ("default")))
 
 
 #define HMAGIC_READ  0x44414552UL

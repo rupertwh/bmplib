@@ -25,6 +25,8 @@
 #include <limits.h>
 #include <stdarg.h>
 
+#define BMPLIB_LIB
+
 #include "config.h"
 #include "bmplib.h"
 #include "logging.h"
@@ -457,10 +459,10 @@ static int s_single_dim_val(BMPHANDLE h, enum Dimint dim)
 		ret = (int) rp->orientation;
 		break;
 	case DIM_XDPI:
-		ret = rp->ih->xpelspermeter / 39.37 + 0.5;
+		ret = (int) (rp->ih->xpelspermeter / (100.0 / 2.54) + 0.5);
 		break;
 	case DIM_YDPI:
-		ret = rp->ih->ypelspermeter / 39.37 + 0.5;
+		ret = (int) (rp->ih->ypelspermeter / (100.0 / 2.54) + 0.5);
 		break;
 	default:
 		return 0;
@@ -833,8 +835,8 @@ static struct Palette* s_read_palette(BMPREAD_R rp)
  *****************************************************************************/
 static int s_read_masks_from_bitfields(BMPREAD_R rp);
 static int s_create_implicit_colormasks(BMPREAD_R rp);
-static inline unsigned long s_calc_bits_for_mask(unsigned long long mask);
-static inline unsigned long s_calc_shift_for_mask(unsigned long long mask);
+static inline int s_calc_bits_for_mask(unsigned long long mask);
+static inline int s_calc_shift_for_mask(unsigned long long mask);
 
 static int s_read_colormasks(BMPREAD_R rp)
 {
@@ -878,7 +880,7 @@ static int s_read_colormasks(BMPREAD_R rp)
 		return FALSE;
 	}
 	if (!(rp->cmask.mask.red | rp->cmask.mask.green | rp->cmask.mask.blue)) {
-		logerr(rp->log, "Empty color masks. Corrupted BMP?");
+		logerr(rp->log, "Empty color masks. Corrupt BMP?");
 		rp->lasterr = BMP_ERR_INVALID;
 		return FALSE;
 	}
@@ -1086,7 +1088,7 @@ static int s_create_implicit_colormasks(BMPREAD_R rp)
  * 	s_calc_bits_for_mask
  *****************************************************************************/
 
-static inline unsigned long s_calc_bits_for_mask(unsigned long long mask)
+static inline int s_calc_bits_for_mask(unsigned long long mask)
 {
 	int bits = 0;
 
@@ -1110,7 +1112,7 @@ static inline unsigned long s_calc_bits_for_mask(unsigned long long mask)
  * 	s_calc_shift_for_mask
  *****************************************************************************/
 
-static inline unsigned long s_calc_shift_for_mask(unsigned long long mask)
+static inline int s_calc_shift_for_mask(unsigned long long mask)
 {
 	int shift = 0;
 

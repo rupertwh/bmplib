@@ -22,6 +22,7 @@
 #include <string.h>
 #include <stdlib.h>
 #include <stdarg.h>
+#include <limits.h>
 #include <errno.h>
 
 #include "config.h"
@@ -29,24 +30,25 @@
 
 
 struct Log {
-	size_t	size;
-	char   *buffer;
+	int   size;
+	char *buffer;
 };
 
 
 /* logerr(log, fmt, ...) and logsyserr(log, fmt, ...) are
  * printf-style logging functions.
+ *
  * Use logsyserr() where perror() would be used, logerr()
  * otherwise.
+ *
  * 'separator' and 'inter' can have any length
  * 'air' is just there so we don't need to realloc every
  * single time.
  */
 
-
 static const char separator[]="\n"; /* separator between log entries */
 static const char inter[]=": ";     /* between own message and sys err text */
-static const int air = 80;          /* how much more than required we allocate */
+static const int  air = 80;         /* how much more than required we allocate */
 
 static int s_allocate(LOG log, size_t add_chars);
 static void s_log(LOG log, const char *file, int line, const char *function,
@@ -75,7 +77,7 @@ LOG logcreate(void)
 void logfree(LOG log)
 {
 	if (log) {
-		if (log->size != (size_t)-1 && log->buffer)
+		if (log->size != -1 && log->buffer)
 			free(log->buffer);
 		free(log);
 	}
@@ -165,7 +167,7 @@ static void s_log(LOG log, const char *file, int line, const char *function,
 	va_list     argsdup;
         int         len = 0,addl_len, required_len;
 
-	if (log->size == (size_t)-1)
+	if (log->size == -1)
 		return; /* log is set to a string literal (panic) */
 
 #ifdef DEBUG
@@ -219,20 +221,27 @@ static int s_allocate(LOG log, size_t add_chars)
 	char   *tmp;
 	size_t  newsize;
 
-	if (log->size == (size_t)-1)
+	if (log->size == -1)
 		return 0; /* log is set to a string literal (panic) */
 
 	add_chars += air;
 
-	newsize = log->size + add_chars;
+	newsize = (size_t) log->size + add_chars;
+	if (newsize > INT_MAX) {
+		panic(log);
+		return 0;
+	}
+
 	tmp = realloc(log->buffer, newsize);
 	if (tmp) {
 		log->buffer = tmp;
 		if (log->size == 0)
 			log->buffer[0] = 0;
 		log->size = newsize;
-	} else
+	} else {
+		panic(log);
 		return 0;
+	}
 
 	return 1;
 }
@@ -245,7 +254,7 @@ static int s_allocate(LOG log, size_t add_chars)
 
 static void panic(LOG log)
 {
-	log->size = (size_t) -1;
+	log->size = -1;
 	log->buffer = "PANIC! bmplib encountered an error while trying to set "
 	              "an error message";
 }

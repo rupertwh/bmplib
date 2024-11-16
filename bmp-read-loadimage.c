@@ -24,6 +24,8 @@
 #include <stdint.h>
 #include <math.h>
 
+#define BMPLIB_LIB
+
 #include "config.h"
 #include "bmplib.h"
 #include "logging.h"
@@ -226,7 +228,7 @@ static void s_read_whole_image(BMPREAD_R rp, unsigned char *restrict image)
 
 	linesize = (size_t) rp->width * rp->result_bytes_per_pixel;
 
-	for (y = 0; y < rp->height; y += yoff) {
+	for (y = 0; y < (int) rp->height; y += yoff) {
 		real_y = (rp->orientation == BMP_ORIENT_TOPDOWN) ? y : rp->height-1-y;
 		s_read_one_line(rp, image + real_y * linesize);
 		if (rp->rle_eof || s_stopping_error(rp))
@@ -263,7 +265,7 @@ static void s_read_one_line(BMPREAD_R rp, unsigned char *restrict line)
 			}
 
 			if (!(rp->rle_eof || s_stopping_error(rp))) {
-				if (yoff > rp->height - rp->lbl_file_y) {
+				if (yoff > (int) rp->height - rp->lbl_file_y) {
 					rp->invalid_delta = TRUE;
 				}
 				rp->lbl_file_y += yoff;
@@ -277,7 +279,7 @@ static void s_read_one_line(BMPREAD_R rp, unsigned char *restrict line)
 	}
 
 	rp->lbl_y++;
-	if (rp->lbl_y >= rp->height) {
+	if (rp->lbl_y >= (int) rp->height) {
 		rp->image_loaded = TRUE;
 	}
 }
@@ -354,12 +356,12 @@ static int s_read_rgb_line(BMPREAD_R rp, unsigned char *restrict line)
 					d = s_s2_13_to_float(px.value[i]);
 					if (i < 3 && rp->conv64 == BMP_CONV64_SRGB)
 						d = s_srgb_gamma_float(d);
-					((float*)line)[offs+i] = d;
+					((float*)line)[offs+i] = (float) d;
 				}
 			} else {
 				for (i = 0; i < rp->result_channels; i++) {
 					d = s_int_to_float(px.value[i], rp->cmask.bits.value[i]);
-					((float*)line)[offs + i] = d;
+					((float*)line)[offs + i] = (float) d;
 				}
 			}
 			break;
@@ -490,11 +492,11 @@ static inline int s_read_rgb_pixel(BMPREAD_R rp, union Pixel *restrict px)
 		v |= ((unsigned long long)byte) << i;
 	}
 
-	px->red   = (v & rp->cmask.mask.red)   >> rp->cmask.shift.red;
-	px->green = (v & rp->cmask.mask.green) >> rp->cmask.shift.green;
-	px->blue  = (v & rp->cmask.mask.blue)  >> rp->cmask.shift.blue;
+	px->red   = (unsigned int) ((v & rp->cmask.mask.red)   >> rp->cmask.shift.red);
+	px->green = (unsigned int) ((v & rp->cmask.mask.green) >> rp->cmask.shift.green);
+	px->blue  = (unsigned int) ((v & rp->cmask.mask.blue)  >> rp->cmask.shift.blue);
 	if (rp->has_alpha)
-		px->alpha = (v & rp->cmask.mask.alpha) >> rp->cmask.shift.alpha;
+		px->alpha = (unsigned int) ((v & rp->cmask.mask.alpha) >> rp->cmask.shift.alpha);
 	else
 		px->alpha = (1<<rp->result_bitsperchannel) - 1;
 
@@ -784,8 +786,8 @@ static int s_huff_find_eol(BMPREAD_R rp);
 
 static void s_read_huffman_line(BMPREAD_R rp, unsigned char *restrict line)
 {
-	size_t   x = 0, offs;
-	int      runlen;
+	size_t   offs;
+	int      x = 0, runlen;
 	int      black = 0;
 
 	while (x < rp->width)  {
@@ -820,7 +822,7 @@ static void s_read_huffman_line(BMPREAD_R rp, unsigned char *restrict line)
 		}
 
 		for (int i = 0; i < runlen; i++, x++) {
-			offs = x * rp->result_bytes_per_pixel;
+			offs = (size_t) x * rp->result_bytes_per_pixel;
 			if (rp->result_indexed) {
 				line[offs] = black;
 			} else {
@@ -922,7 +924,7 @@ static inline void s_int_to_result_format(BMPREAD_R rp, int frombits, unsigned c
 		}
 		switch (rp->result_format) {
 		case BMP_FORMAT_FLOAT:
-			((float*)px)[c] = (double) v / ((1ULL<<frombits)-1);
+			((float*)px)[c] = (float) ((double) v / ((1ULL<<frombits)-1));
 			break;
 		case BMP_FORMAT_S2_13:
 			((uint16_t*)px)[c] = (uint16_t) ((double) v / ((1ULL<<frombits)-1) * 8192.0 + 0.5);

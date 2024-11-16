@@ -26,14 +26,14 @@
 #include <stdarg.h>
 #include <math.h>
 
+#define BMPLIB_LIB
+
 #include "config.h"
 #include "bmplib.h"
 #include "logging.h"
 #include "bmp-common.h"
 #include "huffman.h"
 #include "bmp-write.h"
-
-
 
 static void s_decide_outformat(BMPWRITE_R wp);
 static int s_write_palette(BMPWRITE_R wp);
@@ -351,8 +351,8 @@ API BMPRESULT bmpwrite_set_resolution(BMPHANDLE h, int xdpi, int ydpi)
 	if (s_check_already_saved(wp))
 		return BMP_RESULT_ERROR;
 
-	wp->ih->xpelspermeter = 39.37 * xdpi + 0.5;
-	wp->ih->ypelspermeter = 39.37 * ydpi + 0.5;
+	wp->ih->xpelspermeter = (LONG) (100.0 / 2.54 * xdpi + 0.5);
+	wp->ih->ypelspermeter = (LONG) (100.0 / 2.54 * ydpi + 0.5);
 
 	return BMP_RESULT_OK;
 }
@@ -667,10 +667,10 @@ static void s_decide_outformat(BMPWRITE_R wp)
 		wp->outbytes_per_pixel = wp->ih->bitcount / 8;
 
 		if (wp->ih->version >= BMPINFO_V4 && !wp->out64bit) {
-			wp->ih->redmask   = wp->cmask.mask.red   << wp->cmask.shift.red;
-			wp->ih->greenmask = wp->cmask.mask.green << wp->cmask.shift.green;
-			wp->ih->bluemask  = wp->cmask.mask.blue  << wp->cmask.shift.blue;
-			wp->ih->alphamask = wp->cmask.mask.alpha << wp->cmask.shift.alpha;
+			wp->ih->redmask   = (DWORD) (wp->cmask.mask.red   << wp->cmask.shift.red);
+			wp->ih->greenmask = (DWORD) (wp->cmask.mask.green << wp->cmask.shift.green);
+			wp->ih->bluemask  = (DWORD) (wp->cmask.mask.blue  << wp->cmask.shift.blue);
+			wp->ih->alphamask = (DWORD) (wp->cmask.mask.alpha << wp->cmask.shift.alpha);
 		}
 	}
 
@@ -680,7 +680,7 @@ static void s_decide_outformat(BMPWRITE_R wp)
 	filesize = bitmapsize + BMPFHSIZE + wp->ih->size + wp->palette_size;
 
 	wp->fh->type = 0x4d42; /* "BM" */
-	wp->fh->size = (wp->rle || filesize > UINT32_MAX) ? 0 : filesize;
+	wp->fh->size = (DWORD) ((wp->rle || filesize > UINT32_MAX) ? 0 : filesize);
 	wp->fh->offbits = BMPFHSIZE + wp->ih->size + wp->palette_size;
 
 	wp->ih->width = wp->width;
@@ -689,7 +689,7 @@ static void s_decide_outformat(BMPWRITE_R wp)
 	else
 		wp->ih->height = -wp->height;
 	wp->ih->planes = 1;
-	wp->ih->sizeimage = (wp->rle || bitmapsize > UINT32_MAX) ? 0 : bitmapsize;
+	wp->ih->sizeimage = (DWORD) ((wp->rle || bitmapsize > UINT32_MAX) ? 0 : bitmapsize);
 }
 
 
@@ -902,11 +902,11 @@ static int s_try_saving_image_size(BMPWRITE_R wp)
 
 	if (fseek(wp->file, 2, SEEK_SET))        /* file header -> bfSize */
 		return FALSE;
-	if (file_size <= UINT32_MAX && !write_u32_le(wp->file, file_size))
+	if (file_size <= UINT32_MAX && !write_u32_le(wp->file, (uint32_t) file_size))
 		return FALSE;
 	if (fseek(wp->file, 14 + 20, SEEK_SET))  /* info header -> biSizeImage */
 		return FALSE;
-	if (image_size <= UINT32_MAX && !write_u32_le(wp->file, image_size))
+	if (image_size <= UINT32_MAX && !write_u32_le(wp->file, (uint32_t) image_size))
 		return FALSE;
 	return TRUE;
 }
@@ -919,9 +919,9 @@ static int s_try_saving_image_size(BMPWRITE_R wp)
 
 static int s_save_line_rgb(BMPWRITE_R wp, const unsigned char *line)
 {
-	size_t        offs;
-	unsigned long bytes = 0;
-	int           i, x, bits_used = 0;
+	size_t             offs;
+	unsigned long long bytes = 0;
+	int                i, x, bits_used = 0;
 
 	for (x = 0; x < wp->width; x++) {
 		offs = (size_t) x * (size_t) wp->source_channels;
@@ -939,7 +939,7 @@ static int s_save_line_rgb(BMPWRITE_R wp, const unsigned char *line)
 			}
 		} else {
 			bytes = s_set_outpixel_rgb(wp, line, offs);
-			if (bytes == (unsigned long)-1)
+			if (bytes == (unsigned long long)-1)
 				return BMP_RESULT_ERROR;
 
 			for (i = 0; i < wp->outbytes_per_pixel; i++) {
@@ -1296,7 +1296,7 @@ static inline unsigned long long s_set_outpixel_rgb(BMPWRITE_R wp,
 
 	switch (wp->source_format) {
 	case BMP_FORMAT_INT:
-		source_max = (1ULL<<wp->source_bitsperchannel) - 1;
+		source_max = (double) ((1ULL<<wp->source_bitsperchannel) - 1);
 		switch(wp->source_bitsperchannel) {
 		case 8:
 			comp[0] =       buffer[offs];
@@ -1327,7 +1327,8 @@ static inline unsigned long long s_set_outpixel_rgb(BMPWRITE_R wp,
 			return (unsigned long long)-1;
 		}
 		for (i = 0; i < outchannels; i++) {
-			comp[i] = comp[i] * (wp->out64bit ? 8192.0 : wp->cmask.maxval.val[i]) / source_max + 0.5;
+			comp[i] = (unsigned long) (comp[i] * (wp->out64bit ? 8192.0 :
+				                   wp->cmask.maxval.val[i]) / source_max + 0.5);
 		}
 		break;
 
@@ -1348,9 +1349,9 @@ static inline unsigned long long s_set_outpixel_rgb(BMPWRITE_R wp,
 				if (dcomp[i] < 0.0)
 					comp[i] = 0;
 				else if (dcomp[i] > 1.0)
-					comp[i] = wp->cmask.mask.value[i];
+					comp[i] = (unsigned long) wp->cmask.mask.value[i];
 				else
-					comp[i] = dcomp[i] * wp->cmask.maxval.val[i] + 0.5;
+					comp[i] = (unsigned long) (dcomp[i] * wp->cmask.maxval.val[i] + 0.5);
 			}
 		}
 		break;
@@ -1370,9 +1371,9 @@ static inline unsigned long long s_set_outpixel_rgb(BMPWRITE_R wp,
 				if (comp[i] & 0x8000)
 					comp[i] = 0;
 				else if (comp[i] > 0x2000)
-					comp[i] = wp->cmask.mask.value[i];
+					comp[i] = (unsigned long) wp->cmask.mask.value[i];
 				else
-					comp[i] = comp[i] / 8192.0 * wp->cmask.maxval.val[i] + 0.5;
+					comp[i] = (unsigned long) (comp[i] / 8192.0 * wp->cmask.maxval.val[i] + 0.5);
 			}
 		}
 		break;
@@ -1383,7 +1384,7 @@ static inline unsigned long long s_set_outpixel_rgb(BMPWRITE_R wp,
 	}
 
 	for (i = 0, bytes = 0; i < outchannels; i++) {
-		bytes |= ((unsigned long long) (comp[i] & wp->cmask.mask.value[i])) << wp->cmask.shift.value[i];
+		bytes |= ((unsigned long long)comp[i] & wp->cmask.mask.value[i]) << wp->cmask.shift.value[i];
 	}
 	if (!wp->has_alpha && wp->out64bit)
 		bytes |= 8192ULL << wp->cmask.shift.alpha;
@@ -1502,7 +1503,7 @@ static int s_write_bmp_info_header(BMPWRITE_R wp)
 			return FALSE;
 		}
 #endif
-		for (int i = 0; i < wp->ih->size - 40; i++) {
+		for (int i = 0; (DWORD) i < wp->ih->size - 40; i++) {
 			if (EOF == putc(0, wp->file))
 				return FALSE;
 			wp->bytes_written++;

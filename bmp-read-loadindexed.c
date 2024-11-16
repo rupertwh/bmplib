@@ -23,6 +23,8 @@
 #include <string.h>
 #include <stdint.h>
 
+#define BMPLIB_LIB
+
 #include "config.h"
 #include "bmplib.h"
 #include "logging.h"
