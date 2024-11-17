@@ -31,7 +31,7 @@
         #define DEPR(m)
 #endif
 
-#ifdef WIN32
+#if defined (WIN32) || defined (_WIN32)
         #ifdef BMPLIB_LIB
                 #define APIDECL __declspec(dllexport)
         #else

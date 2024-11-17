@@ -32,15 +32,12 @@
 
 #if defined(__GNUC__)
 	#define ATTR_CONST __attribute__((const))
+	#define API __attribute__ ((visibility ("default")))
 #else
 	#define ATTR_CONST
+	#define API
 #endif
 
-#ifdef WIN32
-        #define API
-#else
-	#define API __attribute__ ((visibility ("default")))
-#endif
 
 union Pixel {
 	unsigned int value[4];
