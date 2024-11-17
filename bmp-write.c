@@ -1032,7 +1032,7 @@ static inline int s_length_of_runs(BMPWRITE_R wp, int x, int group, int minlen)
 static int s_save_line_rle(BMPWRITE_R wp, const unsigned char *line)
 {
 	int i, j, k, x, l, dx, even, outbyte = 0;
-	int small_number = 0, minlen = 0;
+	int small_number = 0, minlen = 0, sublen;
 
 	switch (wp->rle) {
 	case 4:
@@ -1159,7 +1159,7 @@ static int s_save_line_rle(BMPWRITE_R wp, const unsigned char *line)
 			/* padding, if neccessary */
 			if ((wp->rle == 4 && (dx+1)%4 > 1) ||
 			    (wp->rle == 8 && (dx & 0x01)) ||
-			    (wp->rle == 24 && !even)) {
+			    (wp->rle == 24 && (dx & 0x01))) {
 				if (EOF == s_write_one_byte(0, wp)) {
 					goto abort;
 				}
@@ -1168,29 +1168,34 @@ static int s_save_line_rle(BMPWRITE_R wp, const unsigned char *line)
 			continue;
 		}
 		/* write repeat-run to file */
-		if (EOF == s_write_one_byte(wp->group[i], wp)) {
-			goto abort;
-		}
+		while (wp->group[i] > 0) {
+			sublen = MIN(255, wp->group[i]);
 
-		if (wp->rle == 4) {
-			outbyte = (line[x] << 4) & 0xf0;
-			if (wp->group[i] > 1)
-				outbyte |= line[x+1] & 0x0f;
-			if (EOF == s_write_one_byte(outbyte, wp)) {
+			if (EOF == s_write_one_byte(sublen, wp)) {
 				goto abort;
 			}
-		} else if (wp->rle == 8) {
-			if (EOF == s_write_one_byte(line[x], wp)) {
-				goto abort;
+
+			if (wp->rle == 4) {
+				outbyte = (line[x] << 4) & 0xf0;
+				if (sublen > 1)
+					outbyte |= line[x+1] & 0x0f;
+				if (EOF == s_write_one_byte(outbyte, wp)) {
+					goto abort;
+				}
+			} else if (wp->rle == 8) {
+				if (EOF == s_write_one_byte(line[x], wp)) {
+					goto abort;
+				}
+			} else if (wp->rle == 24) {
+				if (EOF == s_write_one_byte(line[3*x+2], wp) ||
+				    EOF == s_write_one_byte(line[3*x+1], wp) ||
+				    EOF == s_write_one_byte(line[3*x+0], wp)) {
+					goto abort;
+				}
 			}
-		} else if (wp->rle == 24) {
-			if (EOF == s_write_one_byte(line[3*x+2], wp) ||
-			    EOF == s_write_one_byte(line[3*x+1], wp) ||
-			    EOF == s_write_one_byte(line[3*x+0], wp)) {
-				goto abort;
-			}
+			wp->group[i] -= sublen;
+			x += sublen;
 		}
-		x += wp->group[i];
 	}
 
 	if (EOF == s_write_one_byte(0, wp) || EOF == s_write_one_byte(0, wp)) {  /* EOL */
