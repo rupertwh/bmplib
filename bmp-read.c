@@ -1177,6 +1177,16 @@ static int s_read_info_header(BMPREAD_R rp)
 	switch (rp->ih->size) {
 	case  12: rp->ih->version = BMPINFO_CORE_OS21; break;
 	case  16:
+	case  20:
+	case  24:
+	case  28:
+	case  32:
+	case  36:
+	case  42:
+	case  44:
+	case  46:
+	case  48:
+	case  60:
 	case  64: rp->ih->version = BMPINFO_OS22;      break;
 	case  40: rp->ih->version = BMPINFO_V3;        break;
 	case  52: rp->ih->version = BMPINFO_V3_ADOBE1; break;
@@ -1223,31 +1233,78 @@ static int s_read_info_header(BMPREAD_R rp)
 		goto header_done;
 	}
 
-	if (!(read_u32_le(rp->file, &rp->ih->compression)   &&
-	      read_u32_le(rp->file, &rp->ih->sizeimage)     &&
-	      read_s32_le(rp->file, &rp->ih->xpelspermeter) &&
-	      read_s32_le(rp->file, &rp->ih->ypelspermeter) &&
-	      read_u32_le(rp->file, &rp->ih->clrused)       &&
-	      read_u32_le(rp->file, &rp->ih->clrimportant)
-	                                                     )) {
+	if (rp->ih->size >= 20 && !read_u32_le(rp->file, &rp->ih->compression))
 		goto abort_file_err;
-	}
-	rp->bytes_read += 24;     /* 40 */
+	else
+		rp->bytes_read += 4;
+
+	if (rp->ih->size >= 24 && !read_u32_le(rp->file, &rp->ih->sizeimage))
+		goto abort_file_err;
+	else
+		rp->bytes_read += 4;
+
+	if (rp->ih->size >= 28 && !read_s32_le(rp->file, &rp->ih->xpelspermeter))
+		goto abort_file_err;
+	else
+		rp->bytes_read += 4;
+
+	if (rp->ih->size >= 32 && !read_s32_le(rp->file, &rp->ih->ypelspermeter))
+		goto abort_file_err;
+	else
+		rp->bytes_read += 4;
+
+	if (rp->ih->size >= 36 && !read_u32_le(rp->file, &rp->ih->clrused))
+		goto abort_file_err;
+	else
+		rp->bytes_read += 4;
+
+	if (rp->ih->size >= 40 && !read_u32_le(rp->file, &rp->ih->clrimportant))
+		goto abort_file_err;
+	else
+		rp->bytes_read += 4;  /* 40 */
+
 
 	if (rp->ih->version == BMPINFO_OS22) {
-		if (!(read_u16_le(rp->file, &rp->ih->resolution)     &&
-		      read_u16_le(rp->file, &padding)                &&
-		      read_u16_le(rp->file, &rp->ih->orientation)    &&
-		      read_u16_le(rp->file, &rp->ih->halftone_alg)   &&
-		      read_u32_le(rp->file, &rp->ih->halftone_parm1) &&
-		      read_u32_le(rp->file, &rp->ih->halftone_parm2) &&
-		      read_u32_le(rp->file, &rp->ih->color_encoding) &&
-		      read_u32_le(rp->file, &rp->ih->app_id)
-		                                                  )) {
+		if (rp->ih->size >= 42 && !read_u16_le(rp->file, &rp->ih->resolution))
 			goto abort_file_err;
-		}
+		else
+			rp->bytes_read += 2;
 
-		rp->bytes_read += 24;    /* 64 */
+		if (rp->ih->size >= 44 && !read_u16_le(rp->file, &padding))
+			goto abort_file_err;
+		else
+			rp->bytes_read += 2;
+
+		if (rp->ih->size >= 46 && !read_u16_le(rp->file, &rp->ih->orientation))
+			goto abort_file_err;
+		else
+			rp->bytes_read += 2;
+
+		if (rp->ih->size >= 48 && !read_u16_le(rp->file, &rp->ih->halftone_alg))
+			goto abort_file_err;
+		else
+			rp->bytes_read += 2;
+
+		if (rp->ih->size >= 52 && !read_u32_le(rp->file, &rp->ih->halftone_parm1))
+			goto abort_file_err;
+		else
+			rp->bytes_read += 4;
+
+		if (rp->ih->size >= 56 && !read_u32_le(rp->file, &rp->ih->halftone_parm2))
+			goto abort_file_err;
+		else
+			rp->bytes_read += 4;
+
+		if (rp->ih->size >= 60 && !read_u32_le(rp->file, &rp->ih->color_encoding))
+			goto abort_file_err;
+		else
+			rp->bytes_read += 4;
+
+		if (rp->ih->size >= 64 && !read_u32_le(rp->file, &rp->ih->app_id))
+			goto abort_file_err;
+		else
+			rp->bytes_read += 4;
+
 		goto header_done;
 	}
 
