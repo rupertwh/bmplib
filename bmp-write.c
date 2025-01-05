@@ -89,6 +89,8 @@ API BMPHANDLE bmpwrite_new(FILE *file)
 		goto abort;
 	}
 	memset(wp->ih, 0, sizeof *wp->ih);
+	/* In case we need to write V4/V5 header: */
+	wp->ih->cstype = LCS_WINDOWS_COLOR_SPACE;
 
 	return (BMPHANDLE)(void*)wp;
 

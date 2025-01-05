@@ -336,3 +336,10 @@ struct Bmpinfo {
 /* we set our own unique values: */
 #define BI_OS2_HUFFMAN  1001
 #define BI_OS2_RLE24    1002
+
+
+#define LCS_CALIBRATED_RGB      0
+#define LCS_sRGB                0x73524742 /* 'sRGB' */
+#define LCS_WINDOWS_COLOR_SPACE 0x57696e20 /* 'Win ' */
+#define PROFILE_LINKED          0x4c494e4b /* 'LINK' */
+#define PROFILE_EMBEDDED        0x4d424544 /* 'MBED' */
