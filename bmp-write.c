@@ -662,12 +662,12 @@ static void s_decide_outformat(BMPWRITE_R wp)
 		wp->ih->size        = BMPIHSIZE_OS22;
 
 	} else if (bitsum < 64 && (!cm_all_equal_int(3, (int) wp->cmask.bits.red,
-	                                              (int) wp->cmask.bits.green,
-	                                              (int) wp->cmask.bits.blue)
-	                           || wp->has_alpha
-                                   || (wp->cmask.bits.red > 0  &&
-                                       wp->cmask.bits.red != 5 &&
-                                       wp->cmask.bits.red != 8    )    )) {
+	                                                (int) wp->cmask.bits.green,
+	                                                (int) wp->cmask.bits.blue) ||
+	                            wp->has_alpha ||
+	                            (wp->cmask.bits.red > 0  &&
+	                             wp->cmask.bits.red != 5 &&
+	                             wp->cmask.bits.red != 8    )    )) {
 		/* we need BI_BITFIELDS if any of the following is true and we are not
 		 * writing a 64bit BMP:
 		 *    - not all RGB-components have the same bitlength
@@ -1405,13 +1405,12 @@ static inline uint16_t float_to_s2_13(double d)
 
 	d = round(d * 8192.0);
 
-        if (d >= 32768.0)
-                s2_13 = 0x7fff; /* max positive value */
-        else if (d < -32768.0)
-                s2_13 = 0x8000; /* min negative value */
-        else
-                s2_13 = (uint16_t) (0xffff & (int)d);
-
+	if (d >= 32768.0)
+		s2_13 = 0x7fff; /* max positive value */
+	else if (d < -32768.0)
+		s2_13 = 0x8000; /* min negative value */
+	else
+		s2_13 = (uint16_t) (0xffff & (int)d);
 
 	return s2_13;
 }

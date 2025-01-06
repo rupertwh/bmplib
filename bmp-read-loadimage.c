@@ -861,23 +861,23 @@ static int s_huff_skip_eol(BMPREAD_R rp)
 
 static int s_huff_find_eol(BMPREAD_R rp)
 {
-    /* look for the next full 12-bit eol sequence,
-     * discard anything else
-     */
-    huff_fillbuf (rp);
-    while (rp->hufbuf_len > 11)
-      {
-        if ((rp->hufbuf & 0x07ff) == 0) {
-          rp->hufbuf >>= 11;
-          rp->hufbuf_len -= 11;
-          return s_huff_skip_eol (rp);
-        }
-        rp->hufbuf >>= 1;
-        rp->hufbuf_len -= 1;
-        if (rp->hufbuf_len < 12)
-          huff_fillbuf (rp);
-      }
-    return FALSE;
+	/* look for the next full 12-bit eol sequence,
+	* discard anything else
+	*/
+	huff_fillbuf (rp);
+	while (rp->hufbuf_len > 11)
+	{
+		if ((rp->hufbuf & 0x07ff) == 0) {
+			rp->hufbuf >>= 11;
+			rp->hufbuf_len -= 11;
+			return s_huff_skip_eol (rp);
+		}
+		rp->hufbuf >>= 1;
+		rp->hufbuf_len -= 1;
+		if (rp->hufbuf_len < 12)
+			huff_fillbuf (rp);
+	}
+	return FALSE;
 }
 
 
@@ -985,9 +985,8 @@ static void s_log_error_from_state(BMPREAD_R rp)
 
 static int s_cont_error(BMPREAD_R rp)
 {
-	if (rp->invalid_index ||
-	    rp->invalid_overrun) {
-	    	return TRUE;
+	if (rp->invalid_index || rp->invalid_overrun) {
+		return TRUE;
 	}
 	return FALSE;
 }
@@ -1000,12 +999,12 @@ static int s_cont_error(BMPREAD_R rp)
 
 static int s_stopping_error(BMPREAD_R rp)
 {
-	if (rp->truncated ||
+	if (rp->truncated     ||
 	    rp->invalid_delta ||
-	    rp->file_err ||
-	    rp->file_eof ||
+	    rp->file_err      ||
+	    rp->file_eof      ||
 	    rp->panic) {
-	    	return TRUE;
+		return TRUE;
 	}
 	return FALSE;
 }

@@ -90,8 +90,8 @@ struct Colormask {
 
 typedef struct Bmpread  *BMPREAD;
 typedef struct Bmpwrite *BMPWRITE;
-typedef struct Bmpread * restrict BMPREAD_R;
-typedef struct Bmpwrite * restrict BMPWRITE_R;
+typedef struct Bmpread  *restrict BMPREAD_R;
+typedef struct Bmpwrite *restrict BMPWRITE_R;
 
 struct Palette {
 	int         numcolors;

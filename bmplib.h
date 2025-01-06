@@ -22,23 +22,23 @@
 #ifndef BMPLIB_H
 #define BMPLIB_H
 #ifdef __cplusplus
-        extern "C" {
+	extern "C" {
 #endif
 
 #if defined(__GNUC__)
-        #define DEPR(m) __attribute__ ((deprecated(m)))
+	#define DEPR(m) __attribute__ ((deprecated(m)))
 #else
-        #define DEPR(m)
+	#define DEPR(m)
 #endif
 
 #if defined (WIN32) || defined (_WIN32)
-        #ifdef BMPLIB_LIB
-                #define APIDECL __declspec(dllexport)
-        #else
-                #define APIDECL __declspec(dllimport)
-        #endif
+	#ifdef BMPLIB_LIB
+		#define APIDECL __declspec(dllexport)
+	#else
+		#define APIDECL __declspec(dllimport)
+	#endif
 #else
-        #define APIDECL
+	#define APIDECL
 #endif
 
 
@@ -86,13 +86,13 @@ typedef struct Bmphandle *BMPHANDLE;
  *                       sufficiently high limit.
  */
 enum Bmpresult {
-        BMP_RESULT_OK = 0,
-        BMP_RESULT_INVALID,
-        BMP_RESULT_TRUNCATED,
-        BMP_RESULT_INSANE,
-        BMP_RESULT_PNG,
-        BMP_RESULT_JPEG,
-        BMP_RESULT_ERROR,
+	BMP_RESULT_OK = 0,
+	BMP_RESULT_INVALID,
+	BMP_RESULT_TRUNCATED,
+	BMP_RESULT_INSANE,
+	BMP_RESULT_PNG,
+	BMP_RESULT_JPEG,
+	BMP_RESULT_ERROR,
 };
 typedef enum Bmpresult BMPRESULT;
 
@@ -112,11 +112,11 @@ typedef enum Bmpresult BMPRESULT;
  *                    - bmp_set_number_format(BMP_FORMAT_S2_13).
  */
 enum Bmpconv64 {
-        BMP_CONV64_SRGB   = 0,  /* default */
-        BMP_CONV64_LINEAR = 1,
-        BMP_CONV64_16BIT_SRGB DEPR("use BMP_CONV64_SRGB instead")   = 0,
-        BMP_CONV64_16BIT      DEPR("use BMP_CONV64_LINEAR instead") = 1,
-        BMP_CONV64_NONE
+	BMP_CONV64_SRGB   = 0,  /* default */
+	BMP_CONV64_LINEAR = 1,
+	BMP_CONV64_16BIT_SRGB DEPR("use BMP_CONV64_SRGB instead")   = 0,
+	BMP_CONV64_16BIT      DEPR("use BMP_CONV64_LINEAR instead") = 1,
+	BMP_CONV64_NONE
 };
 typedef enum Bmpconv64 BMPCONV64;
 
@@ -132,14 +132,14 @@ typedef enum Bmpconv64 BMPCONV64;
  * I am going with BITMAPINFOHEADER = v3
  */
 enum BmpInfoVer {
-        BMPINFO_CORE_OS21 = 1,  /* 12 bytes */
-        BMPINFO_OS22,           /* 16 / 40(!) / 64 bytes */
-        BMPINFO_V3,             /* 40 bytes */
-        BMPINFO_V3_ADOBE1,      /* 52 bytes, unofficial */
-        BMPINFO_V3_ADOBE2,      /* 56 bytes, unofficial */
-        BMPINFO_V4,             /* 108 bytes */
-        BMPINFO_V5,             /* 124 bytes */
-        BMPINFO_FUTURE          /* future versions, larger than 124 bytes */
+	BMPINFO_CORE_OS21 = 1,  /* 12 bytes */
+	BMPINFO_OS22,           /* 16 / 40(!) / 64 bytes */
+	BMPINFO_V3,             /* 40 bytes */
+	BMPINFO_V3_ADOBE1,      /* 52 bytes, unofficial */
+	BMPINFO_V3_ADOBE2,      /* 56 bytes, unofficial */
+	BMPINFO_V4,             /* 108 bytes */
+	BMPINFO_V5,             /* 124 bytes */
+	BMPINFO_FUTURE          /* future versions, larger than 124 bytes */
 };
 typedef enum BmpInfoVer BMPINFOVER;
 
@@ -156,9 +156,9 @@ typedef enum BmpInfoVer BMPINFOVER;
  *               table size.
  */
 enum BmpRLEtype {
-        BMP_RLE_NONE,
-        BMP_RLE_AUTO,
-        BMP_RLE_RLE8
+	BMP_RLE_NONE,
+	BMP_RLE_AUTO,
+	BMP_RLE_RLE8
 };
 typedef enum BmpRLEtype BMPRLETYPE;
 
@@ -175,9 +175,9 @@ typedef enum BmpRLEtype BMPRLETYPE;
  *
  */
 enum BmpUndefined {
-        BMP_UNDEFINED_LEAVE,
-        BMP_UNDEFINED_TO_ZERO DEPR("use BMP_UNDEFINED_LEAVE instead") = 0,
-        BMP_UNDEFINED_TO_ALPHA  /* default */
+	BMP_UNDEFINED_LEAVE,
+	BMP_UNDEFINED_TO_ZERO DEPR("use BMP_UNDEFINED_LEAVE instead") = 0,
+	BMP_UNDEFINED_TO_ALPHA  /* default */
 };
 typedef enum BmpUndefined BMPUNDEFINED;
 
@@ -191,16 +191,16 @@ typedef enum BmpUndefined BMPUNDEFINED;
  * still gives the orientation of the BMP file.
  */
 enum BmpOrient {
-        BMP_ORIENT_BOTTOMUP,
-        BMP_ORIENT_TOPDOWN
+	BMP_ORIENT_BOTTOMUP,
+	BMP_ORIENT_TOPDOWN
 };
 typedef enum BmpOrient BMPORIENT;
 
 
 enum BmpFormat {
-        BMP_FORMAT_INT,
-        BMP_FORMAT_FLOAT,
-        BMP_FORMAT_S2_13
+	BMP_FORMAT_INT,
+	BMP_FORMAT_FLOAT,
+	BMP_FORMAT_S2_13
 };
 typedef enum BmpFormat BMPFORMAT;
 
@@ -210,11 +210,11 @@ APIDECL BMPHANDLE bmpread_new(FILE *file);
 APIDECL BMPRESULT bmpread_load_info(BMPHANDLE h);
 
 APIDECL BMPRESULT bmpread_dimensions(BMPHANDLE  h,
-                             int       *width,
-                             int       *height,
-                             int       *channels,
-                             int       *bitsperchannel,
-                             BMPORIENT *orientation);
+			     int       *width,
+			     int       *height,
+			     int       *channels,
+			     int       *bitsperchannel,
+			     BMPORIENT *orientation);
 
 APIDECL int       bmpread_width(BMPHANDLE h);
 APIDECL int       bmpread_height(BMPHANDLE h);
@@ -255,10 +255,10 @@ APIDECL BMPRESULT   bmpread_info_channel_bits(BMPHANDLE h, int *r, int *g, int *
 APIDECL BMPHANDLE bmpwrite_new(FILE *file);
 
 APIDECL BMPRESULT bmpwrite_set_dimensions(BMPHANDLE h,
-                                  unsigned  width,
-                                  unsigned  height,
-                                  unsigned  channels,
-                                  unsigned  bitsperchannel);
+                                          unsigned  width,
+                                          unsigned  height,
+                                          unsigned  channels,
+                                          unsigned  bitsperchannel);
 APIDECL BMPRESULT bmpwrite_set_resolution(BMPHANDLE h, int xdpi, int ydpi);
 APIDECL BMPRESULT bmpwrite_set_output_bits(BMPHANDLE h, int red, int green, int blue, int alpha);
 APIDECL BMPRESULT bmpwrite_set_palette(BMPHANDLE h, int numcolors, const unsigned char *palette);

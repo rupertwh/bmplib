@@ -50,9 +50,10 @@ static int s_zerofill(BMPWRITE_R wp);
 
 int huff_decode(BMPREAD_R rp, int black)
 {
-	int    idx;
-	int    bits_used = 0;
-	int    result = 0;
+	int idx;
+	int bits_used = 0;
+	int result = 0;
+
 	do {
 		huff_fillbuf(rp);
 		bits_used = s_findnode(rp->hufbuf, rp->hufbuf_len, black, &idx);
@@ -237,6 +238,3 @@ int huff_flush(BMPWRITE_R wp)
 	}
 	return TRUE;
 }
-
-
-

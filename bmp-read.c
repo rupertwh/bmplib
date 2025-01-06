@@ -146,7 +146,7 @@ API BMPRESULT bmpread_load_info(BMPHANDLE h)
 	if (rp->ih->compression == BI_RLE4 ||
 	    rp->ih->compression == BI_RLE8 ||
 	    rp->ih->compression == BI_OS2_RLE24)
-	    	rp->rle = TRUE;
+		rp->rle = TRUE;
 
 	if (rp->ih->compression == BI_JPEG || rp->ih->compression == BI_PNG) {
 		if (!cm_gobble_up(rp, rp->fh->offbits - rp->bytes_read)) {
@@ -739,14 +739,14 @@ static int s_check_dimensions(BMPREAD_R rp)
 
 static struct Palette* s_read_palette(BMPREAD_R rp)
 {
-	int              i, r,g,b;
-	struct Palette  *palette;
-	size_t           memsize;
-	int              bytes_per_entry;
-	int              colors_in_file;
-	int              max_colors_in_file;
-	int              colors_full_palette;
-	int              colors_ignore = 0;
+	int             i, r,g,b;
+	struct Palette *palette;
+	size_t          memsize;
+	int             bytes_per_entry;
+	int             colors_in_file;
+	int             max_colors_in_file;
+	int             colors_full_palette;
+	int             colors_ignore = 0;
 
 
 	if (rp->ih->clrused > INT_MAX || rp->ih->clrimportant > rp->ih->clrused) {
@@ -801,7 +801,7 @@ static struct Palette* s_read_palette(BMPREAD_R rp)
 		    EOF == (g = getc(rp->file)) ||
 		    EOF == (r = getc(rp->file)) ||
 		    ((bytes_per_entry == 4) && (EOF == getc(rp->file))) ) {
-		    	if (feof(rp->file)) {
+			if (feof(rp->file)) {
 				logerr(rp->log, "file ended reading palette entries");
 				rp->lasterr = BMP_ERR_TRUNCATED;
 			} else {
@@ -841,7 +841,7 @@ static inline int s_calc_shift_for_mask(unsigned long long mask);
 
 static int s_read_colormasks(BMPREAD_R rp)
 {
-	int   i, max_bits = 0, sum_bits = 0;
+	int i, max_bits = 0, sum_bits = 0;
 
 	switch (rp->ih->compression) {
 	case BI_BITFIELDS:
@@ -903,7 +903,7 @@ static int s_read_colormasks(BMPREAD_R rp)
 
 int br_set_resultbits(BMPREAD_R rp)
 {
-	int    newbits, max_bits = 0, i;
+	int newbits, max_bits = 0, i;
 
 	if (!rp->ih->bitcount)
 		return TRUE;
@@ -977,8 +977,8 @@ int br_set_resultbits(BMPREAD_R rp)
 
 static int s_read_masks_from_bitfields(BMPREAD_R rp)
 {
-	uint32_t  r,g,b,a;
-	int       i;
+	uint32_t r,g,b,a;
+	int      i;
 
 	if (!(rp->ih->bitcount == 16 || rp->ih->bitcount == 32)) {
 		logerr(rp->log, "Invalid bitcount (%d) for BI_BITFIELDS."
@@ -991,10 +991,10 @@ static int s_read_masks_from_bitfields(BMPREAD_R rp)
 		if (!(read_u32_le(rp->file, &r) &&
 		      read_u32_le(rp->file, &g) &&
 		      read_u32_le(rp->file, &b))) {
-		      	if (feof(rp->file)) {
-		      		logerr(rp->log, "File ended reading color masks");
-		      		rp->lasterr = BMP_ERR_TRUNCATED;
-		      	} else {
+			if (feof(rp->file)) {
+				logerr(rp->log, "File ended reading color masks");
+				rp->lasterr = BMP_ERR_TRUNCATED;
+			} else {
 				logsyserr(rp->log, "Reading BMP color masks");
 				rp->lasterr = BMP_ERR_FILEIO;
 			}
@@ -1006,10 +1006,10 @@ static int s_read_masks_from_bitfields(BMPREAD_R rp)
 		rp->cmask.mask.blue  = b;
 		if (rp->ih->compression == BI_ALPHABITFIELDS) {
 			if (!read_u32_le(rp->file, &a)) {
-			      	if (feof(rp->file)) {
-			      		logerr(rp->log, "File ended reading color masks");
-			      		rp->lasterr = BMP_ERR_TRUNCATED;
-			      	} else {
+				if (feof(rp->file)) {
+					logerr(rp->log, "File ended reading color masks");
+					rp->lasterr = BMP_ERR_TRUNCATED;
+				} else {
 					logsyserr(rp->log, "Reading BMP color masks");
 					rp->lasterr = BMP_ERR_FILEIO;
 				}
@@ -1147,7 +1147,7 @@ static int s_read_file_header(BMPREAD_R rp)
 
 	if (feof(rp->file)) {
 		logerr(rp->log, "unexpected end-of-file while reading "
-				    "file header");
+				"file header");
 		rp->lasterr = BMP_ERR_TRUNCATED;
 	} else {
 		logsyserr(rp->log, "error reading file header");

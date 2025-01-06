@@ -52,7 +52,7 @@ static const int  air = 80;         /* how much more than required we allocate *
 
 static int s_allocate(LOG log, size_t add_chars);
 static void s_log(LOG log, const char *file, int line, const char *function,
-                  const char *etxt, const char *fmt, va_list args);
+		  const char *etxt, const char *fmt, va_list args);
 static void panic(LOG log);
 #ifdef DEBUG
 static int s_add_file_etc(LOG log, const char *file, int line, const char *function);
@@ -66,7 +66,7 @@ static int s_add_file_etc(LOG log, const char *file, int line, const char *funct
 
 LOG logcreate(void)
 {
-	LOG	log;
+	LOG log;
 
 	if (!(log = malloc(sizeof *log)))
 		return NULL;
@@ -115,17 +115,17 @@ void logerr_(LOG log, const char *file, int line, const char *function, const ch
 void logerr(LOG log, const char *fmt, ...)
 #endif
 {
-	va_list     args;
+	va_list args;
 
-        va_start(args, fmt);
+	va_start(args, fmt);
 
 #ifdef DEBUG
-        s_log(log, file, line, function, NULL, fmt, args);
+	s_log(log, file, line, function, NULL, fmt, args);
 #else
-        s_log(log, NULL, 0, NULL, NULL, fmt, args);
+	s_log(log, NULL, 0, NULL, NULL, fmt, args);
 #endif
 
-        va_end(args);
+	va_end(args);
 }
 
 
@@ -141,18 +141,18 @@ void logsyserr(LOG log, const char *fmt, ...)
 #endif
 {
 	va_list     args;
-        const char *etxt;
+	const char *etxt;
 
-        va_start(args, fmt);
-        etxt = strerror(errno);
+	va_start(args, fmt);
+	etxt = strerror(errno);
 
 #ifdef DEBUG
-        s_log(log, file, line, function, etxt, fmt, args);
+	s_log(log, file, line, function, etxt, fmt, args);
 #else
-        s_log(log, NULL, 0, NULL, etxt, fmt, args);
+	s_log(log, NULL, 0, NULL, etxt, fmt, args);
 #endif
 
-        va_end(args);
+	va_end(args);
 }
 
 
@@ -162,10 +162,10 @@ void logsyserr(LOG log, const char *fmt, ...)
  *********************************************************/
 
 static void s_log(LOG log, const char *file, int line, const char *function,
-                  const char *etxt, const char *fmt, va_list args)
+		  const char *etxt, const char *fmt, va_list args)
 {
-	va_list     argsdup;
-        int         len = 0,addl_len, required_len;
+	va_list argsdup;
+	int     len = 0,addl_len, required_len;
 
 	if (log->size == -1)
 		return; /* log is set to a string literal (panic) */
@@ -176,7 +176,7 @@ static void s_log(LOG log, const char *file, int line, const char *function,
 #endif
 
 	if (log->buffer)
-	        len = strlen(log->buffer);
+		len = strlen(log->buffer);
 
 	va_copy(argsdup, args);
 	addl_len = vsnprintf(NULL, 0, fmt, argsdup);
@@ -199,7 +199,7 @@ static void s_log(LOG log, const char *file, int line, const char *function,
 #endif
 
 	if (log->size - len <= vsnprintf(log->buffer + len, log->size - len,
-	                                 fmt, args)) {
+					 fmt, args)) {
 		panic(log);
 		return;
 	}
@@ -254,9 +254,9 @@ static int s_allocate(LOG log, size_t add_chars)
 
 static void panic(LOG log)
 {
-	log->size = -1;
-	log->buffer = "PANIC! bmplib encountered an error while trying to set "
-	              "an error message";
+	log->size   = -1;
+	log->buffer = "PANIC! bmplib encountered an error while "
+	              "trying to set an error message";
 }
 
 
@@ -290,7 +290,7 @@ static int s_add_file_etc(LOG log, const char *file, int line, const char *funct
 	}
 
 	if (log->size - len <= snprintf(log->buffer + len, log->size - len,
-	       		              "[%s, line %d, %s()] ", file, line, function)) {
+	                                "[%s, line %d, %s()] ", file, line, function)) {
 		panic(log);
 		return 0;
 	}
