@@ -777,7 +777,8 @@ static struct Palette* s_read_palette(BMPREAD_R rp)
 	if (0 == (colors_in_file = rp->ih->clrused)) {
 		colors_in_file = MIN(colors_full_palette, max_colors_in_file);
 	} else if (colors_in_file > max_colors_in_file) {
-		logerr(rp->log, "given palette size too large for available data");
+		logerr(rp->log, "given palette size (%d) too large for available data (%d)",
+			        colors_in_file, max_colors_in_file);
 		rp->lasterr = BMP_ERR_INVALID;
 		return NULL;
 	}
@@ -1165,8 +1166,9 @@ static void s_detect_os2_compression(BMPREAD_R rp);
 
 static int s_read_info_header(BMPREAD_R rp)
 {
-	uint16_t  w16, h16, padding;
-	int       skip, i, filepos;
+	int           skip, i, filepos;
+	unsigned char buf[124];
+	size_t        read_size;
 
 	filepos = (int) rp->bytes_read;
 
@@ -1205,158 +1207,73 @@ static int s_read_info_header(BMPREAD_R rp)
 		break;
 	}
 
+	memset(buf, 0, sizeof buf);
+	read_size = MIN(sizeof buf - 4, rp->ih->size - 4);
+	if (fread(buf + 4, 1, read_size, rp->file) != read_size)
+		goto abort_file_err;
+
+	rp->bytes_read += read_size;
 
 	if (rp->ih->version == BMPINFO_CORE_OS21) {
-		if (!(read_u16_le(rp->file, &w16)              &&
-		      read_u16_le(rp->file, &h16)              &&
-		      read_u16_le(rp->file, &rp->ih->planes)   &&
-		      read_u16_le(rp->file, &rp->ih->bitcount)
-		                                                )) {
-			goto abort_file_err;
-		}
-		rp->ih->width  = w16;
-		rp->ih->height = h16;
-		rp->bytes_read += 8;  /* 12  */
+		rp->ih->width    = u16_from_le(buf +  4);
+		rp->ih->height   = u16_from_le(buf +  6);
+		rp->ih->planes   = u16_from_le(buf +  8);
+		rp->ih->bitcount = u16_from_le(buf + 10);
 		goto header_done;
 	}
 
-	if (!(read_s32_le(rp->file, &rp->ih->width)    &&
-	      read_s32_le(rp->file, &rp->ih->height)   &&
-	      read_u16_le(rp->file, &rp->ih->planes)   &&
-	      read_u16_le(rp->file, &rp->ih->bitcount)
-	                                                  )) {
-		goto abort_file_err;
-	}
-	rp->bytes_read += 12;     /* 16 */
+	rp->ih->width    = s32_from_le(buf +  4);
+	rp->ih->height   = s32_from_le(buf +  8);
+	rp->ih->planes   = u16_from_le(buf + 12);
+	rp->ih->bitcount = u16_from_le(buf + 14);
 
 	if (rp->ih->size == 16) { /* 16-byte BMPINFO_OS22 */
 		goto header_done;
 	}
 
-	if (rp->ih->size >= 20 && !read_u32_le(rp->file, &rp->ih->compression))
-		goto abort_file_err;
-	else
-		rp->bytes_read += 4;
-
-	if (rp->ih->size >= 24 && !read_u32_le(rp->file, &rp->ih->sizeimage))
-		goto abort_file_err;
-	else
-		rp->bytes_read += 4;
-
-	if (rp->ih->size >= 28 && !read_s32_le(rp->file, &rp->ih->xpelspermeter))
-		goto abort_file_err;
-	else
-		rp->bytes_read += 4;
-
-	if (rp->ih->size >= 32 && !read_s32_le(rp->file, &rp->ih->ypelspermeter))
-		goto abort_file_err;
-	else
-		rp->bytes_read += 4;
-
-	if (rp->ih->size >= 36 && !read_u32_le(rp->file, &rp->ih->clrused))
-		goto abort_file_err;
-	else
-		rp->bytes_read += 4;
-
-	if (rp->ih->size >= 40 && !read_u32_le(rp->file, &rp->ih->clrimportant))
-		goto abort_file_err;
-	else
-		rp->bytes_read += 4;  /* 40 */
-
+	rp->ih->compression   = u32_from_le(buf + 16);
+	rp->ih->sizeimage     = u32_from_le(buf + 20);
+	rp->ih->xpelspermeter = s32_from_le(buf + 24);
+	rp->ih->ypelspermeter = s32_from_le(buf + 28);
+	rp->ih->clrused       = u32_from_le(buf + 32);
+	rp->ih->clrimportant  = u32_from_le(buf + 36);
 
 	if (rp->ih->version == BMPINFO_OS22) {
-		if (rp->ih->size >= 42 && !read_u16_le(rp->file, &rp->ih->resolution))
-			goto abort_file_err;
-		else
-			rp->bytes_read += 2;
-
-		if (rp->ih->size >= 44 && !read_u16_le(rp->file, &padding))
-			goto abort_file_err;
-		else
-			rp->bytes_read += 2;
-
-		if (rp->ih->size >= 46 && !read_u16_le(rp->file, &rp->ih->orientation))
-			goto abort_file_err;
-		else
-			rp->bytes_read += 2;
-
-		if (rp->ih->size >= 48 && !read_u16_le(rp->file, &rp->ih->halftone_alg))
-			goto abort_file_err;
-		else
-			rp->bytes_read += 2;
-
-		if (rp->ih->size >= 52 && !read_u32_le(rp->file, &rp->ih->halftone_parm1))
-			goto abort_file_err;
-		else
-			rp->bytes_read += 4;
-
-		if (rp->ih->size >= 56 && !read_u32_le(rp->file, &rp->ih->halftone_parm2))
-			goto abort_file_err;
-		else
-			rp->bytes_read += 4;
-
-		if (rp->ih->size >= 60 && !read_u32_le(rp->file, &rp->ih->color_encoding))
-			goto abort_file_err;
-		else
-			rp->bytes_read += 4;
-
-		if (rp->ih->size >= 64 && !read_u32_le(rp->file, &rp->ih->app_id))
-			goto abort_file_err;
-		else
-			rp->bytes_read += 4;
-
+		rp->ih->resolution     = u16_from_le(buf + 40);
+		rp->ih->orientation    = u16_from_le(buf + 44);
+		rp->ih->halftone_alg   = u16_from_le(buf + 46);
+		rp->ih->halftone_parm1 = u32_from_le(buf + 48);
+		rp->ih->halftone_parm2 = u32_from_le(buf + 52);
+		rp->ih->color_encoding = u32_from_le(buf + 56);
+		rp->ih->app_id         = u32_from_le(buf + 60);
 		goto header_done;
 	}
 
-	if (rp->ih->version >= BMPINFO_V3_ADOBE1) {
-		if (!(read_u32_le(rp->file, &rp->ih->redmask)   &&
-		      read_u32_le(rp->file, &rp->ih->greenmask) &&
-		      read_u32_le(rp->file, &rp->ih->bluemask)
-		                                               )) {
-			goto abort_file_err;
-		}
-		rp->bytes_read += 12;  /* 52 */
-	}
+	/* BITMAPV4HEADER */
+	rp->ih->redmask     = u32_from_le(buf +  40);
+	rp->ih->greenmask   = u32_from_le(buf +  44);
+	rp->ih->bluemask    = u32_from_le(buf +  48);
+	rp->ih->alphamask   = u32_from_le(buf +  52);
+	rp->ih->cstype      = u32_from_le(buf +  56);
+	rp->ih->redX        = s32_from_le(buf +  60);
+	rp->ih->redY        = s32_from_le(buf +  64);
+	rp->ih->redZ        = s32_from_le(buf +  68);
+	rp->ih->greenX      = s32_from_le(buf +  72);
+	rp->ih->greenY      = s32_from_le(buf +  76);
+	rp->ih->greenZ      = s32_from_le(buf +  80);
+	rp->ih->blueX       = s32_from_le(buf +  84);
+	rp->ih->blueY       = s32_from_le(buf +  88);
+	rp->ih->blueZ       = s32_from_le(buf +  92);
+	rp->ih->gammared    = u32_from_le(buf +  96);
+	rp->ih->gammagreen  = u32_from_le(buf + 100);
+	rp->ih->gammablue   = u32_from_le(buf + 104);
 
-	if (rp->ih->version >= BMPINFO_V3_ADOBE2) {
-		if (!(read_u32_le(rp->file, &rp->ih->alphamask) )) {
-			goto abort_file_err;
-		}
-		rp->bytes_read += 4;   /* 56 */
-	}
+	/* BITMAPV5HEADER */
+	rp->ih->intent      = u32_from_le(buf + 108);
+	rp->ih->profiledata = u32_from_le(buf + 112);
+	rp->ih->profilesize = u32_from_le(buf + 116);
+	rp->ih->reserved    = u32_from_le(buf + 120);
 
-
-	if (rp->ih->version >= BMPINFO_V4) {
-		if (!(read_u32_le(rp->file, &rp->ih->cstype)     &&
-		      read_s32_le(rp->file, &rp->ih->redX)       &&
-		      read_s32_le(rp->file, &rp->ih->redY)       &&
-		      read_s32_le(rp->file, &rp->ih->redZ)       &&
-		      read_s32_le(rp->file, &rp->ih->greenX)     &&
-		      read_s32_le(rp->file, &rp->ih->greenY)     &&
-		      read_s32_le(rp->file, &rp->ih->greenZ)     &&
-		      read_s32_le(rp->file, &rp->ih->blueX)      &&
-		      read_s32_le(rp->file, &rp->ih->blueY)      &&
-		      read_s32_le(rp->file, &rp->ih->blueZ)      &&
-		      read_u32_le(rp->file, &rp->ih->gammared)   &&
-		      read_u32_le(rp->file, &rp->ih->gammagreen) &&
-		      read_u32_le(rp->file, &rp->ih->gammablue)
-			                                         )) {
-			goto abort_file_err;
-		}
-		rp->bytes_read += 52;  /* 108 */
-	}
-
-
-	if (rp->ih->version >= BMPINFO_V5) {
-		if (!(read_u32_le(rp->file, &rp->ih->intent)      &&
-		      read_u32_le(rp->file, &rp->ih->profiledata) &&
-		      read_u32_le(rp->file, &rp->ih->profilesize) &&
-		      read_u32_le(rp->file, &rp->ih->reserved)
-			                                          )) {
-			goto abort_file_err;
-		}
-		rp->bytes_read += 16;  /* 124 */
-	}
 
 header_done:
 	/* read past bigger info headers: */

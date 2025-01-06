@@ -232,6 +232,10 @@ int write_s32_le(FILE *file, int32_t val);
 int read_s16_le(FILE *file, int16_t *val);
 int read_s32_le(FILE *file, int32_t *val);
 
+uint32_t u32_from_le(const unsigned char *buf);
+int32_t  s32_from_le(const unsigned char *buf);
+uint16_t u16_from_le(const unsigned char *buf);
+int16_t  s16_from_le(const unsigned char *buf);
 
 
 #define HMAGIC_READ  0x44414552UL

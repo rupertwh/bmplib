@@ -411,3 +411,26 @@ int write_s32_le(FILE *file, int32_t val)
 	}
 	return 1;
 }
+
+
+uint32_t u32_from_le(const unsigned char *buf)
+{
+	return (uint32_t)buf[3] << 24 | (uint32_t)buf[2] << 16 |
+	       (uint32_t)buf[1] << 8  | (uint32_t)buf[0];
+}
+
+int32_t s32_from_le(const unsigned char *buf)
+{
+	return (int32_t)((const signed char*)buf)[3] << 24 | (int32_t)buf[2] << 16 |
+	       (int32_t)buf[1] << 8 | (int32_t)buf[0];
+}
+
+uint16_t u16_from_le(const unsigned char *buf)
+{
+	return (uint16_t)buf[1] << 8 | (uint16_t)buf[0];
+}
+
+int16_t s16_from_le(const unsigned char *buf)
+{
+	return (int16_t)((const signed char*)buf)[1] << 8 | (int16_t)buf[0];
+}
