@@ -1311,28 +1311,18 @@ static void s_detect_os2_compression(BMPREAD_R rp)
 {
 	if (rp->ih->version == BMPINFO_V3) {
 		/* might actually be a 40-byte OS/2 header */
-		if (rp->ih->compression == BI_OS2_HUFFMAN_DUP) {
-			/* might be huffman or BITFIELDS */
-			if (rp->ih->bitcount == 1) {
-				rp->ih->version     = BMPINFO_OS22;
-				rp->ih->compression = BI_OS2_HUFFMAN;
-			}
-		} else if (rp->ih->compression == BI_OS2_RLE24_DUP) {
-			/* might be RLE24 or JPEG */
-			if (rp->ih->bitcount == 24) {
-				rp->ih->version     = BMPINFO_OS22;
-				rp->ih->compression = BI_OS2_RLE24;
-			}
+		if (rp->fh->size == 54 ||
+		    (rp->ih->compression == BI_OS2_HUFFMAN_DUP && rp->ih->bitcount == 1) ||
+		    (rp->ih->compression == BI_OS2_RLE24_DUP && rp->ih->bitcount == 24)) {
+			rp->ih->version = BMPINFO_OS22;
 		}
-	} else if (rp->ih->version <= BMPINFO_OS22) {
-		switch (rp->ih->compression) {
-		case BI_OS2_HUFFMAN_DUP:   /* = BI_BITFIELDS */
+	}
+
+	if (rp->ih->version <= BMPINFO_OS22) {
+		if (rp->ih->compression == BI_OS2_HUFFMAN_DUP)
 			rp->ih->compression = BI_OS2_HUFFMAN;
-			break;
-		case BI_OS2_RLE24_DUP:     /* = BI_JPEG */
+		else if (rp->ih->compression == BI_OS2_RLE24_DUP)
 			rp->ih->compression = BI_OS2_RLE24;
-			break;
-		}
 	}
 }
 
