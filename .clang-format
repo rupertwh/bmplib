@@ -8,6 +8,7 @@
 BasedOnStyle: WebKit
 
 SortIncludes: false
+
 AlignAfterOpenBracket: Align
 AlignArrayOfStructures: Right
 AlignConsecutiveAssignments:
@@ -16,34 +17,47 @@ AlignConsecutiveAssignments:
   AcrossComments: true
   AlignCompound: true
   AlignFunctionPointers: false
-  PadOperators: true
-AlignConsecutiveDeclarations: Consecutive
-AlignConsecutiveMacros: Consecutive
-AlignEscapedNewlines: Left
+  PadOperators: false
+AlignConsecutiveBitFields: AcrossComments
+AlignConsecutiveDeclarations: AcrossComments
+AlignConsecutiveMacros: AcrossComments
+AlignConsecutiveShortCaseStatements:
+  Enabled: true
+  AcrossEmptyLines: true
+  AcrossComments: true
+  AlignCaseColons: true
+AlignEscapedNewlines: LeftWithLastLine
+AlignOperands: Align
 
-AllowAllParametersOfDeclarationOnNextLine: true
-BreakAfterReturnType: Automatic
+AllowAllArgumentsOnNextLine: false
+AllowAllParametersOfDeclarationOnNextLine: false
+AllowShortBlocksOnASingleLine: Never
+AllowShortCaseLabelsOnASingleLine: true
+AllowShortEnumsOnASingleLine: false
+AllowShortFunctionsOnASingleLine: None
+
 BinPackArguments: true
 BinPackParameters: true
+
+BitFieldColonSpacing: After
+
+BreakAfterReturnType: Automatic
+BreakBeforeBinaryOperators: None
 BreakBeforeBraces: Linux
+BreakBeforeTernaryOperators: false
+BreakStringLiterals: false
 IndentWidth: 8
 PointerAlignment: Right
 UseTab: ForIndentation
 
-SpaceBeforeParens: ControlStatementsExceptControlMacros
+SpaceBeforeParens: ControlStatements
 SpaceAfterLogicalNot: false
 SpaceAfterCStyleCast: false
-
-
-
-
 
 ColumnLimit: 80
 PenaltyBreakAssignment: 60
 PenaltyBreakBeforeFirstCallParameter: 100
 PenaltyBreakOpenParenthesis: 40
 PenaltyExcessCharacter: 1
-# Strings are more often longer by usage, so let's give these slightly
-# more space to breath.
 PenaltyBreakString: 60
 PenaltyReturnTypeOnItsOwnLine: 90
