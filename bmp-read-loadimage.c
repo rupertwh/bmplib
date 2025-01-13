@@ -413,41 +413,33 @@ static inline double s_int_to_float(unsigned long ul, int bits)
 
 static inline void s_convert64(uint16_t *val64)
 {
-	int     i;
-	int32_t s;
+	double d;
 
-	for (i = 0; i < 4; i++) {
-		s = val64[i];
-		s = s << 16 >> 16; /* propagate sign bit */
-		s *= 0xffff;
-		s >>= 13;
-		s = MAX(0, s);
-		s = MIN(s, 0xffff);
-		val64[i] = s;
+	for (int i = 0; i < 4; i++) {
+		d = (double) (int16_t) val64[i];
+		d /= 8192.0;
+		d = MAX(0.0, d);
+		d = MIN(d, 1.0);
+		val64[i] = (uint16_t) (d * 0xffff + 0.5);
 	}
 }
 
 
 static inline void s_convert64srgb(uint16_t *val64)
 {
-	int     i;
-	int32_t s;
-	double  v;
+	double  d;
 
-	for (i = 0; i < 4; i++) {
-		s = val64[i];
-		s = s << 16 >> 16; /* propagate sign bit */
-		if (i < 3) {
-			v = (double) s / (1<<13);
-			v = s_srgb_gamma_float(v);
-			s = (int32_t) (v * (double) 0xffff);
-		} else {  /* don't apply gamma to alpha channel */
-			s *= 0xffff;
-			s >>= 13;
-		}
-		s = MAX(0, s);
-		s = MIN(s, 0xffff);
-		val64[i] = s;
+	for (int i = 0; i < 4; i++) {
+		d = (double) (int16_t) val64[i];
+		d /= 8192.0;
+		d = MAX(0.0, d);
+		d = MIN(d, 1.0);
+
+		/* apply gamma to RGB channels, but not to alpha channel */
+		if (i < 3)
+			d = s_srgb_gamma_float(d);
+
+		val64[i] = (uint16_t) (d * 0xffff + 0.5);
 	}
 }
 
@@ -498,7 +490,7 @@ static inline int s_read_rgb_pixel(BMPREAD_R rp, union Pixel *restrict px)
 	if (rp->has_alpha)
 		px->alpha = (unsigned int) ((v & rp->cmask.mask.alpha) >> rp->cmask.shift.alpha);
 	else
-		px->alpha = (1<<rp->result_bitsperchannel) - 1;
+		px->alpha = (1ULL<<rp->result_bitsperchannel) - 1;
 
 	return TRUE;
 }

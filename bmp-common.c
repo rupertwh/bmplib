@@ -349,7 +349,7 @@ int read_u16_le(FILE *file, uint16_t *val)
 	if (2 != fread(buf, 1, 2, file))
 		return 0;
 
-	*val = (buf[1] << 8) | buf[0];
+	*val = ((unsigned)buf[1] << 8) | (unsigned)buf[0];
 
 	return 1;
 }
@@ -362,7 +362,8 @@ int read_u32_le(FILE *file, uint32_t *val)
 	if (4 != fread(buf, 1, 4, file))
 		return 0;
 
-	*val = (buf[3] << 24) | (buf[2] << 16) | (buf[1] << 8) | buf[0];
+	*val = ((uint32_t)buf[3] << 24) | ((uint32_t)buf[2] << 16) |
+	       ((uint32_t)buf[1] << 8) | (uint32_t)buf[0];
 
 	return 1;
 }
@@ -370,47 +371,39 @@ int read_u32_le(FILE *file, uint32_t *val)
 
 int write_s16_le(FILE *file, int16_t val)
 {
-	return (EOF != fputc(val & 0xff, file) &&
-	        EOF != fputc((val >> 8) & 0xff, file));
-}
-
-
-int read_s16_le(FILE *file, int16_t *val)
-{
-	unsigned char buf[2];
-
-	if (2 != fread(buf, 1, 2, file))
-		return 0;
-
-	*val = (((int16_t)(signed char)buf[1]) << 8) | (int16_t) buf[0];
-
-	return 1;
-}
-
-
-int read_s32_le(FILE *file, int32_t *val)
-{
-	unsigned char buf[4];
-
-	if (4 != fread(buf, 1, 4, file))
-		return 0;
-
-	*val = (((int32_t)(signed char)buf[3]) << 24) | (buf[2] << 16) | (buf[1] << 8) | buf[0];
-
-	return 1;
+	return write_u16_le(file, (uint16_t)val);
 }
 
 
 int write_s32_le(FILE *file, int32_t val)
 {
-	int i;
+	return write_u32_le(file, (uint32_t)val);
+}
 
-	for (i = 0; i < 4; i++) {
-		if (EOF == fputc((val >> (i*8)) & 0xff, file))
-			return 0;
-	}
+int read_s16_le(FILE *file, int16_t *val)
+{
+	uint16_t u16;
+
+	if (!read_u16_le(file, &u16))
+		return 0;
+
+	*val = (int16_t)u16;
+
 	return 1;
 }
+
+int read_s32_le(FILE *file, int32_t *val)
+{
+	uint32_t u32;
+
+	if (!read_u32_le(file, &u32))
+		return 0;
+
+	*val = (int32_t)u32;
+
+	return 1;
+}
+
 
 
 uint32_t u32_from_le(const unsigned char *buf)
@@ -421,8 +414,7 @@ uint32_t u32_from_le(const unsigned char *buf)
 
 int32_t s32_from_le(const unsigned char *buf)
 {
-	return (int32_t)((const signed char*)buf)[3] << 24 | (int32_t)buf[2] << 16 |
-	       (int32_t)buf[1] << 8 | (int32_t)buf[0];
+	return (int32_t)u32_from_le(buf);
 }
 
 uint16_t u16_from_le(const unsigned char *buf)
@@ -432,5 +424,5 @@ uint16_t u16_from_le(const unsigned char *buf)
 
 int16_t s16_from_le(const unsigned char *buf)
 {
-	return (int16_t)((const signed char*)buf)[1] << 8 | (int16_t)buf[0];
+	return (int16_t)u16_from_le(buf);
 }
