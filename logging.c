@@ -33,6 +33,7 @@
 struct Log {
 	int   size;
 	char *buffer;
+	bool  panic;
 };
 
 
@@ -78,7 +79,7 @@ LOG logcreate(void)
 void logfree(LOG log)
 {
 	if (log) {
-		if (log->size != -1 && log->buffer)
+		if (log->size > 0 && log->buffer)
 			free(log->buffer);
 		free(log);
 	}
@@ -98,10 +99,16 @@ void logreset(LOG log)
 
 const char* logmsg(LOG log)
 {
-	if (log && log->buffer)
-		return log->buffer;
-	else
-		return "";
+	if (log) {
+		if (log->panic) {
+			return "PANIC! bmplib encountered an error while "
+		               "trying to set an error message";
+		}
+		else if (log->buffer) {
+			return log->buffer;
+		}
+	}
+	return "";
 }
 
 
@@ -168,8 +175,8 @@ static void s_log(LOG log, const char *file, int line, const char *function,
 	va_list argsdup;
 	int     len = 0,addl_len, required_len;
 
-	if (log->size == -1)
-		return; /* log is set to a string literal (panic) */
+	if (log->panic)
+		return;
 
 #ifdef DEBUG
 	if (!s_add_file_etc(log, file, line, function))
@@ -222,8 +229,8 @@ static bool s_allocate(LOG log, size_t add_chars)
 	char   *tmp;
 	size_t  newsize;
 
-	if (log->size == -1)
-		return false; /* log is set to a string literal (panic) */
+	if (log->panic)
+		return false;
 
 	add_chars += air;
 
@@ -255,9 +262,7 @@ static bool s_allocate(LOG log, size_t add_chars)
 
 static void panic(LOG log)
 {
-	log->size   = -1;
-	log->buffer = "PANIC! bmplib encountered an error while "
-	              "trying to set an error message";
+	log->panic = true;
 }
 
 
