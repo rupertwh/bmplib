@@ -22,6 +22,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdint.h>
+#include <stdbool.h>
 #include <math.h>
 
 #define BMPLIB_LIB
@@ -61,13 +62,13 @@
 static inline unsigned long s_scaleint(unsigned long val, int frombits, int tobits) ATTR_CONST;
 static void s_set_file_error(BMPREAD_R rp);
 static void s_log_error_from_state(BMPREAD_R rp);
-static int s_cont_error(BMPREAD_R rp);
-static int s_stopping_error(BMPREAD_R rp);
+static bool s_cont_error(BMPREAD_R rp);
+static bool s_stopping_error(BMPREAD_R rp);
 static inline int s_read_one_byte(BMPREAD_R rp);
 static inline void s_int_to_result_format(BMPREAD_R rp, int frombits, unsigned char *restrict px);
 
-static BMPRESULT s_load_image_or_line(BMPREAD_R rp, unsigned char **restrict buffer, int line_by_line);
-static int s_read_rgb_line(BMPREAD_R rp, unsigned char *restrict line);
+static BMPRESULT s_load_image_or_line(BMPREAD_R rp, unsigned char **restrict buffer, bool line_by_line);
+static void s_read_rgb_line(BMPREAD_R rp, unsigned char *restrict line);
 static void s_read_indexed_line(BMPREAD_R rp, unsigned char *restrict line);
 static void s_read_rle_line(BMPREAD_R rp, unsigned char *restrict line,
                                int *restrict x, int *restrict yoff);
@@ -89,7 +90,7 @@ API BMPRESULT bmpread_load_image(BMPHANDLE h, unsigned char **restrict buffer)
 		return BMP_RESULT_ERROR;
 	rp = (BMPREAD)(void*)h;
 
-	return s_load_image_or_line(rp, buffer, FALSE);
+	return s_load_image_or_line(rp, buffer, false);
 }
 
 
@@ -109,7 +110,7 @@ API BMPRESULT bmpread_load_line(BMPHANDLE h, unsigned char **restrict buffer)
 	logreset(rp->log); /* otherwise we might accumulate thousands  */
 	                   /* of log entries with large corrupt images */
 
-	return s_load_image_or_line(rp, buffer, TRUE);
+	return s_load_image_or_line(rp, buffer, true);
 }
 
 
@@ -121,7 +122,7 @@ API BMPRESULT bmpread_load_line(BMPHANDLE h, unsigned char **restrict buffer)
 static void s_read_whole_image(BMPREAD_R rp, unsigned char *restrict image);
 static void s_read_one_line(BMPREAD_R rp, unsigned char *restrict image);
 
-static BMPRESULT s_load_image_or_line(BMPREAD_R rp, unsigned char **restrict buffer, int line_by_line)
+static BMPRESULT s_load_image_or_line(BMPREAD_R rp, unsigned char **restrict buffer, bool line_by_line)
 {
 	size_t	buffer_size;
 
@@ -164,16 +165,16 @@ static BMPRESULT s_load_image_or_line(BMPREAD_R rp, unsigned char **restrict buf
 			logsyserr(rp->log, "allocating result buffer");
 			return BMP_RESULT_ERROR;
 		}
-		rp->we_allocated_buffer = TRUE;
+		rp->we_allocated_buffer = true;
 	} else {
-		rp->we_allocated_buffer = FALSE;
+		rp->we_allocated_buffer = false;
 	}
 
 	if (rp->we_allocated_buffer || (rp->rle && (rp->undefined_mode == BMP_UNDEFINED_TO_ALPHA)))
 		memset(*buffer, 0, buffer_size);
 
 	if (!line_by_line)
-		rp->image_loaded = TRUE; /* point of no return */
+		rp->image_loaded = true; /* point of no return */
 
 	if (!rp->line_by_line) {  /* either whole image or first line */
 		if (rp->bytes_read > rp->fh->offbits) {
@@ -189,7 +190,7 @@ static BMPRESULT s_load_image_or_line(BMPREAD_R rp, unsigned char **restrict buf
 	}
 
 	if (line_by_line) {
-		rp->line_by_line = TRUE;  /* don't set this earlier, or we won't */
+		rp->line_by_line = true;  /* don't set this earlier, or we won't */
 		                          /* be able to identify first line      */
 		s_read_one_line(rp, *buffer);
 	} else {
@@ -198,8 +199,8 @@ static BMPRESULT s_load_image_or_line(BMPREAD_R rp, unsigned char **restrict buf
 
 	s_log_error_from_state(rp);
 	if (s_stopping_error(rp)) {
-		rp->truncated = TRUE;
-		rp->image_loaded = TRUE;
+		rp->truncated = true;
+		rp->image_loaded = true;
 		return BMP_RESULT_TRUNCATED;
 	} else if (s_cont_error(rp))
 		return BMP_RESULT_INVALID;
@@ -211,7 +212,7 @@ abort:
 		free(*buffer);
 		*buffer = NULL;
 	}
-	rp->image_loaded = TRUE;
+	rp->image_loaded = true;
 	return BMP_RESULT_ERROR;
 }
 
@@ -266,7 +267,7 @@ static void s_read_one_line(BMPREAD_R rp, unsigned char *restrict line)
 
 			if (!(rp->rle_eof || s_stopping_error(rp))) {
 				if (yoff > (int) rp->height - rp->lbl_file_y) {
-					rp->invalid_delta = TRUE;
+					rp->invalid_delta = true;
 				}
 				rp->lbl_file_y += yoff;
 
@@ -280,7 +281,7 @@ static void s_read_one_line(BMPREAD_R rp, unsigned char *restrict line)
 
 	rp->lbl_y++;
 	if (rp->lbl_y >= (int) rp->height) {
-		rp->image_loaded = TRUE;
+		rp->image_loaded = true;
 	}
 }
 
@@ -290,7 +291,7 @@ static void s_read_one_line(BMPREAD_R rp, unsigned char *restrict line)
  * 	s_read_rgb_line
  *******************************************************/
 
-static inline int      s_read_rgb_pixel(BMPREAD_R rp, union Pixel *restrict px);
+static inline bool     s_read_rgb_pixel(BMPREAD_R rp, union Pixel *restrict px);
 static inline double   s_s2_13_to_float(uint16_t s2_13);
 static inline double   s_int_to_float(unsigned long ul, int bits);
 static inline void     s_convert64(uint16_t *val64);
@@ -298,7 +299,7 @@ static inline void     s_convert64srgb(uint16_t *val64);
 static inline double   s_srgb_gamma_float(double d);
 static inline uint16_t s_srgb_gamma_s2_13(uint16_t s2_13);
 
-static int s_read_rgb_line(BMPREAD_R rp, unsigned char *restrict line)
+static void s_read_rgb_line(BMPREAD_R rp, unsigned char *restrict line)
 {
 	int           i, x, padding;
 	union Pixel   px;
@@ -311,7 +312,7 @@ static int s_read_rgb_line(BMPREAD_R rp, unsigned char *restrict line)
 	for (x = 0; x < rp->width; x++) {
 
 		if (!s_read_rgb_pixel(rp, &px)) {
-			return FALSE;
+			return;
 		}
 
 		offs = x * rp->result_channels;
@@ -332,8 +333,8 @@ static int s_read_rgb_line(BMPREAD_R rp, unsigned char *restrict line)
 					break;
 				default:
 					logerr(rp->log, "Waaaaaaaaaaaaaah!");
-					rp->panic = TRUE;
-					return FALSE;
+					rp->panic = true;
+					return;
 				}
 			}
 			if (rp->ih->bitcount == 64) {
@@ -385,17 +386,16 @@ static int s_read_rgb_line(BMPREAD_R rp, unsigned char *restrict line)
 
 		default:
 			logerr(rp->log, "Unknown format");
-			rp->panic = TRUE;
-			return FALSE;
+			rp->panic = true;
+			return;
 		}
 	}
 	padding = cm_align4padding(((uint64_t)rp->width * rp->ih->bitcount + 7) / 8);
 	if (!cm_gobble_up(rp, padding)) {
 		s_set_file_error(rp);
-		return FALSE;
+		return;
 	}
 	rp->bytes_read += padding;
-	return TRUE;
 }
 
 
@@ -470,7 +470,7 @@ static inline uint16_t s_srgb_gamma_s2_13(uint16_t s2_13)
  * 	s_read_rgb_pixel
  *******************************************************/
 
-static inline int s_read_rgb_pixel(BMPREAD_R rp, union Pixel *restrict px)
+static inline bool s_read_rgb_pixel(BMPREAD_R rp, union Pixel *restrict px)
 {
 	unsigned long long v;
 	int                i, byte;
@@ -479,7 +479,7 @@ static inline int s_read_rgb_pixel(BMPREAD_R rp, union Pixel *restrict px)
 	for (i = 0; i < rp->ih->bitcount; i+=8 ) {
 		if (EOF == (byte = s_read_one_byte(rp))) {
 			s_set_file_error(rp);
-			return FALSE;
+			return false;
 		}
 		v |= ((unsigned long long)byte) << i;
 	}
@@ -492,7 +492,7 @@ static inline int s_read_rgb_pixel(BMPREAD_R rp, union Pixel *restrict px)
 	else
 		px->alpha = (1ULL<<rp->result_bitsperchannel) - 1;
 
-	return TRUE;
+	return true;
 }
 
 
@@ -501,14 +501,14 @@ static inline int s_read_rgb_pixel(BMPREAD_R rp, union Pixel *restrict px)
  * 	s_read_indexed_line
  * - 1/2/4/8 bits non-RLE indexed
  *******************************************************/
-static inline int s_read_n_bytes(BMPREAD_R rp, int n, unsigned long *restrict buff);
+static inline bool s_read_n_bytes(BMPREAD_R rp, int n, unsigned long *restrict buff);
 static inline unsigned long s_bits_from_buffer(unsigned long buf, int size,
                                               int nbits, int used_bits);
 
 static void s_read_indexed_line(BMPREAD_R rp, unsigned char *restrict line)
 {
 	int           bits_used, buffer_size, x = 0, v;
-	int           done = FALSE;
+	bool          done = false;
 	unsigned long buffer;
 	size_t        offs;
 
@@ -527,7 +527,7 @@ static void s_read_indexed_line(BMPREAD_R rp, unsigned char *restrict line)
 
 			if (v >= rp->palette->numcolors) {
 				v = rp->palette->numcolors - 1;
-				rp->invalid_index = TRUE;
+				rp->invalid_index = true;
 			}
 
 			offs = (size_t) x * rp->result_bytes_per_pixel;
@@ -540,7 +540,7 @@ static void s_read_indexed_line(BMPREAD_R rp, unsigned char *restrict line)
 				s_int_to_result_format(rp, 8, line + offs);
 			}
 			if (++x == rp->width) {
-				done = TRUE;
+				done = true;
 				break;      /* discarding rest of buffer == padding */
 			}
 		}
@@ -553,7 +553,7 @@ static void s_read_indexed_line(BMPREAD_R rp, unsigned char *restrict line)
  * 	s_read_n_bytes
  *******************************************************/
 
-static inline int s_read_n_bytes(BMPREAD_R rp, int n, unsigned long *restrict buff)
+static inline bool s_read_n_bytes(BMPREAD_R rp, int n, unsigned long *restrict buff)
 {
 	int byte;
 
@@ -561,12 +561,12 @@ static inline int s_read_n_bytes(BMPREAD_R rp, int n, unsigned long *restrict bu
 	while (n--) {
 		if (EOF == (byte = s_read_one_byte(rp))) {
 			s_set_file_error(rp);
-			return FALSE;
+			return false;
 		}
 		*buff <<= 8;
 		*buff |= byte;
 	}
-	return TRUE;
+	return true;
 }
 
 
@@ -602,14 +602,15 @@ static inline unsigned long s_bits_from_buffer(unsigned long buf, int size,
 static void s_read_rle_line(BMPREAD_R rp, unsigned char *restrict line,
                                int *restrict x, int *restrict yoff)
 {
-	int     repeat = FALSE, left_in_run = 0;
+	int     left_in_run = 0;
+	bool    repeat = false, padding = false, odd = false;
 	int     right, up;
-	int     padding = FALSE, odd = FALSE, v, r = 0, g = 0, b = 0;
+	int     v, r = 0, g = 0, b = 0;
 	size_t  offs;
 	int     bits = rp->ih->bitcount;
 
 	if (!(bits == 4 || bits == 8 || bits == 24)) {
-		rp->panic = TRUE;
+		rp->panic = true;
 		return;
 	}
 
@@ -657,7 +658,7 @@ static void s_read_rle_line(BMPREAD_R rp, unsigned char *restrict line,
 				}
 				if (v >= rp->palette->numcolors) {
 					v = rp->palette->numcolors - 1;
-					rp->invalid_index = TRUE;
+					rp->invalid_index = true;
 				}
 				if (rp->result_indexed) {
 					line[offs] = v;
@@ -672,9 +673,9 @@ static void s_read_rle_line(BMPREAD_R rp, unsigned char *restrict line,
 
 			*x += 1;
 			if (*x >= rp->width) {
-				rp->rle_eol = FALSE; /* EOL detected by width, not by RLE-code */
+				rp->rle_eol = false; /* EOL detected by width, not by RLE-code */
 				if (left_in_run) {
-					rp->invalid_overrun = TRUE;
+					rp->invalid_overrun = true;
 				}
 				break;
 			}
@@ -695,10 +696,10 @@ static void s_read_rle_line(BMPREAD_R rp, unsigned char *restrict line,
 				s_set_file_error(rp);
 				break;
 			}
-			padding = FALSE;
-			odd = FALSE;
+			padding = false;
+			odd = false;
 			left_in_run = v;
-			repeat = TRUE;
+			repeat = true;
 			continue;
 		}
 
@@ -711,21 +712,21 @@ static void s_read_rle_line(BMPREAD_R rp, unsigned char *restrict line,
 		/* start literal run */
 		if (v > 2) {
 			left_in_run = v;
-			repeat = FALSE;
+			repeat = false;
 
 			switch (bits) {
 			case 8:
 			case 24:
-				padding = v & 0x01 ? TRUE : FALSE;
+				padding = v & 0x01 ? true : false;
 				break;
 			case 4:
 				if ((v+1)%4 >= 2)
-					padding = TRUE;
+					padding = true;
 				else
-					padding = FALSE;
+					padding = false;
 				break;
 			}
-			odd = FALSE;
+			odd = false;
 			continue;
 		}
 
@@ -733,7 +734,7 @@ static void s_read_rle_line(BMPREAD_R rp, unsigned char *restrict line,
 		if (v == 0) {
 			if (*x != 0 || rp->rle_eol) {
 				*x = rp->width;
-				rp->rle_eol = TRUE;
+				rp->rle_eol = true;
 				break;
 			}
 			continue;
@@ -741,7 +742,7 @@ static void s_read_rle_line(BMPREAD_R rp, unsigned char *restrict line,
 
 		/* end of bitmap */
 		if (v == 1) {
-			rp->rle_eof = TRUE;
+			rp->rle_eof = true;
 			break;
 		}
 
@@ -752,7 +753,7 @@ static void s_read_rle_line(BMPREAD_R rp, unsigned char *restrict line,
 				break;
 			}
 			if (right >= rp->width - *x) {
-				rp->invalid_delta = TRUE;
+				rp->invalid_delta = true;
 				break;
 			}
 			*x += right;
@@ -764,7 +765,7 @@ static void s_read_rle_line(BMPREAD_R rp, unsigned char *restrict line,
 		}
 
 		logerr(rp->log, "Should never get here! (x=%d, byte=%d)", (int) *x, (int) v);
-		rp->panic = TRUE;
+		rp->panic = true;
 		break;
 	}
 }
@@ -773,14 +774,14 @@ static void s_read_rle_line(BMPREAD_R rp, unsigned char *restrict line,
 /********************************************************
  * 	s_read_huffman_line
  *******************************************************/
-static int s_huff_skip_eol(BMPREAD_R rp);
-static int s_huff_find_eol(BMPREAD_R rp);
+static bool s_huff_skip_eol(BMPREAD_R rp);
+static bool s_huff_find_eol(BMPREAD_R rp);
 
 static void s_read_huffman_line(BMPREAD_R rp, unsigned char *restrict line)
 {
 	size_t   offs;
 	int      x = 0, runlen;
-	int      black = 0;
+	bool     black = false;
 
 	while (x < rp->width)  {
 		huff_fillbuf(rp);
@@ -790,7 +791,7 @@ static void s_read_huffman_line(BMPREAD_R rp, unsigned char *restrict line)
 
 		if ((rp->hufbuf & 0x00ff) == 0) {
 			if (!s_huff_skip_eol(rp)) {
-				rp->truncated = TRUE;
+				rp->truncated = true;
 				break;
 			}
 
@@ -804,7 +805,7 @@ static void s_read_huffman_line(BMPREAD_R rp, unsigned char *restrict line)
 			/* code was invalid, look for next eol */
 			rp->lasterr |= BMP_ERR_PIXEL;
 			if (!s_huff_find_eol(rp))
-				rp->truncated = TRUE;
+				rp->truncated = true;
 			break;
 		}
 
@@ -829,7 +830,7 @@ static void s_read_huffman_line(BMPREAD_R rp, unsigned char *restrict line)
 }
 
 
-static int s_huff_skip_eol(BMPREAD_R rp)
+static bool s_huff_skip_eol(BMPREAD_R rp)
 {
 	huff_fillbuf(rp);
 	while (rp->hufbuf_len > 0) {
@@ -844,14 +845,14 @@ static int s_huff_skip_eol(BMPREAD_R rp)
 		}
 		rp->hufbuf >>= 1;
 		rp->hufbuf_len--;
-		return TRUE;
+		return true;
 	}
-	return FALSE;
+	return false;
 }
 
 
 
-static int s_huff_find_eol(BMPREAD_R rp)
+static bool s_huff_find_eol(BMPREAD_R rp)
 {
 	/* look for the next full 12-bit eol sequence,
 	* discard anything else
@@ -869,7 +870,7 @@ static int s_huff_find_eol(BMPREAD_R rp)
 		if (rp->hufbuf_len < 12)
 			huff_fillbuf (rp);
 	}
-	return FALSE;
+	return false;
 }
 
 
@@ -940,9 +941,9 @@ static inline void s_int_to_result_format(BMPREAD_R rp, int frombits, unsigned c
 static void s_set_file_error(BMPREAD_R rp)
 {
 	if (feof(rp->file))
-		rp->file_eof = TRUE;
+		rp->file_eof = true;
 	else
-		rp->file_err = TRUE;
+		rp->file_err = true;
 }
 
 
@@ -975,12 +976,12 @@ static void s_log_error_from_state(BMPREAD_R rp)
  * 	s_cont_error
  *******************************************************/
 
-static int s_cont_error(BMPREAD_R rp)
+static bool s_cont_error(BMPREAD_R rp)
 {
 	if (rp->invalid_index || rp->invalid_overrun) {
-		return TRUE;
+		return true;
 	}
-	return FALSE;
+	return false;
 }
 
 
@@ -989,16 +990,16 @@ static int s_cont_error(BMPREAD_R rp)
  * 	s_stopping_error
  *******************************************************/
 
-static int s_stopping_error(BMPREAD_R rp)
+static bool s_stopping_error(BMPREAD_R rp)
 {
 	if (rp->truncated     ||
 	    rp->invalid_delta ||
 	    rp->file_err      ||
 	    rp->file_eof      ||
 	    rp->panic) {
-		return TRUE;
+		return true;
 	}
-	return FALSE;
+	return false;
 }
 
 

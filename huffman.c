@@ -23,7 +23,7 @@
 #include <string.h>
 #include <stdint.h>
 #include <limits.h>
-#include <stdarg.h>
+#include <stdbool.h>
 
 #include "config.h"
 #include "bmplib.h"
@@ -35,8 +35,8 @@
 
 
 
-static int s_findnode(uint32_t bits, int nbits, int black, int *found);
-static int s_zerofill(BMPWRITE_R wp);
+static int s_findnode(uint32_t bits, int nbits, bool black, int *found);
+static bool s_zerofill(BMPWRITE_R wp);
 
 
 /*****************************************************************************
@@ -77,7 +77,7 @@ int huff_decode(BMPREAD_R rp, int black)
  * s_findnode()
  ****************************************************************************/
 
-static int s_findnode(uint32_t bits, int nbits, int black, int *found)
+static int s_findnode(uint32_t bits, int nbits, bool black, int *found)
 {
 	int idx;
 	int bits_used = 0;
@@ -122,16 +122,16 @@ void huff_fillbuf(BMPREAD_R rp)
  * s_push()
  ****************************************************************************/
 
-static int s_push(BMPWRITE_R wp, int bits, int nbits)
+static bool s_push(BMPWRITE_R wp, int bits, int nbits)
 {
 	if (nbits > 32 - wp->hufbuf_len) {
 		if (!huff_flush(wp))
-			return FALSE;
+			return false;
 	}
 	wp->hufbuf <<= nbits;
 	wp->hufbuf |= bits;
 	wp->hufbuf_len += nbits;
-	return TRUE;
+	return true;
 }
 
 
@@ -140,7 +140,7 @@ static int s_push(BMPWRITE_R wp, int bits, int nbits)
  * huff_encode()
  ****************************************************************************/
 
-int huff_encode(BMPWRITE_R wp, int val, int black)
+bool huff_encode(BMPWRITE_R wp, int val, bool black)
 {
 	const struct Huffcode *makeup, *term;
 
@@ -160,13 +160,13 @@ int huff_encode(BMPWRITE_R wp, int val, int black)
 	while (val > 63) {
 		int n = MIN(2560 / 64, val / 64);
 		if (!s_push(wp, makeup[n - 1].bits, makeup[n - 1].nbits))
-			return FALSE;
+			return false;
 		val -= n * 64;
 	}
 	if (!s_push(wp, term[val].bits, term[val].nbits))
-		return FALSE;
+		return false;
 
-	return TRUE;
+	return true;
 }
 
 
@@ -175,7 +175,7 @@ int huff_encode(BMPWRITE_R wp, int val, int black)
  * huff_encode_eol()
  ****************************************************************************/
 
-int huff_encode_eol(BMPWRITE_R wp)
+bool huff_encode_eol(BMPWRITE_R wp)
 {
 	return huff_encode(wp, -1, 0);
 }
@@ -186,16 +186,16 @@ int huff_encode_eol(BMPWRITE_R wp)
  * huff_encode_rtc()
  ****************************************************************************/
 
-int huff_encode_rtc(BMPWRITE_R wp)
+bool huff_encode_rtc(BMPWRITE_R wp)
 {
 	if (!s_zerofill(wp))
-		return FALSE;
+		return false;
 
 	for (int i = 0; i < 6; i++) {
 		if (!huff_encode_eol(wp))
-			return FALSE;
+			return false;
 	}
-	return TRUE;
+	return true;
 }
 
 
@@ -206,14 +206,14 @@ int huff_encode_rtc(BMPWRITE_R wp)
  * add fill 0s up to next byte boundary
  ****************************************************************************/
 
-static int s_zerofill(BMPWRITE_R wp)
+static bool s_zerofill(BMPWRITE_R wp)
 {
 	int n = 8 - wp->hufbuf_len % 8;
 
 	if (n < 8)
 		return s_push(wp, 0, n);
 
-	return TRUE;
+	return true;
 }
 
 
@@ -222,7 +222,7 @@ static int s_zerofill(BMPWRITE_R wp)
  * huff_flush()
  ****************************************************************************/
 
-int huff_flush(BMPWRITE_R wp)
+bool huff_flush(BMPWRITE_R wp)
 {
 	int byte;
 
@@ -230,11 +230,11 @@ int huff_flush(BMPWRITE_R wp)
 		byte = 0x00ff & (wp->hufbuf >> (wp->hufbuf_len - 8));
 		if (EOF == putc(byte, wp->file)) {
 			logsyserr(wp->log, "writing Huffman bitmap");
-			return FALSE;
+			return false;
 		}
 		wp->bytes_written++;
 		wp->hufbuf_len -= 8;
 		wp->hufbuf &= (1UL << wp->hufbuf_len) - 1;
 	}
-	return TRUE;
+	return true;
 }

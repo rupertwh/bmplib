@@ -21,7 +21,7 @@
 int huff_decode(BMPREAD_R rp, int black);
 void huff_fillbuf(BMPREAD_R rp);
 
-int huff_encode(BMPWRITE_R wp, int val, int black);
-int huff_encode_eol(BMPWRITE_R wp);
-int huff_encode_rtc(BMPWRITE_R wp);
-int huff_flush(BMPWRITE_R wp);
+bool huff_encode(BMPWRITE_R wp, int val, bool black);
+bool huff_encode_eol(BMPWRITE_R wp);
+bool huff_encode_rtc(BMPWRITE_R wp);
+bool huff_flush(BMPWRITE_R wp);

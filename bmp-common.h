@@ -18,12 +18,6 @@
  * If not, see <https://www.gnu.org/licenses/>
  */
 
-#undef TRUE
-#define TRUE  (1)
-
-#undef FALSE
-#define FALSE (0)
-
 #undef MAX
 #undef MIN
 #define MAX(a,b) ((a)>(b)?(a):(b))
@@ -111,50 +105,50 @@ struct Bmpread {
 	int               width;
 	unsigned          height;
 	enum BmpOrient    orientation;
-	int               has_alpha;   /* original BMP has alpha channel */
+	bool              has_alpha;   /* original BMP has alpha channel */
 	enum BmpUndefined undefined_mode;
-	int               we_allocated_buffer;
-	int               line_by_line;
+	bool              we_allocated_buffer;
+	bool              line_by_line;
 	struct Palette   *palette;
 	struct Colormask  cmask;
 	/* result image dimensions */
 	enum Bmpconv64    conv64;
-	int               conv64_explicit;
+	bool              conv64_explicit;
 	int               result_channels;
-	int               result_indexed;
+	bool              result_indexed;
 	int               result_bits_per_pixel;
 	int               result_bytes_per_pixel;
 	int               result_bitsperchannel;
 	enum BmpFormat    result_format;
-	int               result_format_explicit;
+	bool              result_format_explicit;
 	size_t            result_size;
 	/* state */
 	unsigned long     lasterr;
-	int               getinfo_called;
+	bool              getinfo_called;
 	int               getinfo_return;
-	int               jpeg;
-	int               png;
-	int               dimensions_queried;
-	int               dim_queried_width;
-	int               dim_queried_height;
-	int               dim_queried_channels;
-	int               dim_queried_bitsperchannel;
-	int               image_loaded;
-	int               rle;
-	int               rle_eol;
-	int               rle_eof;
+	bool              jpeg;
+	bool              png;
+	bool              dimensions_queried;
+	bool              dim_queried_width;
+	bool              dim_queried_height;
+	bool              dim_queried_channels;
+	bool              dim_queried_bitsperchannel;
+	bool              image_loaded;
+	bool              rle;
+	bool              rle_eol;
+	bool              rle_eof;
 	int               lbl_x;  /* remember where we are in the image  */
 	int               lbl_y;  /* for line by line reading            */
 	int               lbl_file_y;  /* RLE files may be ahead of the image y */
 	uint32_t          hufbuf;
 	int               hufbuf_len;
-	int               truncated;
-	int               invalid_index;
-	int               invalid_delta;
-	int               invalid_overrun;
-	int               file_err;
-	int               file_eof;
-	int               panic;
+	bool              truncated;
+	bool              invalid_index;
+	bool              invalid_delta;
+	bool              invalid_overrun;
+	bool              file_err;
+	bool              file_eof;
+	bool              panic;
 
 };
 
@@ -179,24 +173,24 @@ struct Bmpwrite {
 	/* output */
 	size_t           bytes_written;
 	size_t           bytes_written_before_bitdata;
-	int              has_alpha;
+	bool             has_alpha;
 	enum BmpOrient   outorientation;
 	struct Colormask cmask;
-	int              rle_requested;
-	int              rle;
-	int              allow_2bit; /* Windows CE, but many will not read it */
-	int              allow_huffman;
-	int              allow_rle24;
-	int              out64bit;
+	enum BmpRLEtype  rle_requested;
+	int              rle; /* 1, 4, or 8 */
+	bool             allow_2bit; /* Windows CE, but many will not read it */
+	bool             allow_huffman;
+	bool             allow_rle24;
+	bool             out64bit;
 	int              outbytes_per_pixel;
 	int              padding;
 	int             *group;
 	int              group_count;
 	/* state */
-	int              outbits_set;
-	int              dimensions_set;
-	int              saveimage_done;
-	int              line_by_line;
+	bool             outbits_set;
+	bool             dimensions_set;
+	bool             saveimage_done;
+	bool             line_by_line;
 	int              lbl_y;
 	uint32_t         hufbuf;
 	int              hufbuf_len;
@@ -204,10 +198,10 @@ struct Bmpwrite {
 
 
 
-int cm_all_lessoreq_int(int limit, int n, ...);
-int cm_all_equal_int(int n, ...);
-int cm_all_positive_int(int n, ...);
-int cm_is_one_of(int n, int candidate, ...);
+bool cm_all_lessoreq_int(int limit, int n, ...);
+bool cm_all_equal_int(int n, ...);
+bool cm_all_positive_int(int n, ...);
+bool cm_is_one_of(int n, int candidate, ...);
 
 #define cm_align4size(a)     ((((a) + 3) >> 2) << 2)
 #define cm_align2size(a)     ((((a) + 1) >> 1) << 1)
@@ -215,22 +209,22 @@ int cm_align4padding(unsigned long long a);
 int cm_align2padding(unsigned long long a);
 int cm_count_bits(unsigned long v);
 
-int cm_gobble_up(BMPREAD_R rp, int count);
-int cm_check_is_read_handle(BMPHANDLE h);
-int cm_check_is_write_handle(BMPHANDLE h);
+bool cm_gobble_up(BMPREAD_R rp, int count);
+bool cm_check_is_read_handle(BMPHANDLE h);
+bool cm_check_is_write_handle(BMPHANDLE h);
 
 const char* cm_conv64_name(enum Bmpconv64 conv);
 const char* cm_format_name(enum BmpFormat format);
 
-int write_u16_le(FILE *file, uint16_t val);
-int write_u32_le(FILE *file, uint32_t val);
-int read_u16_le(FILE *file, uint16_t *val);
-int read_u32_le(FILE *file, uint32_t *val);
+bool write_u16_le(FILE *file, uint16_t val);
+bool write_u32_le(FILE *file, uint32_t val);
+bool read_u16_le(FILE *file, uint16_t *val);
+bool read_u32_le(FILE *file, uint32_t *val);
 
-int write_s16_le(FILE *file, int16_t val);
-int write_s32_le(FILE *file, int32_t val);
-int read_s16_le(FILE *file, int16_t *val);
-int read_s32_le(FILE *file, int32_t *val);
+bool write_s16_le(FILE *file, int16_t val);
+bool write_s32_le(FILE *file, int32_t val);
+bool read_s16_le(FILE *file, int16_t *val);
+bool read_s32_le(FILE *file, int32_t *val);
 
 uint32_t u32_from_le(const unsigned char *buf);
 int32_t  s32_from_le(const unsigned char *buf);

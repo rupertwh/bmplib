@@ -23,6 +23,7 @@
 #include <stdio.h>
 #include <stdint.h>
 #include <stdarg.h>
+#include <stdbool.h>
 
 #define BMPLIB_LIB
 
@@ -129,13 +130,13 @@ API void bmp_free(BMPHANDLE h)
  * 	cm_check_is_read_handle
  *******************************************************/
 
-int cm_check_is_read_handle(BMPHANDLE h)
+bool cm_check_is_read_handle(BMPHANDLE h)
 {
 	BMPREAD rp = (BMPREAD)(void*)h;
 
 	if (rp && rp->magic == HMAGIC_READ)
-		return TRUE;
-	return FALSE;
+		return true;
+	return false;
 }
 
 
@@ -143,13 +144,13 @@ int cm_check_is_read_handle(BMPHANDLE h)
  * 	bm_check_is_write_handle
  *******************************************************/
 
-int cm_check_is_write_handle(BMPHANDLE h)
+bool cm_check_is_write_handle(BMPHANDLE h)
 {
 	BMPWRITE wp = (BMPWRITE)(void*)h;
 
 	if (wp && wp->magic == HMAGIC_WRITE)
-		return TRUE;
-	return FALSE;
+		return true;
+	return false;
 }
 
 
@@ -157,7 +158,7 @@ int cm_check_is_write_handle(BMPHANDLE h)
  * 	cm_gobble_up
  *******************************************************/
 
-int cm_gobble_up(BMPREAD_R rp, int count)
+bool cm_gobble_up(BMPREAD_R rp, int count)
 {
 	int i;
 
@@ -170,10 +171,10 @@ int cm_gobble_up(BMPREAD_R rp, int count)
 				rp->lasterr = BMP_ERR_FILEIO;
 				logsyserr(rp->log, "error reading from file");
 			}
-			return FALSE;
+			return false;
 		}
 	}
-	return TRUE;
+	return true;
 }
 
 
@@ -220,18 +221,19 @@ const char* cm_format_name(enum BmpFormat format)
 
 
 
-int cm_all_lessoreq_int(int limit, int n, ...)
+bool cm_all_lessoreq_int(int limit, int n, ...)
 {
 	va_list ap;
-	int i, ret = TRUE;
+	int     i;
+	bool    ret = true;
 
 	if (n < 1)
-		return TRUE;
+		return true;
 
 	va_start(ap, n);
 	for (i = 0; i < n; i++) {
 		if (va_arg(ap, int) > limit) {
-			ret = FALSE;
+			ret = false;
 			break;
 		}
 	}
@@ -241,19 +243,20 @@ int cm_all_lessoreq_int(int limit, int n, ...)
 }
 
 
-int cm_all_equal_int(int n, ...)
+bool cm_all_equal_int(int n, ...)
 {
 	va_list ap;
-	int first, i, ret = TRUE;
+	int     first, i;
+	bool    ret = true;
 
 	if (n < 2)
-		return TRUE;
+		return true;
 
 	va_start(ap, n);
 	first = va_arg(ap, int);
 	for (i = 1; i < n; i++) {
 		if (va_arg(ap, int) != first) {
-			ret = FALSE;
+			ret = false;
 			break;
 		}
 	}
@@ -263,18 +266,19 @@ int cm_all_equal_int(int n, ...)
 }
 
 
-int cm_all_positive_int(int n, ...)
+bool cm_all_positive_int(int n, ...)
 {
 	va_list ap;
-	int i, ret = TRUE;
+	int     i;
+	bool    ret = true;
 
 	if (n < 1)
-		return TRUE;
+		return true;
 
 	va_start(ap, n);
 	for (i = 0; i < n; i++) {
 		if (va_arg(ap, int) < 0) {
-			ret = FALSE;
+			ret = false;
 			break;
 		}
 	}
@@ -284,18 +288,19 @@ int cm_all_positive_int(int n, ...)
 }
 
 
-int cm_is_one_of(int n, int candidate, ...)
+bool cm_is_one_of(int n, int candidate, ...)
 {
 	va_list ap;
-	int i, ret = FALSE;
+	int     i;
+	bool    ret = false;
 
 	if (n < 1)
-		return TRUE;
+		return true;
 
 	va_start(ap, candidate);
 	for (i = 0; i < n; i++) {
 		if (va_arg(ap, int) == candidate) {
-			ret = TRUE;
+			ret = true;
 			break;
 		}
 	}
@@ -323,85 +328,85 @@ int cm_align2padding(unsigned long long a)
  *      from little-endian files
  *********************************************************/
 
-int write_u16_le(FILE *file, uint16_t val)
+bool write_u16_le(FILE *file, uint16_t val)
 {
 	return (EOF != fputc(val & 0xff, file) &&
 	        EOF != fputc((val >> 8) & 0xff, file));
 }
 
 
-int write_u32_le(FILE *file, uint32_t val)
+bool write_u32_le(FILE *file, uint32_t val)
 {
 	int i;
 
 	for (i = 0; i < 4; i++) {
 		if (EOF == fputc((val >> (i*8)) & 0xff, file))
-			return 0;
+			return false;
 	}
-	return 1;
+	return true;
 }
 
 
-int read_u16_le(FILE *file, uint16_t *val)
+bool read_u16_le(FILE *file, uint16_t *val)
 {
 	unsigned char buf[2];
 
 	if (2 != fread(buf, 1, 2, file))
-		return 0;
+		return false;
 
 	*val = ((unsigned)buf[1] << 8) | (unsigned)buf[0];
 
-	return 1;
+	return true;
 }
 
 
-int read_u32_le(FILE *file, uint32_t *val)
+bool read_u32_le(FILE *file, uint32_t *val)
 {
 	unsigned char buf[4];
 
 	if (4 != fread(buf, 1, 4, file))
-		return 0;
+		return false;
 
 	*val = ((uint32_t)buf[3] << 24) | ((uint32_t)buf[2] << 16) |
 	       ((uint32_t)buf[1] << 8) | (uint32_t)buf[0];
 
-	return 1;
+	return true;
 }
 
 
-int write_s16_le(FILE *file, int16_t val)
+bool write_s16_le(FILE *file, int16_t val)
 {
 	return write_u16_le(file, (uint16_t)val);
 }
 
 
-int write_s32_le(FILE *file, int32_t val)
+bool write_s32_le(FILE *file, int32_t val)
 {
 	return write_u32_le(file, (uint32_t)val);
 }
 
-int read_s16_le(FILE *file, int16_t *val)
+bool read_s16_le(FILE *file, int16_t *val)
 {
 	uint16_t u16;
 
 	if (!read_u16_le(file, &u16))
-		return 0;
+		return false;
 
 	*val = (int16_t)u16;
 
-	return 1;
+	return true;
 }
 
-int read_s32_le(FILE *file, int32_t *val)
+bool read_s32_le(FILE *file, int32_t *val)
 {
 	uint32_t u32;
 
 	if (!read_u32_le(file, &u32))
-		return 0;
+		return false;
 
 	*val = (int32_t)u32;
 
-	return 1;
+	return true;
 }
 
 

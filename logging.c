@@ -23,6 +23,7 @@
 #include <stdlib.h>
 #include <stdarg.h>
 #include <limits.h>
+#include <stdbool.h>
 #include <errno.h>
 
 #include "config.h"
@@ -50,7 +51,7 @@ static const char separator[]="\n"; /* separator between log entries */
 static const char inter[]=": ";     /* between own message and sys err text */
 static const int  air = 80;         /* how much more than required we allocate */
 
-static int s_allocate(LOG log, size_t add_chars);
+static bool s_allocate(LOG log, size_t add_chars);
 static void s_log(LOG log, const char *file, int line, const char *function,
 		  const char *etxt, const char *fmt, va_list args);
 static void panic(LOG log);
@@ -216,20 +217,20 @@ static void s_log(LOG log, const char *file, int line, const char *function,
  *      s_allocate()
  *********************************************************/
 
-static int s_allocate(LOG log, size_t add_chars)
+static bool s_allocate(LOG log, size_t add_chars)
 {
 	char   *tmp;
 	size_t  newsize;
 
 	if (log->size == -1)
-		return 0; /* log is set to a string literal (panic) */
+		return false; /* log is set to a string literal (panic) */
 
 	add_chars += air;
 
 	newsize = (size_t) log->size + add_chars;
 	if (newsize > INT_MAX) {
 		panic(log);
-		return 0;
+		return false;
 	}
 
 	tmp = realloc(log->buffer, newsize);
@@ -240,10 +241,10 @@ static int s_allocate(LOG log, size_t add_chars)
 		log->size = newsize;
 	} else {
 		panic(log);
-		return 0;
+		return false;
 	}
 
-	return 1;
+	return true;
 }
 
 

@@ -22,6 +22,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdint.h>
+#include <stdbool.h>
 
 #define BMPLIB_LIB
 
@@ -104,9 +105,9 @@ API BMPRESULT bmpread_load_palette(BMPHANDLE h, unsigned char **palette)
 
 	/* irreversible. image will be returned as indexed pixels */
 	if (!rp->result_indexed) {
-		rp->result_indexed = TRUE;
-		rp->dimensions_queried = FALSE;
-		rp->dim_queried_channels = FALSE;
+		rp->result_indexed = true;
+		rp->dimensions_queried = false;
+		rp->dim_queried_channels = false;
 		rp->result_channels = 1;
 		if (!br_set_resultbits(rp))
 			return BMP_RESULT_ERROR;

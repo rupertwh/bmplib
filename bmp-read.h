@@ -19,5 +19,5 @@
  */
 
 void br_free(BMPREAD rp);
-int br_set_resultbits(BMPREAD_R rp);
+bool br_set_resultbits(BMPREAD_R rp);
 BMPRESULT br_set_number_format(BMPREAD_R rp, enum BmpFormat format);

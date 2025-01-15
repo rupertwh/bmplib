@@ -23,6 +23,7 @@
 #include <string.h>
 #include <stdint.h>
 #include <limits.h>
+#include <stdbool.h>
 #include <stdarg.h>
 
 #define BMPLIB_LIB
@@ -89,12 +90,12 @@ abort:
 /*****************************************************************************
  * 	bmpread_load_info
  *****************************************************************************/
-static int s_read_file_header(BMPREAD_R rp);
-static int s_read_info_header(BMPREAD_R rp);
-static int s_is_bmptype_supported(BMPREAD_R rp);
+static bool s_read_file_header(BMPREAD_R rp);
+static bool s_read_info_header(BMPREAD_R rp);
+static bool s_is_bmptype_supported(BMPREAD_R rp);
 static struct Palette* s_read_palette(BMPREAD_R rp);
-static int s_read_colormasks(BMPREAD_R rp);
-static int s_check_dimensions(BMPREAD_R rp);
+static bool s_read_colormasks(BMPREAD_R rp);
+static bool s_check_dimensions(BMPREAD_R rp);
 
 API BMPRESULT bmpread_load_info(BMPHANDLE h)
 {
@@ -146,7 +147,7 @@ API BMPRESULT bmpread_load_info(BMPHANDLE h)
 	if (rp->ih->compression == BI_RLE4 ||
 	    rp->ih->compression == BI_RLE8 ||
 	    rp->ih->compression == BI_OS2_RLE24)
-		rp->rle = TRUE;
+		rp->rle = true;
 
 	if (rp->ih->compression == BI_JPEG || rp->ih->compression == BI_PNG) {
 		if (!cm_gobble_up(rp, rp->fh->offbits - rp->bytes_read)) {
@@ -154,13 +155,13 @@ API BMPRESULT bmpread_load_info(BMPHANDLE h)
 			goto abort;
 		}
 		if (rp->ih->compression == BI_JPEG) {
-			rp->jpeg = TRUE;
+			rp->jpeg = true;
 			rp->getinfo_return = BMP_RESULT_JPEG;
 			logerr(rp->log, "embedded JPEG data");
 			rp->lasterr = BMP_ERR_JPEG;
 			return BMP_RESULT_JPEG;
 		} else {
-			rp->png = TRUE;
+			rp->png = true;
 			rp->getinfo_return = BMP_RESULT_PNG;
 			logerr(rp->log, "embedded PNG data");
 			rp->lasterr = BMP_ERR_PNG;
@@ -203,11 +204,11 @@ API BMPRESULT bmpread_load_info(BMPHANDLE h)
 	} else {
 		rp->getinfo_return = BMP_RESULT_OK;
 	}
-	rp->getinfo_called = TRUE;
+	rp->getinfo_called = true;
 	return rp->getinfo_return;
 
 abort:
-	rp->getinfo_called = TRUE;
+	rp->getinfo_called = true;
 	rp->getinfo_return = BMP_RESULT_ERROR;
 	return BMP_RESULT_ERROR;
 }
@@ -230,7 +231,7 @@ API BMPRESULT bmpread_set_64bit_conv(BMPHANDLE h, enum Bmpconv64 conv)
 	case BMP_CONV64_SRGB:
         case BMP_CONV64_LINEAR:
         	rp->conv64 = conv;
-        	rp->conv64_explicit = TRUE;
+        	rp->conv64_explicit = true;
         	break;
 
         case BMP_CONV64_NONE:
@@ -241,10 +242,10 @@ API BMPRESULT bmpread_set_64bit_conv(BMPHANDLE h, enum Bmpconv64 conv)
         		return BMP_RESULT_ERROR;
         	} else {
         		rp->result_format = BMP_FORMAT_S2_13;
-        		rp->result_format_explicit = TRUE;
+        		rp->result_format_explicit = true;
         	}
         	rp->conv64 = BMP_CONV64_LINEAR;
-        	rp->conv64_explicit = TRUE;
+        	rp->conv64_explicit = true;
         	break;
         default:
         	logerr(rp->log, "Unknown 64-bit conversion %s (%d)", cm_conv64_name(conv), (int) conv);
@@ -300,19 +301,19 @@ API BMPRESULT bmpread_dimensions(BMPHANDLE h, int* restrict width,
 
 	if (width) {
 		*width = rp->width;
-		rp->dim_queried_width = TRUE;
+		rp->dim_queried_width = true;
 	}
 	if (height) {
 		*height = (int) rp->height;
-		rp->dim_queried_height = TRUE;
+		rp->dim_queried_height = true;
 	}
 	if (channels) {
 		*channels = rp->result_channels;
-		rp->dim_queried_channels = TRUE;
+		rp->dim_queried_channels = true;
 	}
 	if (bitsperchannel) {
 		*bitsperchannel = rp->result_bitsperchannel;
-		rp->dim_queried_bitsperchannel = TRUE;
+		rp->dim_queried_bitsperchannel = true;
 	}
 	if (orientation) {
 		*orientation = rp->orientation;
@@ -320,7 +321,7 @@ API BMPRESULT bmpread_dimensions(BMPHANDLE h, int* restrict width,
 
 	if (rp->dim_queried_width    && rp->dim_queried_height &&
 	    rp->dim_queried_channels && rp->dim_queried_bitsperchannel)
-		rp->dimensions_queried = TRUE;
+		rp->dimensions_queried = true;
 
 	return rp->getinfo_return;
 }
@@ -335,7 +336,7 @@ BMPRESULT br_set_number_format(BMPREAD_R rp, enum BmpFormat format)
 {
 
 	if (rp->result_format == format) {
-		rp->result_format_explicit = TRUE;
+		rp->result_format_explicit = true;
 		return BMP_RESULT_OK;
 	}
 
@@ -368,7 +369,7 @@ BMPRESULT br_set_number_format(BMPREAD_R rp, enum BmpFormat format)
 	}
 
 	rp->result_format = format;
-	rp->result_format_explicit = TRUE;
+	rp->result_format_explicit = true;
 
 	if (!br_set_resultbits(rp))
 		return BMP_RESULT_ERROR;
@@ -440,19 +441,19 @@ static int s_single_dim_val(BMPHANDLE h, enum Dimint dim)
 
 	switch (dim) {
 	case DIM_WIDTH:
-		rp->dim_queried_width = TRUE;
+		rp->dim_queried_width = true;
 		ret = rp->width;
 		break;
 	case DIM_HEIGHT:
-		rp->dim_queried_height = TRUE;
+		rp->dim_queried_height = true;
 		ret = (int) rp->height;
 		break;
 	case DIM_CHANNELS:
-		rp->dim_queried_channels = TRUE;
+		rp->dim_queried_channels = true;
 		ret = rp->result_channels;
 		break;
 	case DIM_BITS_PER_CHANNEL:
-		rp->dim_queried_bitsperchannel = TRUE;
+		rp->dim_queried_bitsperchannel = true;
 		ret = rp->result_bitsperchannel;
 		break;
 	case DIM_ORIENTATION:
@@ -470,7 +471,7 @@ static int s_single_dim_val(BMPHANDLE h, enum Dimint dim)
 	if (rp->dim_queried_width && rp->dim_queried_height &&
 	    rp->dim_queried_channels &&
 	    rp->dim_queried_bitsperchannel)
-		rp->dimensions_queried = TRUE;
+		rp->dimensions_queried = true;
 	return ret;
 }
 
@@ -493,7 +494,7 @@ API size_t bmpread_buffersize(BMPHANDLE h)
                        rp->getinfo_return == BMP_RESULT_INSANE)))
 		return 0;
 
-	rp->dimensions_queried = TRUE;
+	rp->dimensions_queried = true;
 	return rp->result_size;
 
 }
@@ -587,16 +588,16 @@ void br_free(BMPREAD rp)
 /*****************************************************************************
  * 	s_is_bmptype_supported
  *****************************************************************************/
-static int s_is_bmptype_supported_rgb(BMPREAD_R rp);
-static int s_is_bmptype_supported_indexed(BMPREAD_R rp);
+static bool s_is_bmptype_supported_rgb(BMPREAD_R rp);
+static bool s_is_bmptype_supported_indexed(BMPREAD_R rp);
 
-static int s_is_bmptype_supported(BMPREAD_R rp)
+static bool s_is_bmptype_supported(BMPREAD_R rp)
 {
 	if (rp->ih->planes != 1) {
 		logerr(rp->log, "Unsupported number of planes (%d). "
 			        "Must be 1.", (int) rp->ih->planes);
 		rp->lasterr = BMP_ERR_HEADER;
-		return FALSE;
+		return false;
 	}
 
 	if (rp->ih->bitcount <= 8)
@@ -604,7 +605,7 @@ static int s_is_bmptype_supported(BMPREAD_R rp)
 	else
 		return s_is_bmptype_supported_rgb(rp);
 
-	return TRUE;
+	return true;
 }
 
 
@@ -613,7 +614,7 @@ static int s_is_bmptype_supported(BMPREAD_R rp)
  * 	s_is_bmptype_supported_rgb
  *****************************************************************************/
 
-static int s_is_bmptype_supported_rgb(BMPREAD_R rp)
+static bool s_is_bmptype_supported_rgb(BMPREAD_R rp)
 {
 	switch (rp->ih->bitcount) {
 	case 16:
@@ -625,7 +626,7 @@ static int s_is_bmptype_supported_rgb(BMPREAD_R rp)
 	default:
 		logerr(rp->log, "Invalid bitcount %d for RGB image", (int) rp->ih->bitcount);
 		rp->lasterr = BMP_ERR_HEADER;
-		return FALSE;
+		return false;
 	}
 
 	switch (rp->ih->compression) {
@@ -637,24 +638,24 @@ static int s_is_bmptype_supported_rgb(BMPREAD_R rp)
 		if (rp->ih->bitcount == 64) {
 			logerr(rp->log, "Invalid bitcount %d for BITFIELDS", (int) rp->ih->bitcount);
 			rp->lasterr = BMP_ERR_HEADER;
-			return FALSE;
+			return false;
 		}
 		break;
 	case BI_OS2_RLE24:
 		if (rp->ih->bitcount != 24) {
 			logerr(rp->log, "Invalid bitcount %d for RLE24 compression", (int) rp->ih->bitcount);
 			rp->lasterr = BMP_ERR_HEADER;
-			return FALSE;
+			return false;
 		}
 		break;
 	default:
 		logerr(rp->log, "Unsupported compression %s for RGB image",
 		                 s_compression_name(rp->ih->compression));
 		rp->lasterr = BMP_ERR_UNSUPPORTED;
-		return FALSE;
+		return false;
 	}
 
-	return TRUE;
+	return true;
 }
 
 
@@ -663,7 +664,7 @@ static int s_is_bmptype_supported_rgb(BMPREAD_R rp)
  * 	s_is_bmptype_supported_indexed
  *****************************************************************************/
 
-static int s_is_bmptype_supported_indexed(BMPREAD_R rp)
+static bool s_is_bmptype_supported_indexed(BMPREAD_R rp)
 {
 	switch (rp->ih->bitcount) {
 	case 1:
@@ -677,7 +678,7 @@ static int s_is_bmptype_supported_indexed(BMPREAD_R rp)
 		logerr(rp->log, "Invalid bitcount %d for indexed image",
 		                               (int) rp->ih->bitcount);
 		rp->lasterr = BMP_ERR_HEADER;
-		return FALSE;
+		return false;
 	}
 
 	switch (rp->ih->compression) {
@@ -692,7 +693,7 @@ static int s_is_bmptype_supported_indexed(BMPREAD_R rp)
 			                  s_compression_name(rp->ih->compression),
 			                  (int) rp->ih->bitcount);
 			rp->lasterr = BMP_ERR_UNSUPPORTED;
-			return FALSE;
+			return false;
 		}
 		/*  ok */
 		break;
@@ -701,10 +702,10 @@ static int s_is_bmptype_supported_indexed(BMPREAD_R rp)
 		logerr(rp->log, "Unsupported compression %s for indexed image",
 		                   s_compression_name(rp->ih->compression));
 		rp->lasterr = BMP_ERR_UNSUPPORTED;
-		return FALSE;
+		return false;
 	}
 
-	return TRUE;
+	return true;
 }
 
 
@@ -713,7 +714,7 @@ static int s_is_bmptype_supported_indexed(BMPREAD_R rp)
  * 	s_check_dimensions
  *****************************************************************************/
 
-static int s_check_dimensions(BMPREAD_R rp)
+static bool s_check_dimensions(BMPREAD_R rp)
 {
 	uint64_t npixels;
 	size_t   maxpixels;
@@ -726,9 +727,9 @@ static int s_check_dimensions(BMPREAD_R rp)
 		logerr(rp->log, "Invalid BMP dimensions (%dx%d)",
 				     (int) rp->ih->width, (int) rp->ih->height);
 		rp->lasterr = BMP_ERR_DIMENSIONS;
-		return FALSE;
+		return false;
 	}
-	return TRUE;
+	return true;
 }
 
 
@@ -834,12 +835,12 @@ static struct Palette* s_read_palette(BMPREAD_R rp)
 /*****************************************************************************
  * 	s_read_colormasks
  *****************************************************************************/
-static int s_read_masks_from_bitfields(BMPREAD_R rp);
-static int s_create_implicit_colormasks(BMPREAD_R rp);
+static bool s_read_masks_from_bitfields(BMPREAD_R rp);
+static bool s_create_implicit_colormasks(BMPREAD_R rp);
 static inline int s_calc_bits_for_mask(unsigned long long mask);
 static inline int s_calc_shift_for_mask(unsigned long long mask);
 
-static int s_read_colormasks(BMPREAD_R rp)
+static bool s_read_colormasks(BMPREAD_R rp)
 {
 	int i, max_bits = 0, sum_bits = 0;
 
@@ -847,26 +848,26 @@ static int s_read_colormasks(BMPREAD_R rp)
 	case BI_BITFIELDS:
 	case BI_ALPHABITFIELDS:
 		if (!s_read_masks_from_bitfields(rp))
-			return FALSE;
+			return false;
 		break;
 
 	case BI_RGB:
 		if (!s_create_implicit_colormasks(rp))
-			return FALSE;
+			return false;
 		break;
 
 	default:
 		logerr(rp->log, "Invalid compression (%s)",
 		                s_compression_name(rp->ih->compression));
 		rp->lasterr = BMP_ERR_INVALID;
-		return FALSE;
+		return false;
 	}
 
 	if (rp->cmask.mask.alpha) {
-		rp->has_alpha = TRUE;
+		rp->has_alpha = true;
 		rp->result_channels = 4;
 	} else {
-		rp->has_alpha = FALSE;
+		rp->has_alpha = false;
 		rp->result_channels = 3;
 	}
 
@@ -878,21 +879,21 @@ static int s_read_colormasks(BMPREAD_R rp)
 		logerr(rp->log, "Invalid mask bitcount (max=%d, sum=%d)",
 		                                     max_bits, sum_bits);
 		rp->lasterr = BMP_ERR_INVALID;
-		return FALSE;
+		return false;
 	}
 	if (!(rp->cmask.mask.red | rp->cmask.mask.green | rp->cmask.mask.blue)) {
 		logerr(rp->log, "Empty color masks. Corrupt BMP?");
 		rp->lasterr = BMP_ERR_INVALID;
-		return FALSE;
+		return false;
 	}
 	if (rp->cmask.mask.red  & rp->cmask.mask.green &
 	    rp->cmask.mask.blue & rp->cmask.mask.alpha) {
 		logerr(rp->log, "Overlapping color masks. Corrupt BMP?");
 		rp->lasterr = BMP_ERR_INVALID;
-		return FALSE;
+		return false;
 	}
 
-	return TRUE;
+	return true;
 }
 
 
@@ -901,19 +902,19 @@ static int s_read_colormasks(BMPREAD_R rp)
  * 	br_set_resultbits
  *****************************************************************************/
 
-int br_set_resultbits(BMPREAD_R rp)
+bool br_set_resultbits(BMPREAD_R rp)
 {
 	int newbits, max_bits = 0, i;
 
 	if (!rp->ih->bitcount)
-		return TRUE;
+		return true;
 
 	switch (rp->result_format) {
 	case BMP_FORMAT_FLOAT:
 		if (rp->result_indexed) {
 			logerr(rp->log, "Float is invalid number format for indexed image\n");
 			rp->lasterr = BMP_ERR_FORMAT;
-			return FALSE;
+			return false;
 		}
 		newbits = 8 * sizeof (float);
 		break;
@@ -922,7 +923,7 @@ int br_set_resultbits(BMPREAD_R rp)
 		if (rp->result_indexed) {
 			logerr(rp->log, "s2.13 is invalid number format for indexed image\n");
 			rp->lasterr = BMP_ERR_FORMAT;
-			return FALSE;
+			return false;
 		}
 		newbits = 16;
 		break;
@@ -943,13 +944,13 @@ int br_set_resultbits(BMPREAD_R rp)
 	default:
 		logerr(rp->log, "Invalid number format %d\n", rp->result_format);
 		rp->lasterr = BMP_ERR_FORMAT;
-		return FALSE;
+		return false;
 
 	}
 
 	if (newbits != rp->result_bitsperchannel) {
-		rp->dim_queried_bitsperchannel = FALSE;
-		rp->dimensions_queried = FALSE;
+		rp->dim_queried_bitsperchannel = false;
+		rp->dimensions_queried = false;
 	}
 	rp->result_bitsperchannel = newbits;
 	rp->result_bits_per_pixel = rp->result_bitsperchannel * rp->result_channels;
@@ -966,7 +967,7 @@ int br_set_resultbits(BMPREAD_R rp)
 		} else if (rp->getinfo_return == BMP_RESULT_INSANE)
 			rp->getinfo_return = BMP_RESULT_OK;
 	}
-	return TRUE;
+	return true;
 }
 
 
@@ -975,7 +976,7 @@ int br_set_resultbits(BMPREAD_R rp)
  * 	s_read_masks_from_bitfields
  *****************************************************************************/
 
-static int s_read_masks_from_bitfields(BMPREAD_R rp)
+static bool s_read_masks_from_bitfields(BMPREAD_R rp)
 {
 	uint32_t r,g,b,a;
 	int      i;
@@ -984,7 +985,7 @@ static int s_read_masks_from_bitfields(BMPREAD_R rp)
 		logerr(rp->log, "Invalid bitcount (%d) for BI_BITFIELDS."
 		                "Must be 16 or 32", (int) rp->ih->bitcount);
 		rp->lasterr = BMP_ERR_INVALID;
-		return FALSE;
+		return false;
 	}
 
 	if (rp->ih->version < BMPINFO_V3_ADOBE1) {
@@ -998,7 +999,7 @@ static int s_read_masks_from_bitfields(BMPREAD_R rp)
 				logsyserr(rp->log, "Reading BMP color masks");
 				rp->lasterr = BMP_ERR_FILEIO;
 			}
-			return FALSE;
+			return false;
 		}
 		rp->bytes_read += 12;
 		rp->cmask.mask.red   = r;
@@ -1013,7 +1014,7 @@ static int s_read_masks_from_bitfields(BMPREAD_R rp)
 					logsyserr(rp->log, "Reading BMP color masks");
 					rp->lasterr = BMP_ERR_FILEIO;
 				}
-				return FALSE;
+				return false;
 			}
 			rp->bytes_read += 4;
 			rp->cmask.mask.alpha = a;
@@ -1032,7 +1033,7 @@ static int s_read_masks_from_bitfields(BMPREAD_R rp)
 		rp->cmask.shift.value[i] = s_calc_shift_for_mask(rp->cmask.mask.value[i]);
 	}
 
-	return TRUE;
+	return true;
 }
 
 
@@ -1041,7 +1042,7 @@ static int s_read_masks_from_bitfields(BMPREAD_R rp)
  * 	s_create_implicit_colormasks
  *****************************************************************************/
 
-static int s_create_implicit_colormasks(BMPREAD_R rp)
+static bool s_create_implicit_colormasks(BMPREAD_R rp)
 {
 	int i, bitsperchannel;
 
@@ -1061,7 +1062,7 @@ static int s_create_implicit_colormasks(BMPREAD_R rp)
 	default:
 		logerr(rp->log, "Invalid bitcount for BMP (%d)", (int) rp->ih->bitcount);
 		rp->lasterr = BMP_ERR_INVALID;
-		return FALSE;
+		return false;
 	}
 
 
@@ -1080,7 +1081,7 @@ static int s_create_implicit_colormasks(BMPREAD_R rp)
 
 	}
 
-	return TRUE;
+	return true;
 }
 
 
@@ -1133,7 +1134,7 @@ static inline int s_calc_shift_for_mask(unsigned long long mask)
 /*****************************************************************************
  * 	s_read_file_header
  *****************************************************************************/
-static int s_read_file_header(BMPREAD_R rp)
+static bool s_read_file_header(BMPREAD_R rp)
 {
 	if (read_u16_le(rp->file, &rp->fh->type)      &&
 	    read_u32_le(rp->file, &rp->fh->size)      &&
@@ -1142,7 +1143,7 @@ static int s_read_file_header(BMPREAD_R rp)
 	    read_u32_le(rp->file, &rp->fh->offbits)    ) {
 
 		rp->bytes_read += 14;
-		return TRUE;
+		return true;
 	}
 
 	if (feof(rp->file)) {
@@ -1154,7 +1155,7 @@ static int s_read_file_header(BMPREAD_R rp)
 		rp->lasterr = BMP_ERR_FILEIO;
 	}
 
-	return FALSE;
+	return false;
 }
 
 
@@ -1164,7 +1165,7 @@ static int s_read_file_header(BMPREAD_R rp)
  *****************************************************************************/
 static void s_detect_os2_compression(BMPREAD_R rp);
 
-static int s_read_info_header(BMPREAD_R rp)
+static bool s_read_info_header(BMPREAD_R rp)
 {
 	int           skip, i, filepos;
 	unsigned char buf[124];
@@ -1202,7 +1203,7 @@ static int s_read_info_header(BMPREAD_R rp)
 			logerr(rp->log, "Invalid info header size (%lu)",
 			                   (unsigned long) rp->ih->size);
 			rp->lasterr = BMP_ERR_HEADER;
-			return FALSE;
+			return false;
 		}
 		break;
 	}
@@ -1287,7 +1288,7 @@ header_done:
 
 	s_detect_os2_compression(rp);
 
-	return TRUE;
+	return true;
 
 abort_file_err:
 	if (feof(rp->file)) {
@@ -1297,7 +1298,7 @@ abort_file_err:
 		logsyserr(rp->log, "While reading BMP info header");
 		rp->lasterr = BMP_ERR_FILEIO;
 	}
-	return FALSE;
+	return false;
 
 }
 
