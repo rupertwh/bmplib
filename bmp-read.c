@@ -95,7 +95,6 @@ static bool s_read_info_header(BMPREAD_R rp);
 static bool s_is_bmptype_supported(BMPREAD_R rp);
 static struct Palette* s_read_palette(BMPREAD_R rp);
 static bool s_read_colormasks(BMPREAD_R rp);
-static bool s_check_dimensions(BMPREAD_R rp);
 
 API BMPRESULT bmpread_load_info(BMPHANDLE h)
 {
@@ -106,7 +105,6 @@ API BMPRESULT bmpread_load_info(BMPHANDLE h)
 
 	if (rp->getinfo_called)
 		return rp->getinfo_return;
-
 
 	if (!s_read_file_header(rp))
 		goto abort;
@@ -135,13 +133,15 @@ API BMPRESULT bmpread_load_info(BMPHANDLE h)
 		goto abort;
 
 	rp->width  = (int) rp->ih->width;
-	rp->height = (unsigned) rp->ih->height;
 
 	/* negative height flips the image vertically */
 	if (rp->ih->height < 0) {
 		rp->orientation = BMP_ORIENT_TOPDOWN;
-		rp->height = - (int64_t) rp->ih->height;
+		rp->height = (unsigned) (-(int64_t)rp->ih->height);
+	} else {
+		rp->height = (unsigned) rp->ih->height;
 	}
+
 
 	if (rp->ih->compression == BI_RLE4 ||
 	    rp->ih->compression == BI_RLE8 ||
@@ -176,7 +176,6 @@ API BMPRESULT bmpread_load_info(BMPHANDLE h)
 		if (!(rp->palette = s_read_palette(rp)))
 			goto abort;
 	} else if (!rp->rle) {  /* RGB  */
-		memset(&rp->cmask, 0, sizeof rp->cmask);
 		if (!s_read_colormasks(rp))
 			goto abort;
 
@@ -190,9 +189,6 @@ API BMPRESULT bmpread_load_info(BMPHANDLE h)
 	}
 
 	if (!br_set_resultbits(rp))
-		goto abort;
-
-	if (!s_check_dimensions(rp))
 		goto abort;
 
 	if (rp->insanity_limit &&
@@ -705,30 +701,6 @@ static bool s_is_bmptype_supported_indexed(BMPREAD_R rp)
 
 
 /*****************************************************************************
- * 	s_check_dimensions
- *****************************************************************************/
-
-static bool s_check_dimensions(BMPREAD_R rp)
-{
-	uint64_t npixels;
-	size_t   maxpixels;
-
-	npixels   = (uint64_t) rp->width * rp->height;
-	maxpixels = SIZE_MAX / rp->result_bytes_per_pixel;
-
-	if (npixels > maxpixels || rp->width  < 1 || rp->height < 1 ||
-	                                             rp->height > INT32_MAX) {
-		logerr(rp->log, "Invalid BMP dimensions (%dx%d)",
-				     (int) rp->ih->width, (int) rp->ih->height);
-		rp->lasterr = BMP_ERR_DIMENSIONS;
-		return false;
-	}
-	return true;
-}
-
-
-
-/*****************************************************************************
  * 	s_read_palette
  *****************************************************************************/
 
@@ -827,6 +799,107 @@ static struct Palette* s_read_palette(BMPREAD_R rp)
 
 
 /*****************************************************************************
+ * 	br_set_resultbits
+ *****************************************************************************/
+static bool s_check_dimensions(BMPREAD_R rp);
+
+bool br_set_resultbits(BMPREAD_R rp)
+{
+	int newbits, max_bits = 0, i;
+
+	if (!rp->ih->bitcount)
+		return true;
+
+	switch (rp->result_format) {
+	case BMP_FORMAT_FLOAT:
+		if (rp->result_indexed) {
+			logerr(rp->log, "Float is invalid number format for indexed image\n");
+			rp->lasterr = BMP_ERR_FORMAT;
+			return false;
+		}
+		newbits = 8 * sizeof (float);
+		break;
+
+	case BMP_FORMAT_S2_13:
+		if (rp->result_indexed) {
+			logerr(rp->log, "s2.13 is invalid number format for indexed image\n");
+			rp->lasterr = BMP_ERR_FORMAT;
+			return false;
+		}
+		newbits = 16;
+		break;
+
+	case BMP_FORMAT_INT:
+		if (rp->ih->bitcount <= 8 || rp->rle)
+			newbits = 8;
+		else { /* RGB */
+			for (i = 0; i < 4; i++) {
+				max_bits = MAX(max_bits, rp->cmask.bits.value[i]);
+			}
+			newbits = 8;
+			while (newbits < max_bits && newbits < 32) {
+				newbits *= 2;
+			}
+		}
+		break;
+	default:
+		logerr(rp->log, "Invalid number format %d\n", rp->result_format);
+		rp->lasterr = BMP_ERR_FORMAT;
+		return false;
+
+	}
+
+	if (newbits != rp->result_bitsperchannel) {
+		rp->dim_queried_bitsperchannel = false;
+		rp->dimensions_queried = false;
+	}
+	rp->result_bitsperchannel = newbits;
+	rp->result_bits_per_pixel = rp->result_bitsperchannel * rp->result_channels;
+	rp->result_bytes_per_pixel = rp->result_bits_per_pixel / 8;
+
+	if (!s_check_dimensions(rp))
+		return false;
+
+	rp->result_size = (size_t) rp->width * rp->height * rp->result_bytes_per_pixel;
+
+	if (rp->getinfo_called) {
+		if (rp->insanity_limit && rp->result_size > rp->insanity_limit) {
+		 	if (rp->getinfo_return == BMP_RESULT_OK) {
+				logerr(rp->log, "file is insanely large");
+				rp->lasterr = BMP_ERR_INSANE;
+				rp->getinfo_return = BMP_RESULT_INSANE;
+			}
+		} else if (rp->getinfo_return == BMP_RESULT_INSANE)
+			rp->getinfo_return = BMP_RESULT_OK;
+	}
+	return true;
+}
+
+
+
+/*****************************************************************************
+ * 	s_check_dimensions
+ *****************************************************************************/
+
+static bool s_check_dimensions(BMPREAD_R rp)
+{
+	uint64_t npixels;
+	size_t   maxpixels;
+
+	npixels   = (uint64_t) rp->width * rp->height;
+	maxpixels = SIZE_MAX / rp->result_bytes_per_pixel;
+
+	if (npixels > maxpixels || rp->width  < 1 || rp->height < 1 || rp->height > INT32_MAX) {
+		logerr(rp->log, "Invalid BMP dimensions (%dx%u)", rp->width, rp->height);
+		rp->lasterr = BMP_ERR_DIMENSIONS;
+		return false;
+	}
+	return true;
+}
+
+
+
+/*****************************************************************************
  * 	s_read_colormasks
  *****************************************************************************/
 static bool s_read_masks_from_bitfields(BMPREAD_R rp);
@@ -887,80 +960,6 @@ static bool s_read_colormasks(BMPREAD_R rp)
 		return false;
 	}
 
-	return true;
-}
-
-
-
-/*****************************************************************************
- * 	br_set_resultbits
- *****************************************************************************/
-
-bool br_set_resultbits(BMPREAD_R rp)
-{
-	int newbits, max_bits = 0, i;
-
-	if (!rp->ih->bitcount)
-		return true;
-
-	switch (rp->result_format) {
-	case BMP_FORMAT_FLOAT:
-		if (rp->result_indexed) {
-			logerr(rp->log, "Float is invalid number format for indexed image\n");
-			rp->lasterr = BMP_ERR_FORMAT;
-			return false;
-		}
-		newbits = 8 * sizeof (float);
-		break;
-
-	case BMP_FORMAT_S2_13:
-		if (rp->result_indexed) {
-			logerr(rp->log, "s2.13 is invalid number format for indexed image\n");
-			rp->lasterr = BMP_ERR_FORMAT;
-			return false;
-		}
-		newbits = 16;
-		break;
-
-	case BMP_FORMAT_INT:
-		if (rp->ih->bitcount <= 8 || rp->rle)
-			newbits = 8;
-		else { /* RGB */
-			for (i = 0; i < 4; i++) {
-				max_bits = MAX(max_bits, rp->cmask.bits.value[i]);
-			}
-			newbits = 8;
-			while (newbits < max_bits && newbits < 32) {
-				newbits *= 2;
-			}
-		}
-		break;
-	default:
-		logerr(rp->log, "Invalid number format %d\n", rp->result_format);
-		rp->lasterr = BMP_ERR_FORMAT;
-		return false;
-
-	}
-
-	if (newbits != rp->result_bitsperchannel) {
-		rp->dim_queried_bitsperchannel = false;
-		rp->dimensions_queried = false;
-	}
-	rp->result_bitsperchannel = newbits;
-	rp->result_bits_per_pixel = rp->result_bitsperchannel * rp->result_channels;
-	rp->result_bytes_per_pixel = rp->result_bits_per_pixel / 8;
-
-	rp->result_size = (size_t) rp->width * rp->height * rp->result_bytes_per_pixel;
-	if (rp->getinfo_called) {
-		if (rp->insanity_limit && rp->result_size > rp->insanity_limit) {
-		 	if (rp->getinfo_return == BMP_RESULT_OK) {
-				logerr(rp->log, "file is insanely large");
-				rp->lasterr = BMP_ERR_INSANE;
-				rp->getinfo_return = BMP_RESULT_INSANE;
-			}
-		} else if (rp->getinfo_return == BMP_RESULT_INSANE)
-			rp->getinfo_return = BMP_RESULT_OK;
-	}
 	return true;
 }
 
