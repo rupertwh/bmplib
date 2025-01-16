@@ -101,9 +101,8 @@ API BMPRESULT bmpread_load_info(BMPHANDLE h)
 {
 	BMPREAD rp;
 
-	if (!(h && cm_check_is_read_handle(h)))
+	if (!(rp = cm_read_handle(h)))
 		return BMP_RESULT_ERROR;
-	rp = (BMPREAD)(void*)h;
 
 	if (rp->getinfo_called)
 		return rp->getinfo_return;
@@ -223,9 +222,8 @@ API BMPRESULT bmpread_set_64bit_conv(BMPHANDLE h, enum Bmpconv64 conv)
 {
 	BMPREAD rp;
 
-	if (!(h && cm_check_is_read_handle(h)))
+	if (!(rp = cm_read_handle(h)))
 		return BMP_RESULT_ERROR;
-	rp = (BMPREAD)(void*)h;
 
 	switch (conv) {
 	case BMP_CONV64_SRGB:
@@ -265,9 +263,8 @@ API int bmpread_is_64bit(BMPHANDLE h)
 {
 	BMPREAD rp;
 
-	if (!(h && cm_check_is_read_handle(h)))
+	if (!(rp = cm_read_handle(h)))
 		return 0;
-	rp = (BMPREAD)(void*)h;
 
 	if (rp->ih->bitcount == 64)
 		return 1;
@@ -288,9 +285,8 @@ API BMPRESULT bmpread_dimensions(BMPHANDLE h, int* restrict width,
 {
 	BMPREAD rp;
 
-	if (!(h && cm_check_is_read_handle(h)))
+	if (!(rp = cm_read_handle(h)))
 		return BMP_RESULT_ERROR;
-	rp = (BMPREAD)(void*)h;
 
 	if (!rp->getinfo_called)
 		bmpread_load_info((BMPHANDLE)(void*)rp);
@@ -432,9 +428,8 @@ static int s_single_dim_val(BMPHANDLE h, enum Dimint dim)
 	BMPREAD rp;
 	int     ret;
 
-	if (!(h && cm_check_is_read_handle(h)))
+	if (!(rp = cm_read_handle(h)))
 		return 0;
-	rp = (BMPREAD)(void*)h;
 
 	if (!rp->getinfo_called)
 		return 0;
@@ -485,9 +480,8 @@ API size_t bmpread_buffersize(BMPHANDLE h)
 {
 	BMPREAD rp;
 
-	if (!(h && cm_check_is_read_handle(h)))
+	if (!(rp = cm_read_handle(h)))
 		return 0;
-	rp = (BMPREAD)(void*)h;
 
 	if (!(rp->getinfo_called &&
                       (rp->getinfo_return == BMP_RESULT_OK ||
@@ -509,9 +503,8 @@ API void bmpread_set_insanity_limit(BMPHANDLE h, size_t limit)
 {
 	BMPREAD rp;
 
-	if (!(h && cm_check_is_read_handle(h)))
+	if (!(rp = cm_read_handle(h)))
 		return;
-	rp = (BMPREAD)(void*)h;
 
 	rp->insanity_limit = limit;
 
@@ -533,9 +526,8 @@ API void bmpread_set_undefined(BMPHANDLE h, enum BmpUndefined mode)
 {
 	BMPREAD rp;
 
-	if (!(h && cm_check_is_read_handle(h)))
+	if (!(rp = cm_read_handle(h)))
 		return;
-	rp = (BMPREAD)(void*)h;
 
 	if (mode == rp->undefined_mode)
 		return;
@@ -572,6 +564,8 @@ API void bmpread_set_undefined(BMPHANDLE h, enum BmpUndefined mode)
 
 void br_free(BMPREAD rp)
 {
+	rp->magic = 0;
+
 	if (rp->palette)
 		free(rp->palette);
 	if (rp->ih)
@@ -1359,9 +1353,8 @@ static int s_info_int(BMPHANDLE h, enum Infoint info)
 {
 	BMPREAD rp;
 
-	if (!(h && cm_check_is_read_handle(h)))
+	if (!(rp = cm_read_handle(h)))
 		return 0;
-	rp = (BMPREAD)(void*)h;
 
 	if (!rp->getinfo_called)
 		return 0;
@@ -1405,9 +1398,8 @@ static const char* s_info_str(BMPHANDLE h, enum Infostr info)
 {
 	BMPREAD rp;
 
-	if (!(h && cm_check_is_read_handle(h)))
+	if (!(rp = cm_read_handle(h)))
 		return "";
-	rp = (BMPREAD)(void*)h;
 
 	if (!rp->getinfo_called)
 		return "";
@@ -1432,9 +1424,8 @@ API BMPRESULT bmpread_info_channel_bits(BMPHANDLE h, int *r, int *g, int *b, int
 {
 	BMPREAD rp;
 
-	if (!(h && cm_check_is_read_handle(h)))
+	if (!(rp = cm_read_handle(h)))
 		return BMP_RESULT_ERROR;
-	rp = (BMPREAD)(void*)h;
 
 	if (!(rp->getinfo_called &&
 	               (rp->getinfo_return == BMP_RESULT_OK ||

@@ -86,9 +86,8 @@ API BMPRESULT bmpread_load_image(BMPHANDLE h, unsigned char **restrict buffer)
 {
 	BMPREAD rp;
 
-	if (!(h && cm_check_is_read_handle(h)))
+	if (!(rp = cm_read_handle(h)))
 		return BMP_RESULT_ERROR;
-	rp = (BMPREAD)(void*)h;
 
 	return s_load_image_or_line(rp, buffer, false);
 }
@@ -103,9 +102,8 @@ API BMPRESULT bmpread_load_line(BMPHANDLE h, unsigned char **restrict buffer)
 {
 	BMPREAD rp;
 
-	if (!(h && cm_check_is_read_handle(h)))
+	if (!(rp = cm_read_handle(h)))
 		return BMP_RESULT_ERROR;
-	rp = (BMPREAD)(void*)h;
 
 	logreset(rp->log); /* otherwise we might accumulate thousands  */
 	                   /* of log entries with large corrupt images */

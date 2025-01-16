@@ -51,9 +51,8 @@ API int bmpread_num_palette_colors(BMPHANDLE h)
 {
 	BMPREAD rp;
 
-	if (!(h && cm_check_is_read_handle(h)))
+	if (!(rp = cm_read_handle(h)))
 		return 0;
-	rp = (BMPREAD)(void*)h;
 
 	if (rp->palette)
 		return rp->palette->numcolors;
@@ -75,10 +74,8 @@ API BMPRESULT bmpread_load_palette(BMPHANDLE h, unsigned char **palette)
 	int     i,c;
 	size_t	memsize;
 
-
-	if (!(h && cm_check_is_read_handle(h)))
-		return 0;
-	rp = (BMPREAD)(void*)h;
+	if (!(rp = cm_read_handle(h)))
+		return BMP_RESULT_ERROR;
 
 	if (!rp->getinfo_called) {
 		logerr(rp->log, "Must call bmpread_load_info() before loading palette");

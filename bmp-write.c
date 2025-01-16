@@ -114,9 +114,8 @@ API BMPRESULT bmpwrite_set_dimensions(BMPHANDLE h,
 {
 	BMPWRITE wp;
 
-	if (!cm_check_is_write_handle(h))
+	if (!(wp = cm_write_handle(h)))
 		return BMP_RESULT_ERROR;
-	wp = (BMPWRITE)(void*)h;
 
 	if (s_check_already_saved(wp))
 		return BMP_RESULT_ERROR;
@@ -187,9 +186,8 @@ API BMPRESULT bmpwrite_set_output_bits(BMPHANDLE h, int red, int green, int blue
 {
 	BMPWRITE wp;
 
-	if (!cm_check_is_write_handle(h))
+	if (!(wp = cm_write_handle(h)))
 		return BMP_RESULT_ERROR;
-	wp = (BMPWRITE)(void*)h;
 
 	if (s_check_already_saved(wp))
 		return BMP_RESULT_ERROR;
@@ -230,9 +228,8 @@ API BMPRESULT bmpwrite_set_palette(BMPHANDLE h, int numcolors,
 	int      i, c;
 	size_t   memsize;
 
-	if (!cm_check_is_write_handle(h))
+	if (!(wp = cm_write_handle(h)))
 		return BMP_RESULT_ERROR;
-	wp = (BMPWRITE)(void*)h;
 
 	if (s_check_already_saved(wp))
 		return BMP_RESULT_ERROR;
@@ -278,9 +275,8 @@ API BMPRESULT bmpwrite_set_orientation(BMPHANDLE h, enum BmpOrient orientation)
 {
 	BMPWRITE wp;
 
-	if (!cm_check_is_write_handle(h))
+	if (!(wp = cm_write_handle(h)))
 		return BMP_RESULT_ERROR;
-	wp = (BMPWRITE)(void*)h;
 
 	if (s_check_already_saved(wp))
 		return BMP_RESULT_ERROR;
@@ -316,9 +312,8 @@ API BMPRESULT bmpwrite_set_rle(BMPHANDLE h, enum BmpRLEtype type)
 {
 	BMPWRITE wp;
 
-	if (!cm_check_is_write_handle(h))
+	if (!(wp = cm_write_handle(h)))
 		return BMP_RESULT_ERROR;
-	wp = (BMPWRITE)(void*)h;
 
 	if (s_check_already_saved(wp))
 		return BMP_RESULT_ERROR;
@@ -345,9 +340,8 @@ API BMPRESULT bmpwrite_set_resolution(BMPHANDLE h, int xdpi, int ydpi)
 {
 	BMPWRITE wp;
 
-	if (!cm_check_is_write_handle(h))
+	if (!(wp = cm_write_handle(h)))
 		return BMP_RESULT_ERROR;
-	wp = (BMPWRITE)(void*)h;
 
 	if (s_check_already_saved(wp))
 		return BMP_RESULT_ERROR;
@@ -368,9 +362,8 @@ API BMPRESULT bmpwrite_allow_2bit(BMPHANDLE h)
 {
 	BMPWRITE wp;
 
-	if (!cm_check_is_write_handle(h))
+	if (!(wp = cm_write_handle(h)))
 		return BMP_RESULT_ERROR;
-	wp = (BMPWRITE)(void*)h;
 
 	if (s_check_already_saved(wp))
 		return BMP_RESULT_ERROR;
@@ -390,9 +383,8 @@ API BMPRESULT bmpwrite_allow_huffman(BMPHANDLE h)
 {
 	BMPWRITE wp;
 
-	if (!cm_check_is_write_handle(h))
+	if (!(wp = cm_write_handle(h)))
 		return BMP_RESULT_ERROR;
-	wp = (BMPWRITE)(void*)h;
 
 	if (s_check_already_saved(wp))
 		return BMP_RESULT_ERROR;
@@ -412,9 +404,8 @@ API BMPRESULT bmpwrite_allow_rle24(BMPHANDLE h)
 {
 	BMPWRITE wp;
 
-	if (!cm_check_is_write_handle(h))
+	if (!(wp = cm_write_handle(h)))
 		return BMP_RESULT_ERROR;
-	wp = (BMPWRITE)(void*)h;
 
 	if (s_check_already_saved(wp))
 		return BMP_RESULT_ERROR;
@@ -434,9 +425,8 @@ API BMPRESULT bmpwrite_set_64bit(BMPHANDLE h)
 {
 	BMPWRITE wp;
 
-	if (!cm_check_is_write_handle(h))
+	if (!(wp = cm_write_handle(h)))
 		return BMP_RESULT_ERROR;
-	wp = (BMPWRITE)(void*)h;
 
 	if (s_check_already_saved(wp))
 		return BMP_RESULT_ERROR;
@@ -740,9 +730,8 @@ API BMPRESULT bmpwrite_save_image(BMPHANDLE h, const unsigned char *image)
 	size_t   offs, linesize;
 	int      y, real_y, res;
 
-	if (!cm_check_is_write_handle(h))
+	if (!(wp = cm_write_handle(h)))
 		return BMP_RESULT_ERROR;
-	wp = (BMPWRITE)(void*)h;
 
 	if (s_check_already_saved(wp))
 		return BMP_RESULT_ERROR;
@@ -811,9 +800,8 @@ API BMPRESULT bmpwrite_save_line(BMPHANDLE h, const unsigned char *line)
 	BMPWRITE wp;
 	int      res;
 
-	if (!cm_check_is_write_handle(h))
+	if (!(wp = cm_write_handle(h)))
 		return BMP_RESULT_ERROR;
-	wp = (BMPWRITE)(void*)h;
 
 	if (s_check_already_saved(wp))
 		return BMP_RESULT_ERROR;
@@ -1561,6 +1549,8 @@ static inline int s_write_one_byte(int byte, BMPWRITE_R wp)
 
 void bw_free(BMPWRITE wp)
 {
+	wp->magic = 0;
+
 	if (wp->group)
 		free(wp->group);
 	if (wp->palette)

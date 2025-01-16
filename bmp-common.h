@@ -210,8 +210,8 @@ int cm_align2padding(unsigned long long a);
 int cm_count_bits(unsigned long v);
 
 bool cm_gobble_up(BMPREAD_R rp, int count);
-bool cm_check_is_read_handle(BMPHANDLE h);
-bool cm_check_is_write_handle(BMPHANDLE h);
+BMPREAD cm_read_handle(BMPHANDLE h);
+BMPWRITE cm_write_handle(BMPHANDLE h);
 
 const char* cm_conv64_name(enum Bmpconv64 conv);
 const char* cm_format_name(enum BmpFormat format);

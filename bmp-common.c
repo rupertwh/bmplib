@@ -127,30 +127,32 @@ API void bmp_free(BMPHANDLE h)
 
 
 /********************************************************
- * 	cm_check_is_read_handle
+ * 	cm_read_handle
  *******************************************************/
 
-bool cm_check_is_read_handle(BMPHANDLE h)
+BMPREAD cm_read_handle(BMPHANDLE h)
 {
 	BMPREAD rp = (BMPREAD)(void*)h;
 
 	if (rp && rp->magic == HMAGIC_READ)
-		return true;
-	return false;
+		return rp;
+
+	return NULL;
 }
 
 
 /********************************************************
- * 	bm_check_is_write_handle
+ * 	cm_write_handle
  *******************************************************/
 
-bool cm_check_is_write_handle(BMPHANDLE h)
+BMPWRITE cm_write_handle(BMPHANDLE h)
 {
 	BMPWRITE wp = (BMPWRITE)(void*)h;
 
 	if (wp && wp->magic == HMAGIC_WRITE)
-		return true;
-	return false;
+		return wp;
+
+	return NULL;
 }
 
 
