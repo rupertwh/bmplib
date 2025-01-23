@@ -1395,9 +1395,9 @@ static inline uint16_t float_to_s2_13(double d)
 
 	d = round(d * 8192.0);
 
-	if (d >= 32768.0)
+	if (d >= 32767.0)
 		s2_13 = 0x7fff; /* max positive value */
-	else if (d < -32768.0)
+	else if (d <= -32768.0)
 		s2_13 = 0x8000; /* min negative value */
 	else
 		s2_13 = (uint16_t) (0xffff & (int)d);
