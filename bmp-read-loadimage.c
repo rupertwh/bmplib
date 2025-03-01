@@ -33,7 +33,6 @@
 #include "bmp-common.h"
 #include "huffman.h"
 #include "bmp-read.h"
-#include "reversebits.h"
 
 
 /*
@@ -787,7 +786,7 @@ static void s_read_huffman_line(BMPREAD_R rp, unsigned char *restrict line)
 		if (rp->hufbuf_len == 0)
 			break;
 
-		if ((rp->hufbuf & 0x00ff) == 0) {
+		if ((rp->hufbuf & 0xff000000UL) == 0) {
 			if (!s_huff_skip_eol(rp)) {
 				rp->truncated = true;
 				break;
@@ -837,11 +836,11 @@ static bool s_huff_skip_eol(BMPREAD_R rp)
 			huff_fillbuf(rp);
 			continue;
 		}
-		while ((rp->hufbuf & 0x0001) == 0) {
-			rp->hufbuf >>= 1;
+		while ((rp->hufbuf & 0x80000000UL) == 0) {
+			rp->hufbuf <<= 1;
 			rp->hufbuf_len--;
 		}
-		rp->hufbuf >>= 1;
+		rp->hufbuf <<= 1;
 		rp->hufbuf_len--;
 		return true;
 	}
@@ -858,12 +857,12 @@ static bool s_huff_find_eol(BMPREAD_R rp)
 	huff_fillbuf (rp);
 	while (rp->hufbuf_len > 11)
 	{
-		if ((rp->hufbuf & 0x07ff) == 0) {
-			rp->hufbuf >>= 11;
+		if ((rp->hufbuf & 0xffe00000UL) == 0) {
+			rp->hufbuf <<= 11;
 			rp->hufbuf_len -= 11;
 			return s_huff_skip_eol (rp);
 		}
-		rp->hufbuf >>= 1;
+		rp->hufbuf <<= 1;
 		rp->hufbuf_len -= 1;
 		if (rp->hufbuf_len < 12)
 			huff_fillbuf (rp);

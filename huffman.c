@@ -29,7 +29,6 @@
 #include "bmplib.h"
 #include "logging.h"
 #include "bmp-common.h"
-#include "reversebits.h"
 #include "huffman.h"
 #include "huffman-codes.h"
 
@@ -63,7 +62,7 @@ int huff_decode(BMPREAD_R rp, int black)
 		}
 
 		result += nodebuffer[idx].value;
-		rp->hufbuf >>= bits_used;
+		rp->hufbuf <<= bits_used;
 		rp->hufbuf_len -= bits_used;
 
 	} while (nodebuffer[idx].makeup && result < INT_MAX - 2560);
@@ -85,12 +84,12 @@ static int s_findnode(uint32_t bits, int nbits, bool black, int *found)
 	idx = black ? blackroot : whiteroot;
 
 	while (idx != -1 && !nodebuffer[idx].terminal && bits_used < nbits) {
-		if (bits & 1)
+		if (bits & 0x80000000UL)
 			idx = nodebuffer[idx].r;
 		else
 			idx = nodebuffer[idx].l;
 		bits_used++;
-		bits >>= 1;
+		bits <<= 1;
 	}
 	*found = idx;
 	return idx != -1 ? bits_used : 0;
@@ -110,8 +109,7 @@ void huff_fillbuf(BMPREAD_R rp)
 		if (EOF == (byte = getc(rp->file)))
 			break;
 		rp->bytes_read++;
-		byte = reversebits[byte];
-		rp->hufbuf |= ((uint32_t)byte) << rp->hufbuf_len;
+		rp->hufbuf |= (uint32_t)byte << (24 - rp->hufbuf_len);
 		rp->hufbuf_len += 8;
 	}
 }
