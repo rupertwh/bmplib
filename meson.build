@@ -7,6 +7,8 @@ add_project_arguments('-pedantic', language : 'c')
 add_project_arguments('-fvisibility=hidden', language: 'c')
 if get_option('buildtype') == 'debug'
   add_project_arguments('-DDEBUG', language: 'c')
+elif get_option('buildtype') == 'release'
+  add_project_arguments('-DNODEBUG', language: 'c')
 endif
 
 m_dep = cc.find_library('m', required : false)
@@ -36,9 +38,6 @@ if cc.sizeof('float') != 4
 elif cc.sizeof('int') < 4
   error('sizeof(int) must be at least 32 bit.')
 endif
-
-
-gen_huffman = executable('huffstats', 'huffstats.c')
 
 gen_huffman = executable('gen-huffman', 'gen-huffman.c')
 huff_codes = custom_target('huffman-codes.h',
