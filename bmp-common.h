@@ -243,72 +243,67 @@ int16_t  s16_from_le(const unsigned char *buf);
 #define BMPFILE_PT 0x5450
 
 
-#define BMPFHSIZE           14
-#define BMPIHSIZE_V3        40
-#define BMPIHSIZE_V4       108
-#define BMPIHSIZE_OS22      64
-
-typedef uint16_t WORD;
-typedef uint32_t DWORD;
-typedef int32_t  LONG;
-typedef uint8_t  BYTE;
+#define BMPFHSIZE       14
+#define BMPIHSIZE_V3    40
+#define BMPIHSIZE_V4   108
+#define BMPIHSIZE_OS22  64
 
 struct Bmpfile {
-	WORD  type; /* "BM" */
-	DWORD size; /* bytes in file */
-	WORD  reserved1;
-	WORD  reserved2;
-	DWORD offbits;
+	uint16_t type; /* "BM" */
+	uint32_t size; /* bytes in file */
+	uint16_t reserved1;
+	uint16_t reserved2;
+	uint32_t offbits;
 };
 
 struct Bmpinfo {
 	/* BITMAPINFOHEADER (40 bytes) */
-	DWORD size; /* sizof struct */
-	LONG  width;
-	LONG  height;
-	WORD  planes;
-	WORD  bitcount;
-	DWORD compression;
-	DWORD sizeimage; /* 0 ok for uncompressed */
-	LONG  xpelspermeter;
-	LONG  ypelspermeter;
-	DWORD clrused;
-	DWORD clrimportant;
+	uint32_t size; /* sizof struct */
+	int32_t  width;
+	int32_t  height;
+	uint16_t planes;
+	uint16_t bitcount;
+	uint32_t compression;
+	uint32_t sizeimage; /* 0 ok for uncompressed */
+	int32_t  xpelspermeter;
+	int32_t  ypelspermeter;
+	uint32_t clrused;
+	uint32_t clrimportant;
 	/* BITMAPV4INFOHEADER (108 bytes) */
-	DWORD redmask;
-	DWORD greenmask;
-	DWORD bluemask;
-	DWORD alphamask;
-	DWORD cstype;
-	LONG  redX;
-	LONG  redY;
-	LONG  redZ;
-	LONG  greenX;
-	LONG  greenY;
-	LONG  greenZ;
-	LONG  blueX;
-	LONG  blueY;
-	LONG  blueZ;
-	DWORD gammared;
-	DWORD gammagreen;
-	DWORD gammablue;
+	uint32_t redmask;
+	uint32_t greenmask;
+	uint32_t bluemask;
+	uint32_t alphamask;
+	uint32_t cstype;
+	int32_t  redX;
+	int32_t  redY;
+	int32_t  redZ;
+	int32_t  greenX;
+	int32_t  greenY;
+	int32_t  greenZ;
+	int32_t  blueX;
+	int32_t  blueY;
+	int32_t  blueZ;
+	uint32_t gammared;
+	uint32_t gammagreen;
+	uint32_t gammablue;
 	/* BITMAPV5INFOHEADER (124 bytes) */
-	DWORD intent;
-	DWORD profiledata;
-	DWORD profilesize;
-	DWORD reserved;
+	uint32_t intent;
+	uint32_t profiledata;
+	uint32_t profilesize;
+	uint32_t reserved;
 
 	/* OS22XBITMAPHEADER */
-	WORD resolution;      /* = 0   */
-	WORD orientation;     /* = 0   */
-	WORD halftone_alg;
-	DWORD halftone_parm1;
-	DWORD halftone_parm2;
-	DWORD color_encoding;  /* = 0 (RGB) */
-	DWORD app_id;
+	uint16_t resolution;      /* = 0   */
+	uint16_t orientation;     /* = 0   */
+	uint16_t halftone_alg;
+	uint32_t halftone_parm1;
+	uint32_t halftone_parm2;
+	uint32_t color_encoding;  /* = 0 (RGB) */
+	uint32_t app_id;
 
-  /* internal only, not from file: */
-  enum BmpInfoVer   version;
+	/* internal only, not from file: */
+	enum BmpInfoVer version;
 };
 
 

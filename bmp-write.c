@@ -346,8 +346,8 @@ API BMPRESULT bmpwrite_set_resolution(BMPHANDLE h, int xdpi, int ydpi)
 	if (s_check_already_saved(wp))
 		return BMP_RESULT_ERROR;
 
-	wp->ih->xpelspermeter = (LONG) (100.0 / 2.54 * xdpi + 0.5);
-	wp->ih->ypelspermeter = (LONG) (100.0 / 2.54 * ydpi + 0.5);
+	wp->ih->xpelspermeter = (int32_t) (100.0 / 2.54 * xdpi + 0.5);
+	wp->ih->ypelspermeter = (int32_t) (100.0 / 2.54 * ydpi + 0.5);
 
 	return BMP_RESULT_OK;
 }
@@ -690,10 +690,10 @@ static void s_decide_outformat(BMPWRITE_R wp)
 		wp->outbytes_per_pixel = wp->ih->bitcount / 8;
 
 		if (wp->ih->version >= BMPINFO_V4 && !wp->out64bit) {
-			wp->ih->redmask   = (DWORD) (wp->cmask.mask.red   << wp->cmask.shift.red);
-			wp->ih->greenmask = (DWORD) (wp->cmask.mask.green << wp->cmask.shift.green);
-			wp->ih->bluemask  = (DWORD) (wp->cmask.mask.blue  << wp->cmask.shift.blue);
-			wp->ih->alphamask = (DWORD) (wp->cmask.mask.alpha << wp->cmask.shift.alpha);
+			wp->ih->redmask   = (uint32_t) (wp->cmask.mask.red   << wp->cmask.shift.red);
+			wp->ih->greenmask = (uint32_t) (wp->cmask.mask.green << wp->cmask.shift.green);
+			wp->ih->bluemask  = (uint32_t) (wp->cmask.mask.blue  << wp->cmask.shift.blue);
+			wp->ih->alphamask = (uint32_t) (wp->cmask.mask.alpha << wp->cmask.shift.alpha);
 		}
 	}
 
@@ -703,7 +703,7 @@ static void s_decide_outformat(BMPWRITE_R wp)
 	filesize       = bitmapsize + BMPFHSIZE + wp->ih->size + wp->palette_size;
 
 	wp->fh->type = 0x4d42; /* "BM" */
-	wp->fh->size = (DWORD) ((wp->rle || filesize > UINT32_MAX) ? 0 : filesize);
+	wp->fh->size = (uint32_t) ((wp->rle || filesize > UINT32_MAX) ? 0 : filesize);
 	wp->fh->offbits = BMPFHSIZE + wp->ih->size + wp->palette_size;
 
 	wp->ih->width = wp->width;
@@ -712,7 +712,7 @@ static void s_decide_outformat(BMPWRITE_R wp)
 	else
 		wp->ih->height = -wp->height;
 	wp->ih->planes = 1;
-	wp->ih->sizeimage = (DWORD) ((wp->rle || bitmapsize > UINT32_MAX) ? 0 : bitmapsize);
+	wp->ih->sizeimage = (uint32_t) ((wp->rle || bitmapsize > UINT32_MAX) ? 0 : bitmapsize);
 }
 
 
@@ -1493,7 +1493,7 @@ static bool s_write_bmp_info_header(BMPWRITE_R wp)
 			return false;
 		}
 #endif
-		for (int i = 0; (DWORD) i < wp->ih->size - 40; i++) {
+		for (int i = 0; (uint32_t) i < wp->ih->size - 40; i++) {
 			if (EOF == putc(0, wp->file))
 				return false;
 			wp->bytes_written++;
