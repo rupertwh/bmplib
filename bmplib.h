@@ -124,12 +124,10 @@ typedef enum Bmpconv64 BMPCONV64;
 /*
  * BMP info header versions
  *
- * There doesn't seem to be consensus on whether the
- * BITMAPINFOHEADER is version 1 (with the two Adobe
- * extensions being v2 and v3) or version 3 (with the
- * older BITMAPCIREHEADER and OS22XBITMAPHEADER being
- * v1 and v2).
- * I am going with BITMAPINFOHEADER = v3
+ * There doesn't seem to be consensus on whether the BITMAPINFOHEADER is
+ * version 1 (with the two Adobe extensions being v2 and v3) or version 3
+ * (with the older BITMAPCOREHEADER and OS22XBITMAPHEADER being v1 and v2).
+ * I am going with BITMAPINFOHEADER = v3.
  */
 enum BmpInfoVer {
 	BMPINFO_CORE_OS21 = 1,  /* 12 bytes */

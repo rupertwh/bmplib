@@ -23,6 +23,7 @@
 #include <string.h>
 #include <stdint.h>
 #include <stdbool.h>
+#include <assert.h>
 #include <math.h>
 
 #define BMPLIB_LIB
@@ -554,6 +555,7 @@ static inline bool s_read_n_bytes(BMPREAD_R rp, int n, unsigned long *restrict b
 {
 	int byte;
 
+	assert(n <= 4);
 	*buff = 0;
 	while (n--) {
 		if (EOF == (byte = s_read_one_byte(rp))) {
