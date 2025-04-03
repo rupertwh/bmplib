@@ -499,29 +499,58 @@ static inline bool s_read_rgb_pixel(BMPREAD_R rp, union Pixel *restrict px)
  * 	s_read_indexed_line
  * - 1/2/4/8 bits non-RLE indexed
  *******************************************************/
-static inline bool s_read_n_bytes(BMPREAD_R rp, int n, unsigned long *restrict buff);
-static inline unsigned long s_bits_from_buffer(unsigned long buf, int size,
-                                              int nbits, int used_bits);
+struct Buffer32 {
+	uint32_t buffer;
+	int      n;
+};
+
+static inline bool s_buffer32_fill(BMPREAD_R rp, struct Buffer32 *restrict buf)
+{
+	int byte;
+
+	memset(buf, 0, sizeof *buf);
+
+	for (int i = 0; i < 4; i++) {
+		if (EOF == (byte = s_read_one_byte(rp))) {
+			s_set_file_error(rp);
+			return false;
+		}
+		buf->buffer <<= 8;
+		buf->buffer |= byte;
+	}
+	buf->n = 32;
+
+	return true;
+}
+
+
+static inline uint32_t s_buffer32_bits(struct Buffer32 *restrict buf, int nbits)
+{
+	uint32_t result;
+
+	assert(nbits < 32);
+
+	result = buf->buffer >> (32 - nbits);
+	buf->buffer = (buf->buffer << nbits) & 0xffffffffUL;
+	buf->n -= nbits;
+
+	return result;
+}
 
 static void s_read_indexed_line(BMPREAD_R rp, unsigned char *restrict line)
 {
-	int           bits_used, buffer_size, x = 0, v;
-	bool          done = false;
-	unsigned long buffer;
-	size_t        offs;
+	int             x = 0, v;
+	bool            done = false;
+	struct Buffer32 buffer;
+	size_t          offs;
 
-	/* setting the buffer size to the alignment takes care of padding bytes */
-	buffer_size = 32;
+	/* the buffer size of 32 bits takes care of padding bytes */
 
-	while (!done && s_read_n_bytes(rp, buffer_size / 8, &buffer)) {
+	while (!done && s_buffer32_fill(rp, &buffer)) {
 
-		bits_used = 0;
-		while (bits_used < buffer_size) {
+		while (buffer.n >= rp->ih->bitcount) {
 
-			/* mask out the relevant bits for current pixel */
-			v = (int) s_bits_from_buffer(buffer, buffer_size,
-			                             rp->ih->bitcount, bits_used);
-			bits_used += rp->ih->bitcount;
+			v = (int) s_buffer32_bits(&buffer, rp->ih->bitcount);
 
 			if (v >= rp->palette->numcolors) {
 				v = rp->palette->numcolors - 1;
@@ -537,58 +566,13 @@ static void s_read_indexed_line(BMPREAD_R rp, unsigned char *restrict line)
 				line[offs+2] = rp->palette->color[v].blue;
 				s_int_to_result_format(rp, 8, line + offs);
 			}
+
 			if (++x == rp->width) {
 				done = true;
 				break;      /* discarding rest of buffer == padding */
 			}
 		}
 	}
-}
-
-
-
-/********************************************************
- * 	s_read_n_bytes
- *******************************************************/
-
-static inline bool s_read_n_bytes(BMPREAD_R rp, int n, unsigned long *restrict buff)
-{
-	int byte;
-
-	assert(n <= 4);
-	*buff = 0;
-	while (n--) {
-		if (EOF == (byte = s_read_one_byte(rp))) {
-			s_set_file_error(rp);
-			return false;
-		}
-		*buff <<= 8;
-		*buff |= byte;
-	}
-	return true;
-}
-
-
-
-/********************************************************
- * 	s_bits_from_buffer
- *******************************************************/
-
-static inline unsigned long s_bits_from_buffer(unsigned long buf, int size,
-                                              int nbits, int used_bits)
-{
-	unsigned long mask;
-	int           shift;
-
-	shift = size - (nbits + used_bits);
-
-	mask  = (1U << nbits) - 1;
-	mask <<= shift;
-
-	buf   &= mask;
-	buf  >>= shift;
-
-	return buf;
 }
 
 
