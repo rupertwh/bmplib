@@ -1023,7 +1023,7 @@ static bool s_save_line_rle(BMPWRITE_R wp, const unsigned char *line)
 {
 	int  i, j, k, x, l, dx, outbyte = 0;
 	bool even;
-	int  small_number, minlen = 0;
+	int  small_number = 0, minlen = 0;
 
 	switch (wp->rle) {
 	case 4:

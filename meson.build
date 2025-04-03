@@ -8,7 +8,7 @@ add_project_arguments('-fvisibility=hidden', language: 'c')
 if get_option('buildtype') == 'debug'
   add_project_arguments('-DDEBUG', language: 'c')
 elif get_option('buildtype') == 'release'
-  add_project_arguments('-DNODEBUG', language: 'c')
+  add_project_arguments('-DNDEBUG', language: 'c')
 endif
 
 m_dep = cc.find_library('m', required : false)
