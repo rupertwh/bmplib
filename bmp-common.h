@@ -175,6 +175,7 @@ struct Bmpwrite {
 	size_t           bytes_written_before_bitdata;
 	bool             has_alpha;
 	enum BmpOrient   outorientation;
+	bool             huffman_fg_idx;
 	struct Colormask cmask;
 	enum BmpRLEtype  rle_requested;
 	int              rle; /* 1, 4, or 8 */

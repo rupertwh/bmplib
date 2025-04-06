@@ -2,10 +2,10 @@
 
 Refer to the *Quick Start Guide* (API-quick-start.md) for a quick intro to bmplib which describes only the minimal set of functions needed to read/write BMP files.
 
-
 ## 1. Functions for reading BMP files
 
 ### Get a handle
+
 ```
 BMPHANDLE bmpread_new(FILE *file)
 ```
@@ -16,14 +16,14 @@ handle.
 
 The handle cannot be reused to read multiple files.
 
-
-
 ### Read the file header
+
 ```
 BMPRESULT bmpread_load_info(BMPHANDLE h)
 ```
 
 bmplib reads the file header and checks validity. Possible return values are:
+
 - `BMP_RESULT_OK`: All is good, you can proceed to read the file.
 - `BMP_INSANE`: The file is valid, but huge. The default limit is 500MB
   (relevant is the required buffer size to hold the complete image, not the
@@ -42,8 +42,8 @@ bmplib reads the file header and checks validity. Possible return values are:
 Calling `bmpread_load_info()` is optional when you use `bmpread_dimensions()`
 (see below).
 
-
 ### Get image dimensions
+
 ```
 BMPRESULT bmpread_dimensions(BMPHANDLE  h,
                              int       *width,
@@ -77,30 +77,32 @@ BMPORIENT bmpread_orientation(BMPHANDLE h)
 
 int       bmpread_resolution_xdpi(BMPHANDLE h)
 int       bmpread_resolution_ydpi(BMPHANDLE h)
-
 ```
 
 #### top-down / bottom-up
-`*orientation` is one of:
- - `BMP_ORIENT_BOTTOMUP`
- - `BMP_ORIENT_TOPDOWN`
 
- `bmpread_orientation()` or the `orientation` value returned by
- `bmpread_dimensions()` **is only relevant if you load the BMP file
- line-by-line**. In line-by-line mode (using `bmpread_load_line()`), the
- image data is always delivered in the order it is in the BMP file. The
- `orientation` value will tell you if it's top-down or bottom-up. On the
- other hand, when the whole image is loaded at once (using `bmpread_load_image
- ()`), bmplib will **always** return the image top-down, regardless of how
- the BMP file is oriented. The `orientation` value will still indicate the
- orientation of the original BMP.
+`*orientation` is one of:
+
+- `BMP_ORIENT_BOTTOMUP`
+- `BMP_ORIENT_TOPDOWN`
+
+`bmpread_orientation()` or the `orientation` value returned by
+`bmpread_dimensions()` **is only relevant if you load the BMP file
+line-by-line**. In line-by-line mode (using `bmpread_load_line()`), the
+image data is always delivered in the order it is in the BMP file. The
+`orientation` value will tell you if it's top-down or bottom-up. On the
+other hand, when the whole image is loaded at once (using `bmpread_load_image
+()`), bmplib will **always** return the image top-down, regardless of how
+the BMP file is oriented. The `orientation` value will still indicate the
+orientation of the original BMP.
 
 #### Required size for buffer to receive image
+
 ```
 size_t    bmpread_buffersize(BMPHANDLE h)
 ```
-Returns the buffer size you have to allocate for the whole image.
 
+Returns the buffer size you have to allocate for the whole image.
 
 ### Indexed BMPs
 
@@ -141,7 +143,6 @@ bmpread_load_palette(h, &palette);          /* bmplib will allocate the palette 
 /* or: */
 palette = malloc(4 * numcolors);
 bmpread_load_palette(h, &palette);          /* bmplib will use the provided buffer */
-
 ```
 
 Note: Once you have called `bmpread_load_palette()`, both `bmpread_load_image
@@ -175,13 +176,13 @@ void bmpread_set_undefined(BMPHANDLE h, BMPUNDEFINED mode)
 ```
 
 `mode` can be one of:
+
 - `BMP_UNDEFINED_LEAVE`
 - `BMP_UNDEFINED_TO_ALPHA` (default)
 
 Note: If you use `bmpread_load_palette()` to switch to loading the index data
 instead of RGB data, this setting will have no effect and undefined pixels
 will always be left alone! (see above)
-
 
 ### Optional settings for 64bit BMPs
 
@@ -207,7 +208,6 @@ Options for `bmpread_set_64bit()` are:
   as they are in the BMP file, without any conversion or attempt at
   interpretation.
 
-
 ### Setting a number format
 
 By default, bmplib will always return the image data as 8-,16-, or 32-bit integer values. You can instead set the number format to floating point or fixed using:
@@ -217,8 +217,6 @@ BMPRESULT bmp_set_number_format(BMPHANDLE h, BMPFORMAT format)
 ```
 
 (see below, *3. General functions for both reading/writing BMPs*)
-
-
 
 ### Huge files: bmpread_set_insanity_limit()
 
@@ -232,8 +230,8 @@ void
 bmpread_set_insanity_limit(BMPHANDLE h, size_t limit)
 ```
 
-
 ### Load the image
+
 #### bmpread_load_image()
 
 ```
@@ -259,7 +257,6 @@ bmpread_load_image(h, &buffer);   /* bmplib will allocate the buffer */
 /* or: */
 buffer = malloc(bmpread_buffersize(h));
 bmpread_load_image(h, &buffer);   /* bmplib will use the provided buffer */
-
 ```
 
 The image data is written to the buffer according to the returned dimensions
@@ -273,6 +270,7 @@ the file may have been damaged or simply contains invalid image data. Image
 data is loaded anyway as far as possible and may be partially usable.
 
 #### bmpread_load_line()
+
 ```
 BMPRESULT bmpread_load_line(BMPHANDLE h, unsigned char **pbuffer)
 ```
@@ -303,7 +301,6 @@ returned in whichever order they are stored in the BMP. Use the value
 returned by `bmpread_orientation()` to determine if it is top-down or
 bottom-up. Almost all BMPs will be bottom-up. (see above)
 
-
 ### Invalid pixels
 
 Invalid pixels may occur in indexed BMPs, both RLE and non-RLE. Invalid pixels
@@ -315,7 +312,6 @@ will be ignored.
 In both cases, `bmpread_load_image()` and `bmpread_load_line()` will return
 BMP_RESULT_INVALID, unless the image is also truncated, then
 BMP_RESULT_TRUNCATED is returned.
-
 
 ### Query info about the BMP file
 
@@ -333,7 +329,6 @@ const char* bmpread_info_compression_name(BMPHANDLE h)
 BMPRESULT   bmpread_info_channel_bits(BMPHANDLE h, int *r, int *g, int *b, int *a)
 ```
 
-
 ### Release the handle
 
 ```
@@ -347,17 +342,16 @@ affected**, so you can call bmp_free() immediately after `bmpread_load_image
 Note: Any error message strings returned by `bmp_errmsg()` are invalidated by
 `bmp_free()` and must not be used anymore!
 
-
-
-
 ## 2. Functions for writing BMP files
 
 ### Get a handle
+
 ```
 BMPHANDLE bmpwrite_new(FILE *file)
 ```
 
 ### Set image dimensions
+
 ```
 BMPRESULT bmpwrite_set_dimensions(BMPHANDLE h,
                                   unsigned  width,
@@ -366,14 +360,12 @@ BMPRESULT bmpwrite_set_dimensions(BMPHANDLE h,
                                   unsigned  bitsperchannel)
 
 BMPRESULT bmpwrite_set_resolution(BMPHANDLE h, int xdpi, int ydpi)
-
 ```
 
 Note: the dimensions set with `bmpwrite_set_dimensions()` describe the source
 data that you pass to bmplib, *not* the output BMP format. Use
 `bmpwrite_set_output_bits()`, `bmpwrite_set_palette()`, and
 `bmpwrite_set_64bit()` to modify the format written to the BMP file.
-
 
 ### Set the output format
 
@@ -415,6 +407,7 @@ BMP for 3- or 4-color images, call `bmpwrite_allow_2bit()` before calling
 ```
 BMPRESULT bmpwrite_set_rle(BMPHANDLE h, BMPRLETYPE type)
 BMPRESULT bmpwrite_allow_huffman(BMPHANDLE h)
+BMPRESULT bmpwrite_set_huffman_img_fg_idx(BMPHANDLE h, int idx)
 ```
 
 Indexed images may optionally be written run-lenght-encoded (RLE) bitmaps.
@@ -427,16 +420,30 @@ only after explicitly allowing it by calling `bmpwrite_allow_huffman()`
 
 To activate RLE compression, call `bmpwrite_set_rle()` with `type` set to one
 of the following values:
+
 - `BMP_RLE_NONE` no RLE compression, same as not calling `bmpwrite_set_rle()`
   at all
 - `BMP_RLE_AUTO` choose RLE4, RLE8, or 1-D Huffman based on number of colors
   in palette
 - `BMP_RLE_RLE8` use RLE8, regardless of number of colors in palette
 
-In order to write 1-D Huffman encoded bitmpas, the provided palette must have
-2 colors, RLE type must be set to `BMP_RLE_AUTO`, and `bmpwrite_allow_huffman
-()` must be called. Be aware that *very* few programs will be able to read
-Huffman encoded BMPs!
+
+#### 1-D Huffman encoding
+In order to write 1-D Huffman encoded bitmpas,
+
+- the provided palette must have 2 colors,
+- RLE type must be set to `BMP_RLE_AUTO`,
+- and `bmpwrite_allow_huffman()` must be called.
+
+Be aware that *very* few programs will be able to read Huffman encoded BMPs!
+
+In order to get the best compression result, you should also call
+`bmpwrite_set_huffman_img_fg_idx()` to specify which color index (0 or 1) in
+the image corresponds to the foreground color. Huffman compression is
+optimized for scanned text, meaning short runs of foreground color and long
+(er) runs of background color. This will not change the appearance of the
+image, but setting it correctly will result in better compression.
+
 
 #### RLE24
 
@@ -448,7 +455,6 @@ be explicitly allowed by first calling `bmpwrite_allow_rle24()`.
 In order to save an image as RLE24, the data must be provided as 8 bits per
 channel RGB (no alpha channel). Call `bmpwrite_set_rle()` with type set to
 `BMP_RLE_AUTO` and also call `bmpwrite_allow_rle24()` (in any order).
-
 
 ### top-down / bottom-up
 
@@ -463,8 +469,9 @@ BMPRESULT bmpwrite_set_orientation(BMPHANDLE h, BMPORIENT orientation)
 ```
 
 with `orientation` set to one of the following values:
- - `BMPORIENT_BOTTOMUP`
- - `BMPORIENT_TOPDOWN`
+
+- `BMPORIENT_BOTTOMUP`
+- `BMPORIENT_TOPDOWN`
 
 Note: When writing the whole image at once using `bmpwrite_save_image()`, the
 image buffer you provide must **always** be in top-down orientation,
@@ -473,9 +480,6 @@ regardless of the orientation chosen for the BMP file.
 When writing the image line-by-line using `bmpwrite_save_line()`, you must
 provide the image lines in the order according to the orientation you have
 chosen for the BMP file.
-
-
-
 
 ### 64-bit RGBA BMPs
 
@@ -491,9 +495,6 @@ BMPRESULT bmpwrite_set_64bit(BMPHANDLE h)
 In order to make use of the extended range available in 64-bit BMPs (-4.0 to +3.999...), you will probably want to provide the image buffer either as 32-bit float or as 16-bit s2.13 (and call `bmp_set_number_format()` accordingly).
 
 Note: 64-bit BMPs store pixel values in *linear light*. Unlike when *reading* 64-bit BMPs, bmplib will not make any gamma/linear conversion while writing BMPs. You have to provide the proper linear values in the image buffer.
-
-
-
 
 ### Write the image
 
@@ -517,11 +518,6 @@ Important: When writing the whole image at once using `bmpwrite_save_image
 line-by-line, the image data must be provided according to the orientation
 set with `bmpwrite_set_orientation()` (see above).
 
-
-
-
-
-
 ## 3. General functions for both reading/writing BMPs
 
 ### bmp_free()
@@ -536,7 +532,6 @@ affected, so you can call bmp_free() immediately after bmpread_load_image
 by `bmp_errmsg()` are invalidated by `bmp_free()` and cannot be used
 anymore.
 
-
 ### bmp_errmsg()
 
 ```
@@ -546,7 +541,6 @@ const char* bmp_errmsg(BMPHANDLE h)
 Returns a zero-terminated character string containing the last error
 description(s). The returned string is safe to use until any other
 bmplib-function is called with the same handle.
-
 
 ### bmp_set_number_format()
 
@@ -562,7 +556,6 @@ sets the number format of the image buffer received from / passed to bmplib. `fo
 
 For indexed images, `BMP_FORMAT_INT` is the only valid format.
 
-
 ### bmp_version()
 
 ```
@@ -570,9 +563,6 @@ const char* bmp_version(void)
 ```
 
 Returns a zero-terminated character string containing the version of bmplib.
-
-
-
 
 ## 4. Data types and constants
 
@@ -608,10 +598,10 @@ else {
 }
 ```
 
-
 #### `BMPINFOVER`
 
 Returned by `bmpread_info_header_version()`. Possible values are:
+
 - `BMPINFO_CORE_OS21` BITMAPCOREHEADER aka OS21XBITMAPHEADER (12 bytes)
 - `BMPINFO_OS22`      OS22XBITMAPHEADER (16/40/64 bytes)
 - `BMPINFO_V3`        BITMAPINFOHEADER (40 bytes)
@@ -627,6 +617,7 @@ from `BMPINFO_CORE_OS21` to `BMPINFO_FUTURE`.
 #### `BMPRLETYPE`
 
 Used in `bmpwrite_set_rle()`. Possible values are:
+
 - `BMP_RLE_NONE` No RLE
 - `BMP_RLE_AUTO` RLE4 or RLE8, chosen based on number of colors in palette
 - `BMP_RLE_RLE8` Use RLE8 for any number of colors in palette
@@ -636,6 +627,7 @@ Can safely be cast from/to int.
 #### `BMPUNDEFINED`
 
 Used in `bmpread_set_undefined()`. Possible values are:
+
 - `BMP_UNDEFINED_TO_ALPHA` (default)
 - `BMP_UNDEFINED_TO_ZERO`
 
@@ -644,6 +636,7 @@ Can safely be cast from/to int.
 #### `BMPCONV64`
 
 Used in `bmpread_set_64bit_conv()`. Possible values are:
+
 - `BMP_CONV64_SRGB` (default)
 - `BMP_CONV64_LINEAR`
 - `BMP_CONV64_NONE`
@@ -653,11 +646,10 @@ Can safely be cast from/to int.
 #### `BMPFORMAT`
 
 Used in `bmp_set_number_format()`. Possible values are:
+
 - `BMP_FORMAT_INT` (default)
 - `BMP_FORMAT_FLOAT` 32-bit floating point
 - `BMP_FORMAT_S2_13` s2.13 fixed point
-
-
 
 ## 5. Sample code
 
@@ -712,7 +704,6 @@ Used in `bmp_set_number_format()`. Possible values are:
      * No padding.
      */
 ```
-
 
 ### Writing BMPs
 

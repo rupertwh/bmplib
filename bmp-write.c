@@ -67,6 +67,7 @@ API BMPHANDLE bmpwrite_new(FILE *file)
 	wp->rle_requested  = BMP_RLE_NONE;
 	wp->outorientation = BMP_ORIENT_BOTTOMUP;
 	wp->source_format  = BMP_FORMAT_INT;
+	wp->huffman_fg_idx = 1;
 
 	if (!(wp->log = logcreate()))
 		goto abort;
@@ -438,6 +439,25 @@ API BMPRESULT bmpwrite_set_64bit(BMPHANDLE h)
 	return BMP_RESULT_OK;
 }
 
+
+/*****************************************************************************
+ * 	bmpwrite_set_huffman_img_fg_idx
+ *****************************************************************************/
+
+API BMPRESULT bmpwrite_set_huffman_img_fg_idx(BMPHANDLE h, int idx)
+{
+	BMPWRITE wp;
+
+	if (!(wp = cm_write_handle(h)))
+		return BMP_RESULT_ERROR;
+
+	if (s_check_already_saved(wp))
+		return BMP_RESULT_ERROR;
+
+	wp->huffman_fg_idx = !!idx;
+
+	return BMP_RESULT_OK;
+}
 
 
 /*****************************************************************************
@@ -908,7 +928,7 @@ static bool s_save_header(BMPWRITE_R wp)
  * We ignore any errors quietly, as there's nothing we
  * can do and most (all?) readers ignore those sizes in
  * the header, anyway. Same goes for file/bitmap sizes
- * which are too big for the respective fields.
+ * when they are too big for the respective fields.
  *****************************************************************************/
 
 static bool s_try_saving_image_size(BMPWRITE_R wp)
@@ -1220,7 +1240,7 @@ static bool s_save_line_huff(BMPWRITE_R wp, const unsigned char *line)
 
 	while (x < wp->width) {
 		len = 0;
-		while ((len < wp->width - x) && ((!!line[x + len]) == black))
+		while ((len < wp->width - x) && ((!!line[x + len]) == (black ^ !wp->huffman_fg_idx)))
 			len++;
 		if (!huff_encode(wp, len, black))
 			goto abort;
@@ -1413,11 +1433,16 @@ static inline uint16_t float_to_s2_13(double d)
 
 static bool s_write_palette(BMPWRITE_R wp)
 {
-	int i, c;
+	int  i, c;
+	bool reverse = false;
+
+	if (wp->rle == 1)
+		reverse = !wp->huffman_fg_idx;
 
 	for (i = 0; i < wp->palette->numcolors; i++) {
+		int idx = reverse ? wp->palette->numcolors - i - 1 : i;
 		for (c = 0; c < 3; c++) {
-			if (EOF == s_write_one_byte(wp->palette->color[i].value[2-c], wp))
+			if (EOF == s_write_one_byte(wp->palette->color[idx].value[2-c], wp))
 				return false;
 		}
 		if (EOF == s_write_one_byte(0, wp))

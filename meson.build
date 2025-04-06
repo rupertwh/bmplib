@@ -1,4 +1,4 @@
-project('bmplib', 'c', default_options: ['c_std=c11'], version: '1.7.3')
+project('bmplib', 'c', default_options: ['c_std=c11'], version: '1.7.4')
 
 cc = meson.get_compiler('c')
 
