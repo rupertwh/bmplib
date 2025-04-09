@@ -92,6 +92,7 @@ struct Palette {
 struct Bmpcommon {
 	uint32_t magic;
 	LOG      log;
+	bool     huffman_black_is_zero; /* defaults to false */
 };
 
 

@@ -564,6 +564,42 @@ const char* bmp_version(void)
 
 Returns a zero-terminated character string containing the version of bmplib.
 
+### bmp_set_huffman_t4black_value()
+
+```
+BMPRESULT bmp_set_huffman_t4black_value(BMPHANDLE h, int blackidx)
+```
+
+(not to be confused with `bmpwrite_set_huffman_img_fg_idx()`, which serves an
+entirely different purpose, see above.)
+
+ITU-T T.4 defines 'black' and 'white' pixel sequences (referring to fore- and
+background, respectively), but it doesn't prescribe which of those is
+represented by 0 or 1. That would have to be defined by a BMP specification,
+but documentation on Huffman BMPs is close to non-existent.
+
+Current consensus seems to be that 'black' is 1, i.e. indexing the second
+color in the palette, and 'white' is 0, i.e. indexing the first color. This
+is the default for bmplib.
+
+In case that's wrong (in fact it's not even clear if there is a right and a
+wrong), `bmp_set_huffman_t4black_value()` can be used to set the pixel value
+of 'black' to either 0 or 1 (and white to the respective opposite).
+
+Can be used both for reading and writing BMPs.
+
+Changing this value will invert the image colors.
+
+Reasons to use this function:
+
+- You know that bmplib's default of 'black'=1 is wrong, and you want to set it
+  to 0. (In that case, please also drop a note on github.)
+- You don't care either way, but you want to be sure to get consistent
+  behaviour, in case bmplib's default is ever changed in light of new
+  information/documentation.
+- You need to interface with other software that you know assumes 'black'=0.
+
+
 ## 4. Data types and constants
 
 #### `BMPHANDLE`

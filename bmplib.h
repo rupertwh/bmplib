@@ -273,6 +273,7 @@ APIDECL BMPRESULT bmpwrite_save_line(BMPHANDLE h, const unsigned char *line);
 
 
 APIDECL BMPRESULT bmp_set_number_format(BMPHANDLE h, BMPFORMAT format);
+APIDECL BMPRESULT bmp_set_huffman_t4black_value(BMPHANDLE h, int blackidx);
 
 APIDECL void        bmp_free(BMPHANDLE h);
 

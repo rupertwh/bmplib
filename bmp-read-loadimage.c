@@ -800,11 +800,11 @@ static void s_read_huffman_line(BMPREAD_R rp, unsigned char *restrict line)
 		for (int i = 0; i < runlen; i++, x++) {
 			offs = (size_t) x * rp->result_bytes_per_pixel;
 			if (rp->result_indexed) {
-				line[offs] = black;
+				line[offs] = black ^ rp->c.huffman_black_is_zero;
 			} else {
-				line[offs]   = rp->palette->color[black].red;
-				line[offs+1] = rp->palette->color[black].green;
-				line[offs+2] = rp->palette->color[black].blue;
+				line[offs]   = rp->palette->color[black ^ rp->c.huffman_black_is_zero].red;
+				line[offs+1] = rp->palette->color[black ^ rp->c.huffman_black_is_zero].green;
+				line[offs+2] = rp->palette->color[black ^ rp->c.huffman_black_is_zero].blue;
 				s_int_to_result_format(rp, 8, line + offs);
 			}
 		}

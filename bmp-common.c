@@ -92,6 +92,25 @@ API BMPRESULT bmp_set_number_format(BMPHANDLE h, enum BmpFormat format)
 
 
 /********************************************************
+ * 	bmp_set_huffman_t4black_value
+ *******************************************************/
+
+API BMPRESULT bmp_set_huffman_t4black_value(BMPHANDLE h, int blackidx)
+{
+	if (!h)
+		return BMP_RESULT_ERROR;
+
+	if (!(h->common.magic == HMAGIC_READ || h->common.magic == HMAGIC_WRITE))
+		return BMP_RESULT_ERROR;
+
+	h->common.huffman_black_is_zero = !blackidx;
+
+	return BMP_RESULT_OK;
+}
+
+
+
+/********************************************************
  * 	bmp_free
  *******************************************************/
 
