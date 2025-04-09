@@ -42,7 +42,7 @@
 #endif
 
 
-typedef struct Bmphandle *BMPHANDLE;
+typedef union Bmphandle *BMPHANDLE;
 
 
 /*

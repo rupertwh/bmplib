@@ -53,13 +53,13 @@ API BMPHANDLE bmpread_new(FILE *file)
 	}
 
 	memset(rp, 0, sizeof *rp);
-	rp->magic = HMAGIC_READ;
+	rp->c.magic = HMAGIC_READ;
 	rp->undefined_mode = BMP_UNDEFINED_TO_ALPHA;
 	rp->orientation    = BMP_ORIENT_BOTTOMUP;
 	rp->conv64         = BMP_CONV64_SRGB;
 	rp->result_format  = BMP_FORMAT_INT;
 
-	if (!(rp->log = logcreate()))
+	if (!(rp->c.log = logcreate()))
 		goto abort;
 
 	if (!file)
@@ -119,12 +119,12 @@ API BMPRESULT bmpread_load_info(BMPHANDLE h)
 	case BMPFILE_IC:
 	case BMPFILE_PT:
 	case BMPFILE_BA:
-		logerr(rp->log, "Bitmap array and icon/pointer files not supported");
+		logerr(rp->c.log, "Bitmap array and icon/pointer files not supported");
 		rp->lasterr = BMP_ERR_UNSUPPORTED;
 		goto abort;
 
 	default:
-		logerr(rp->log, "Unkown BMP type 0x%04x\n", (unsigned int) rp->fh->type);
+		logerr(rp->c.log, "Unkown BMP type 0x%04x\n", (unsigned int) rp->fh->type);
 		rp->lasterr = BMP_ERR_UNSUPPORTED;
 		goto abort;
 	}
@@ -150,19 +150,19 @@ API BMPRESULT bmpread_load_info(BMPHANDLE h)
 
 	if (rp->ih->compression == BI_JPEG || rp->ih->compression == BI_PNG) {
 		if (!cm_gobble_up(rp, rp->fh->offbits - rp->bytes_read)) {
-			logerr(rp->log, "while seeking to start of jpeg/png data");
+			logerr(rp->c.log, "while seeking to start of jpeg/png data");
 			goto abort;
 		}
 		if (rp->ih->compression == BI_JPEG) {
 			rp->jpeg = true;
 			rp->getinfo_return = BMP_RESULT_JPEG;
-			logerr(rp->log, "embedded JPEG data");
+			logerr(rp->c.log, "embedded JPEG data");
 			rp->lasterr = BMP_ERR_JPEG;
 			return BMP_RESULT_JPEG;
 		} else {
 			rp->png = true;
 			rp->getinfo_return = BMP_RESULT_PNG;
-			logerr(rp->log, "embedded PNG data");
+			logerr(rp->c.log, "embedded PNG data");
 			rp->lasterr = BMP_ERR_PNG;
 			return BMP_RESULT_PNG;
 		}
@@ -193,7 +193,7 @@ API BMPRESULT bmpread_load_info(BMPHANDLE h)
 
 	if (rp->insanity_limit &&
 	    rp->result_size > rp->insanity_limit) {
-		logerr(rp->log, "file is insanely large");
+		logerr(rp->c.log, "file is insanely large");
 		rp->lasterr = BMP_ERR_INSANE;
 		rp->getinfo_return = BMP_RESULT_INSANE;
 	} else {
@@ -230,7 +230,7 @@ API BMPRESULT bmpread_set_64bit_conv(BMPHANDLE h, enum Bmpconv64 conv)
 
         case BMP_CONV64_NONE:
         	if (rp->result_format_explicit && rp->result_format != BMP_FORMAT_S2_13) {
-        		logerr(rp->log, "64-bit conversion %s imcompatible with chosen number format %s.\n",
+        		logerr(rp->c.log, "64-bit conversion %s imcompatible with chosen number format %s.\n",
         		                cm_conv64_name(conv), cm_format_name(rp->result_format));
         		rp->lasterr = BMP_ERR_CONV64;
         		return BMP_RESULT_ERROR;
@@ -242,7 +242,7 @@ API BMPRESULT bmpread_set_64bit_conv(BMPHANDLE h, enum Bmpconv64 conv)
         	rp->conv64_explicit = true;
         	break;
         default:
-        	logerr(rp->log, "Unknown 64-bit conversion %s (%d)", cm_conv64_name(conv), (int) conv);
+        	logerr(rp->c.log, "Unknown 64-bit conversion %s (%d)", cm_conv64_name(conv), (int) conv);
         	rp->lasterr = BMP_ERR_CONV64;
         	return BMP_RESULT_ERROR;
 	}
@@ -335,7 +335,7 @@ BMPRESULT br_set_number_format(BMPREAD_R rp, enum BmpFormat format)
 	if (!(format == BMP_FORMAT_INT ||
 	      format == BMP_FORMAT_FLOAT ||
 	      format == BMP_FORMAT_S2_13)) {
-		logerr(rp->log, "Invalid number format (%d) specified", (int) format);
+		logerr(rp->c.log, "Invalid number format (%d) specified", (int) format);
 		rp->lasterr = BMP_ERR_FORMAT;
 		return BMP_RESULT_ERROR;
 	}
@@ -348,14 +348,14 @@ BMPRESULT br_set_number_format(BMPREAD_R rp, enum BmpFormat format)
 	case BMP_FORMAT_FLOAT:
 	case BMP_FORMAT_S2_13:
 		if (rp->getinfo_called && rp->result_indexed) {
-			logerr(rp->log, "Cannot load color index as float or s2.13");
+			logerr(rp->c.log, "Cannot load color index as float or s2.13");
 			rp->lasterr = BMP_ERR_FORMAT;
 			return BMP_RESULT_ERROR;
 		}
 		break;
 
 	default:
-		logerr(rp->log, "Invalid number format (%d) specified", (int) format);
+		logerr(rp->c.log, "Invalid number format (%d) specified", (int) format);
 		rp->lasterr = BMP_ERR_FORMAT;
 		return BMP_RESULT_ERROR;
 	}
@@ -529,7 +529,7 @@ API void bmpread_set_undefined(BMPHANDLE h, enum BmpUndefined mode)
 		return;
 
 	if (mode != BMP_UNDEFINED_TO_ALPHA && mode != BMP_UNDEFINED_LEAVE) {
-		logerr(rp->log, "Invalid undefined-mode selected");
+		logerr(rp->c.log, "Invalid undefined-mode selected");
 		rp->lasterr = BMP_ERR_UNDEFMODE;
 		return;
 	}
@@ -560,7 +560,7 @@ API void bmpread_set_undefined(BMPHANDLE h, enum BmpUndefined mode)
 
 void br_free(BMPREAD rp)
 {
-	rp->magic = 0;
+	rp->c.magic = 0;
 
 	if (rp->palette)
 		free(rp->palette);
@@ -568,8 +568,8 @@ void br_free(BMPREAD rp)
 		free(rp->ih);
 	if (rp->fh)
 		free(rp->fh);
-	if (rp->log)
-		logfree(rp->log);
+	if (rp->c.log)
+		logfree(rp->c.log);
 	free(rp);
 }
 
@@ -584,7 +584,7 @@ static bool s_is_bmptype_supported_indexed(BMPREAD_R rp);
 static bool s_is_bmptype_supported(BMPREAD_R rp)
 {
 	if (rp->ih->planes != 1) {
-		logerr(rp->log, "Unsupported number of planes (%d). "
+		logerr(rp->c.log, "Unsupported number of planes (%d). "
 			        "Must be 1.", (int) rp->ih->planes);
 		rp->lasterr = BMP_ERR_HEADER;
 		return false;
@@ -614,7 +614,7 @@ static bool s_is_bmptype_supported_rgb(BMPREAD_R rp)
 		/*  ok */
 		break;
 	default:
-		logerr(rp->log, "Invalid bitcount %d for RGB image", (int) rp->ih->bitcount);
+		logerr(rp->c.log, "Invalid bitcount %d for RGB image", (int) rp->ih->bitcount);
 		rp->lasterr = BMP_ERR_HEADER;
 		return false;
 	}
@@ -626,20 +626,20 @@ static bool s_is_bmptype_supported_rgb(BMPREAD_R rp)
 	case BI_BITFIELDS:
 	case BI_ALPHABITFIELDS:
 		if (rp->ih->bitcount == 64) {
-			logerr(rp->log, "Invalid bitcount %d for BITFIELDS", (int) rp->ih->bitcount);
+			logerr(rp->c.log, "Invalid bitcount %d for BITFIELDS", (int) rp->ih->bitcount);
 			rp->lasterr = BMP_ERR_HEADER;
 			return false;
 		}
 		break;
 	case BI_OS2_RLE24:
 		if (rp->ih->bitcount != 24) {
-			logerr(rp->log, "Invalid bitcount %d for RLE24 compression", (int) rp->ih->bitcount);
+			logerr(rp->c.log, "Invalid bitcount %d for RLE24 compression", (int) rp->ih->bitcount);
 			rp->lasterr = BMP_ERR_HEADER;
 			return false;
 		}
 		break;
 	default:
-		logerr(rp->log, "Unsupported compression %s for RGB image",
+		logerr(rp->c.log, "Unsupported compression %s for RGB image",
 		                 s_compression_name(rp->ih->compression));
 		rp->lasterr = BMP_ERR_UNSUPPORTED;
 		return false;
@@ -665,7 +665,7 @@ static bool s_is_bmptype_supported_indexed(BMPREAD_R rp)
 		break;
 
 	default:
-		logerr(rp->log, "Invalid bitcount %d for indexed image",
+		logerr(rp->c.log, "Invalid bitcount %d for indexed image",
 		                               (int) rp->ih->bitcount);
 		rp->lasterr = BMP_ERR_HEADER;
 		return false;
@@ -679,7 +679,7 @@ static bool s_is_bmptype_supported_indexed(BMPREAD_R rp)
 		if ( (rp->ih->compression == BI_RLE4 && rp->ih->bitcount != 4) ||
 		     (rp->ih->compression == BI_RLE8 && rp->ih->bitcount != 8) ||
 		     (rp->ih->compression == BI_OS2_HUFFMAN && rp->ih->bitcount != 1)) {
-			logerr(rp->log, "Unsupported compression %s for %d-bit data",
+			logerr(rp->c.log, "Unsupported compression %s for %d-bit data",
 			                  s_compression_name(rp->ih->compression),
 			                  (int) rp->ih->bitcount);
 			rp->lasterr = BMP_ERR_UNSUPPORTED;
@@ -689,7 +689,7 @@ static bool s_is_bmptype_supported_indexed(BMPREAD_R rp)
 		break;
 
 	default:
-		logerr(rp->log, "Unsupported compression %s for indexed image",
+		logerr(rp->c.log, "Unsupported compression %s for indexed image",
 		                   s_compression_name(rp->ih->compression));
 		rp->lasterr = BMP_ERR_UNSUPPORTED;
 		return false;
@@ -717,20 +717,20 @@ static struct Palette* s_read_palette(BMPREAD_R rp)
 
 
 	if (rp->ih->clrused > INT_MAX || rp->ih->clrimportant > rp->ih->clrused) {
-		logerr(rp->log, "Unreasonable color numbers for palette (%lu/%lu)",
+		logerr(rp->c.log, "Unreasonable color numbers for palette (%lu/%lu)",
 					  (unsigned long) rp->ih->clrused,
 					  (unsigned long) rp->ih->clrimportant);
 		rp->lasterr = BMP_ERR_INVALID;
 		return NULL;
 	}
 	if (rp->fh->offbits - rp->bytes_read > INT_MAX) {
-		logerr(rp->log, "gap to pixeldata too big (%lu)",
+		logerr(rp->c.log, "gap to pixeldata too big (%lu)",
 				(unsigned long) rp->fh->offbits - rp->bytes_read);
 		rp->lasterr = BMP_ERR_INVALID;
 		return NULL;
 	}
 	if (rp->fh->offbits < rp->bytes_read) {
-		logerr(rp->log, "Invalid offset to pixel data");
+		logerr(rp->c.log, "Invalid offset to pixel data");
 		rp->lasterr = BMP_ERR_INVALID;
 		return NULL;
 	}
@@ -744,7 +744,7 @@ static struct Palette* s_read_palette(BMPREAD_R rp)
 	if (0 == (colors_in_file = rp->ih->clrused)) {
 		colors_in_file = MIN(colors_full_palette, max_colors_in_file);
 	} else if (colors_in_file > max_colors_in_file) {
-		logerr(rp->log, "given palette size (%d) too large for available data (%d)",
+		logerr(rp->c.log, "given palette size (%d) too large for available data (%d)",
 			        colors_in_file, max_colors_in_file);
 		rp->lasterr = BMP_ERR_INVALID;
 		return NULL;
@@ -756,7 +756,7 @@ static struct Palette* s_read_palette(BMPREAD_R rp)
 	memsize = sizeof *palette +
 	                 (colors_in_file - colors_ignore) * sizeof palette->color[0];
 	if (!(palette = malloc(memsize))) {
-		logsyserr(rp->log, "Allocating mem for palette");
+		logsyserr(rp->c.log, "Allocating mem for palette");
 		rp->lasterr = BMP_ERR_MEMORY;
 		return NULL;
 	}
@@ -769,10 +769,10 @@ static struct Palette* s_read_palette(BMPREAD_R rp)
 		    EOF == (r = getc(rp->file)) ||
 		    ((bytes_per_entry == 4) && (EOF == getc(rp->file))) ) {
 			if (feof(rp->file)) {
-				logerr(rp->log, "file ended reading palette entries");
+				logerr(rp->c.log, "file ended reading palette entries");
 				rp->lasterr = BMP_ERR_TRUNCATED;
 			} else {
-				logsyserr(rp->log, "reading palette entries");
+				logsyserr(rp->c.log, "reading palette entries");
 				rp->lasterr = BMP_ERR_FILEIO;
 			}
 			free (palette);
@@ -786,7 +786,7 @@ static struct Palette* s_read_palette(BMPREAD_R rp)
 
 	for (i = 0; i < colors_ignore; i++) {
 		if (!cm_gobble_up(rp, bytes_per_entry)) {
-			logerr(rp->log, "reading superfluous palette entries");
+			logerr(rp->c.log, "reading superfluous palette entries");
 			free(palette);
 			return NULL;
 		}
@@ -813,7 +813,7 @@ bool br_set_resultbits(BMPREAD_R rp)
 	switch (rp->result_format) {
 	case BMP_FORMAT_FLOAT:
 		if (rp->result_indexed) {
-			logerr(rp->log, "Float is invalid number format for indexed image\n");
+			logerr(rp->c.log, "Float is invalid number format for indexed image\n");
 			rp->lasterr = BMP_ERR_FORMAT;
 			return false;
 		}
@@ -822,7 +822,7 @@ bool br_set_resultbits(BMPREAD_R rp)
 
 	case BMP_FORMAT_S2_13:
 		if (rp->result_indexed) {
-			logerr(rp->log, "s2.13 is invalid number format for indexed image\n");
+			logerr(rp->c.log, "s2.13 is invalid number format for indexed image\n");
 			rp->lasterr = BMP_ERR_FORMAT;
 			return false;
 		}
@@ -843,7 +843,7 @@ bool br_set_resultbits(BMPREAD_R rp)
 		}
 		break;
 	default:
-		logerr(rp->log, "Invalid number format %d\n", rp->result_format);
+		logerr(rp->c.log, "Invalid number format %d\n", rp->result_format);
 		rp->lasterr = BMP_ERR_FORMAT;
 		return false;
 
@@ -865,7 +865,7 @@ bool br_set_resultbits(BMPREAD_R rp)
 	if (rp->getinfo_called) {
 		if (rp->insanity_limit && rp->result_size > rp->insanity_limit) {
 		 	if (rp->getinfo_return == BMP_RESULT_OK) {
-				logerr(rp->log, "file is insanely large");
+				logerr(rp->c.log, "file is insanely large");
 				rp->lasterr = BMP_ERR_INSANE;
 				rp->getinfo_return = BMP_RESULT_INSANE;
 			}
@@ -890,7 +890,7 @@ static bool s_check_dimensions(BMPREAD_R rp)
 	maxpixels = SIZE_MAX / rp->result_bytes_per_pixel;
 
 	if (npixels > maxpixels || rp->width  < 1 || rp->height < 1 || rp->height > INT32_MAX) {
-		logerr(rp->log, "Invalid BMP dimensions (%dx%u)", rp->width, rp->height);
+		logerr(rp->c.log, "Invalid BMP dimensions (%dx%u)", rp->width, rp->height);
 		rp->lasterr = BMP_ERR_DIMENSIONS;
 		return false;
 	}
@@ -924,7 +924,7 @@ static bool s_read_colormasks(BMPREAD_R rp)
 		break;
 
 	default:
-		logerr(rp->log, "Invalid compression (%s)",
+		logerr(rp->c.log, "Invalid compression (%s)",
 		                s_compression_name(rp->ih->compression));
 		rp->lasterr = BMP_ERR_INVALID;
 		return false;
@@ -943,19 +943,19 @@ static bool s_read_colormasks(BMPREAD_R rp)
 		sum_bits += rp->cmask.bits.value[i];
 	}
 	if (max_bits > MIN(rp->ih->bitcount, 32) || sum_bits > rp->ih->bitcount) {
-		logerr(rp->log, "Invalid mask bitcount (max=%d, sum=%d)",
+		logerr(rp->c.log, "Invalid mask bitcount (max=%d, sum=%d)",
 		                                     max_bits, sum_bits);
 		rp->lasterr = BMP_ERR_INVALID;
 		return false;
 	}
 	if (!(rp->cmask.mask.red | rp->cmask.mask.green | rp->cmask.mask.blue)) {
-		logerr(rp->log, "Empty color masks. Corrupt BMP?");
+		logerr(rp->c.log, "Empty color masks. Corrupt BMP?");
 		rp->lasterr = BMP_ERR_INVALID;
 		return false;
 	}
 	if (rp->cmask.mask.red  & rp->cmask.mask.green &
 	    rp->cmask.mask.blue & rp->cmask.mask.alpha) {
-		logerr(rp->log, "Overlapping color masks. Corrupt BMP?");
+		logerr(rp->c.log, "Overlapping color masks. Corrupt BMP?");
 		rp->lasterr = BMP_ERR_INVALID;
 		return false;
 	}
@@ -975,7 +975,7 @@ static bool s_read_masks_from_bitfields(BMPREAD_R rp)
 	int      i;
 
 	if (!(rp->ih->bitcount == 16 || rp->ih->bitcount == 32)) {
-		logerr(rp->log, "Invalid bitcount (%d) for BI_BITFIELDS."
+		logerr(rp->c.log, "Invalid bitcount (%d) for BI_BITFIELDS."
 		                "Must be 16 or 32", (int) rp->ih->bitcount);
 		rp->lasterr = BMP_ERR_INVALID;
 		return false;
@@ -986,10 +986,10 @@ static bool s_read_masks_from_bitfields(BMPREAD_R rp)
 		      read_u32_le(rp->file, &g) &&
 		      read_u32_le(rp->file, &b))) {
 			if (feof(rp->file)) {
-				logerr(rp->log, "File ended reading color masks");
+				logerr(rp->c.log, "File ended reading color masks");
 				rp->lasterr = BMP_ERR_TRUNCATED;
 			} else {
-				logsyserr(rp->log, "Reading BMP color masks");
+				logsyserr(rp->c.log, "Reading BMP color masks");
 				rp->lasterr = BMP_ERR_FILEIO;
 			}
 			return false;
@@ -1001,10 +1001,10 @@ static bool s_read_masks_from_bitfields(BMPREAD_R rp)
 		if (rp->ih->compression == BI_ALPHABITFIELDS) {
 			if (!read_u32_le(rp->file, &a)) {
 				if (feof(rp->file)) {
-					logerr(rp->log, "File ended reading color masks");
+					logerr(rp->c.log, "File ended reading color masks");
 					rp->lasterr = BMP_ERR_TRUNCATED;
 				} else {
-					logsyserr(rp->log, "Reading BMP color masks");
+					logsyserr(rp->c.log, "Reading BMP color masks");
 					rp->lasterr = BMP_ERR_FILEIO;
 				}
 				return false;
@@ -1053,7 +1053,7 @@ static bool s_create_implicit_colormasks(BMPREAD_R rp)
 		bitsperchannel = 16;
 		break;
 	default:
-		logerr(rp->log, "Invalid bitcount for BMP (%d)", (int) rp->ih->bitcount);
+		logerr(rp->c.log, "Invalid bitcount for BMP (%d)", (int) rp->ih->bitcount);
 		rp->lasterr = BMP_ERR_INVALID;
 		return false;
 	}
@@ -1140,11 +1140,11 @@ static bool s_read_file_header(BMPREAD_R rp)
 	}
 
 	if (feof(rp->file)) {
-		logerr(rp->log, "unexpected end-of-file while reading "
+		logerr(rp->c.log, "unexpected end-of-file while reading "
 				"file header");
 		rp->lasterr = BMP_ERR_TRUNCATED;
 	} else {
-		logsyserr(rp->log, "error reading file header");
+		logsyserr(rp->c.log, "error reading file header");
 		rp->lasterr = BMP_ERR_FILEIO;
 	}
 
@@ -1193,7 +1193,7 @@ static bool s_read_info_header(BMPREAD_R rp)
 		if (rp->ih->size > 124)
 			rp->ih->version = BMPINFO_FUTURE;
 		else {
-			logerr(rp->log, "Invalid info header size (%lu)",
+			logerr(rp->c.log, "Invalid info header size (%lu)",
 			                   (unsigned long) rp->ih->size);
 			rp->lasterr = BMP_ERR_HEADER;
 			return false;
@@ -1285,10 +1285,10 @@ header_done:
 
 abort_file_err:
 	if (feof(rp->file)) {
-		logerr(rp->log, "Unexpected end of file while reading BMP info header");
+		logerr(rp->c.log, "Unexpected end of file while reading BMP info header");
 		rp->lasterr = BMP_ERR_TRUNCATED;
 	} else {
-		logsyserr(rp->log, "While reading BMP info header");
+		logsyserr(rp->c.log, "While reading BMP info header");
 		rp->lasterr = BMP_ERR_FILEIO;
 	}
 	return false;

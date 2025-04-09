@@ -105,7 +105,7 @@ API BMPRESULT bmpread_load_line(BMPHANDLE h, unsigned char **restrict buffer)
 	if (!(rp = cm_read_handle(h)))
 		return BMP_RESULT_ERROR;
 
-	logreset(rp->log); /* otherwise we might accumulate thousands  */
+	logreset(rp->c.log); /* otherwise we might accumulate thousands  */
 	                   /* of log entries with large corrupt images */
 
 	return s_load_image_or_line(rp, buffer, true);
@@ -126,31 +126,31 @@ static BMPRESULT s_load_image_or_line(BMPREAD_R rp, unsigned char **restrict buf
 
 	if (!(rp->getinfo_called && (rp->getinfo_return == BMP_RESULT_OK))) {
 		if (rp->getinfo_return == BMP_RESULT_INSANE) {
-			logerr(rp->log, "trying to load insanley large image");
+			logerr(rp->c.log, "trying to load insanley large image");
 			return BMP_RESULT_INSANE;
 		}
-		logerr(rp->log, "getinfo had failed, cannot load image");
+		logerr(rp->c.log, "getinfo had failed, cannot load image");
 		return BMP_RESULT_ERROR;
 	}
 
 	if (rp->image_loaded) {
-		logerr(rp->log, "Cannot load image more than once!");
+		logerr(rp->c.log, "Cannot load image more than once!");
 		return BMP_RESULT_ERROR;
 	}
 
 	if (rp->line_by_line && !line_by_line) {
-		logerr(rp->log, "Image is being loaded line-by-line. "
+		logerr(rp->c.log, "Image is being loaded line-by-line. "
 		                "Cannot switch to full image.");
 		return BMP_RESULT_ERROR;
 	}
 
 	if (!rp->dimensions_queried) {
-		logerr(rp->log, "must query dimensions before loading image");
+		logerr(rp->c.log, "must query dimensions before loading image");
 		return BMP_RESULT_ERROR;
 	}
 
 	if (!buffer) {
-		logerr(rp->log, "buffer pointer is NULL");
+		logerr(rp->c.log, "buffer pointer is NULL");
 		return BMP_RESULT_ERROR;
 	}
 
@@ -160,7 +160,7 @@ static BMPRESULT s_load_image_or_line(BMPREAD_R rp, unsigned char **restrict buf
 		buffer_size = rp->result_size;
 	if (!*buffer) { /* no buffer supplied, we will allocate one */
 		if (!(*buffer = malloc(buffer_size))) {
-			logsyserr(rp->log, "allocating result buffer");
+			logsyserr(rp->c.log, "allocating result buffer");
 			return BMP_RESULT_ERROR;
 		}
 		rp->we_allocated_buffer = true;
@@ -176,12 +176,12 @@ static BMPRESULT s_load_image_or_line(BMPREAD_R rp, unsigned char **restrict buf
 
 	if (!rp->line_by_line) {  /* either whole image or first line */
 		if (rp->bytes_read > rp->fh->offbits) {
-			logerr(rp->log, "Corrupt file");
+			logerr(rp->c.log, "Corrupt file");
 			goto abort;
 		}
 		/* skip to actual bitmap data: */
 		if (!cm_gobble_up(rp, rp->fh->offbits - rp->bytes_read)) {
-			logerr(rp->log, "while seeking start of bitmap data");
+			logerr(rp->c.log, "while seeking start of bitmap data");
 			goto abort;
 		}
 		rp->bytes_read += rp->fh->offbits - rp->bytes_read;
@@ -330,7 +330,7 @@ static void s_read_rgb_line(BMPREAD_R rp, unsigned char *restrict line)
 					((uint32_t*)line)[offs + i] = pxval;
 					break;
 				default:
-					logerr(rp->log, "Waaaaaaaaaaaaaah!");
+					logerr(rp->c.log, "Waaaaaaaaaaaaaah!");
 					rp->panic = true;
 					return;
 				}
@@ -383,7 +383,7 @@ static void s_read_rgb_line(BMPREAD_R rp, unsigned char *restrict line)
 			break;
 
 		default:
-			logerr(rp->log, "Unknown format");
+			logerr(rp->c.log, "Unknown format");
 			rp->panic = true;
 			return;
 		}
@@ -747,7 +747,7 @@ static void s_read_rle_line(BMPREAD_R rp, unsigned char *restrict line,
 			continue;
 		}
 
-		logerr(rp->log, "Should never get here! (x=%d, byte=%d)", (int) *x, (int) v);
+		logerr(rp->c.log, "Should never get here! (x=%d, byte=%d)", (int) *x, (int) v);
 		rp->panic = true;
 		break;
 	}
@@ -907,7 +907,7 @@ static inline void s_int_to_result_format(BMPREAD_R rp, int frombits, unsigned c
 			break;
 		default:
 #ifdef DEBUG
-			logerr(rp->log, "Unexpected result format %d", rp->result_format);
+			logerr(rp->c.log, "Unexpected result format %d", rp->result_format);
 			exit(1);
 #endif
 			break;
@@ -938,19 +938,19 @@ static void s_set_file_error(BMPREAD_R rp)
 static void s_log_error_from_state(BMPREAD_R rp)
 {
 	if (rp->panic)
-		logerr(rp->log, "An internal error occured.");
+		logerr(rp->c.log, "An internal error occured.");
 	if (rp->file_eof)
-		logerr(rp->log, "Unexpected end of file.");
+		logerr(rp->c.log, "Unexpected end of file.");
 	if (rp->file_err)
-		logsyserr(rp->log, "While reading file");
+		logsyserr(rp->c.log, "While reading file");
 	if (rp->invalid_index)
-		logerr(rp->log, "File contained invalid color index.");
+		logerr(rp->c.log, "File contained invalid color index.");
 	if (rp->invalid_delta)
-		logerr(rp->log, "Invalid delta pointing outside image area.");
+		logerr(rp->c.log, "Invalid delta pointing outside image area.");
 	if (rp->invalid_overrun)
-		logerr(rp->log, "RLE data overrunning image area.");
+		logerr(rp->c.log, "RLE data overrunning image area.");
 	if (rp->truncated)
-		logerr(rp->log, "Image was truncated.");
+		logerr(rp->c.log, "Image was truncated.");
 }
 
 

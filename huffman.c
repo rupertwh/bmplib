@@ -227,7 +227,7 @@ bool huff_flush(BMPWRITE_R wp)
 	while (wp->hufbuf_len >= 8) {
 		byte = 0x00ff & (wp->hufbuf >> (wp->hufbuf_len - 8));
 		if (EOF == putc(byte, wp->file)) {
-			logsyserr(wp->log, "writing Huffman bitmap");
+			logsyserr(wp->c.log, "writing Huffman bitmap");
 			return false;
 		}
 		wp->bytes_written++;

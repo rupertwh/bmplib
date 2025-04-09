@@ -82,21 +82,21 @@ struct Colormask {
 	} maxval;
 };
 
-typedef struct Bmpread  *BMPREAD;
-typedef struct Bmpwrite *BMPWRITE;
-typedef struct Bmpread  *restrict BMPREAD_R;
-typedef struct Bmpwrite *restrict BMPWRITE_R;
 
 struct Palette {
 	int         numcolors;
 	union Pixel color[1];
 };
 
+
+struct Bmpcommon {
+	uint32_t magic;
+	LOG      log;
+};
+
+
 struct Bmpread {
-	struct {
-		uint32_t magic;
-		LOG      log;
-	};
+	struct Bmpcommon  c;
 	FILE             *file;
 	size_t            bytes_read;  /* number of bytes we have read from the file */
 	struct Bmpfile   *fh;
@@ -154,10 +154,7 @@ struct Bmpread {
 
 
 struct Bmpwrite {
-	struct {
-		uint32_t magic;
-		LOG      log;
-	};
+	struct Bmpcommon c;
 	FILE            *file;
 	struct Bmpfile  *fh;
 	struct Bmpinfo  *ih;
@@ -197,6 +194,18 @@ struct Bmpwrite {
 	int              hufbuf_len;
 };
 
+
+union Bmphandle {
+	struct Bmpcommon  common;
+	struct Bmpread    read;
+	struct Bmpwrite   write;
+};
+
+
+typedef struct Bmpread  *BMPREAD;
+typedef struct Bmpwrite *BMPWRITE;
+typedef struct Bmpread  *restrict BMPREAD_R;
+typedef struct Bmpwrite *restrict BMPWRITE_R;
 
 
 bool cm_all_lessoreq_int(int limit, int n, ...);

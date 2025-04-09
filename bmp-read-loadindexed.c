@@ -78,23 +78,23 @@ API BMPRESULT bmpread_load_palette(BMPHANDLE h, unsigned char **palette)
 		return BMP_RESULT_ERROR;
 
 	if (!rp->getinfo_called) {
-		logerr(rp->log, "Must call bmpread_load_info() before loading palette");
+		logerr(rp->c.log, "Must call bmpread_load_info() before loading palette");
 		return BMP_RESULT_ERROR;
 	}
 	if (!rp->palette) {
-		logerr(rp->log, "Image has no palette");
+		logerr(rp->c.log, "Image has no palette");
 		return BMP_RESULT_ERROR;
 	}
 
 	if (!palette) {
-		logerr(rp->log, "palette is NULL");
+		logerr(rp->c.log, "palette is NULL");
 		return BMP_RESULT_ERROR;
 	}
 
 	memsize = rp->palette->numcolors * 4;
 	if (!*palette) {
 		if (!(*palette = malloc(memsize))) {
-			logsyserr(rp->log, "allocating palette");
+			logsyserr(rp->c.log, "allocating palette");
 			return BMP_RESULT_ERROR;
 		}
 	}

@@ -36,13 +36,6 @@
 #include "bmp-write.h"
 
 
-struct Bmphandle {
-	struct {
-		uint32_t magic;
-		LOG      log;
-	};
-};
-
 
 
 /********************************************************
@@ -62,10 +55,10 @@ API const char* bmp_version(void)
 
 API const char* bmp_errmsg(BMPHANDLE h)
 {
-	if (!(h && (h->magic == HMAGIC_READ || h->magic == HMAGIC_WRITE)))
+	if (!(h && (h->common.magic == HMAGIC_READ || h->common.magic == HMAGIC_WRITE)))
 		return "BMPHANDLE is NULL or invalid";
 
-	return logmsg(h->log);
+	return logmsg(h->common.log);
 }
 
 
@@ -79,17 +72,17 @@ API BMPRESULT bmp_set_number_format(BMPHANDLE h, enum BmpFormat format)
 	if (!h)
 		return BMP_RESULT_ERROR;
 
-	switch (h->magic) {
+	switch (h->common.magic) {
 	case HMAGIC_READ:
-		return br_set_number_format((BMPREAD)(void*)h, format);
+		return br_set_number_format(&h->read, format);
 
 	case HMAGIC_WRITE:
-		return bw_set_number_format((BMPWRITE)(void*)h, format);
+		return bw_set_number_format(&h->write, format);
 
 	default:
 #ifdef DEBUG
 		printf("bmp_set_number_format() called with invalid handle (0x%04x)\n",
-		                   (unsigned int) h->magic);
+		                   (unsigned int) h->common.magic);
 #endif
 		break;
 	}
@@ -107,18 +100,18 @@ API void bmp_free(BMPHANDLE h)
 	if (!h)
 		return;
 
-	switch (h->magic) {
+	switch (h->common.magic) {
 	case HMAGIC_READ:
-		br_free((BMPREAD)(void*)h);
+		br_free(&h->read);
 		break;
 	case HMAGIC_WRITE:
-		bw_free((BMPWRITE)(void*)h);
+		bw_free(&h->write);
 		break;
 
 	default:
 #ifdef DEBUG
 		printf("bmp_free() called with invalid handle (0x%04x)\n",
-		                   (unsigned int) h->magic);
+		                   (unsigned int) h->common.magic);
 #endif
 		break;
 	}
@@ -132,10 +125,8 @@ API void bmp_free(BMPHANDLE h)
 
 BMPREAD cm_read_handle(BMPHANDLE h)
 {
-	BMPREAD rp = (BMPREAD)(void*)h;
-
-	if (rp && rp->magic == HMAGIC_READ)
-		return rp;
+	if (h && h->common.magic == HMAGIC_READ)
+		return &h->read;
 
 	return NULL;
 }
@@ -147,10 +138,8 @@ BMPREAD cm_read_handle(BMPHANDLE h)
 
 BMPWRITE cm_write_handle(BMPHANDLE h)
 {
-	BMPWRITE wp = (BMPWRITE)(void*)h;
-
-	if (wp && wp->magic == HMAGIC_WRITE)
-		return wp;
+	if (h && h->common.magic == HMAGIC_WRITE)
+		return &h->write;
 
 	return NULL;
 }
@@ -168,10 +157,10 @@ bool cm_gobble_up(BMPREAD_R rp, int count)
 		if (EOF == getc(rp->file)) {
 			if (feof(rp->file)) {
 				rp->lasterr = BMP_ERR_TRUNCATED;
-				logerr(rp->log, "unexpected end of file");
+				logerr(rp->c.log, "unexpected end of file");
 			} else {
 				rp->lasterr = BMP_ERR_FILEIO;
-				logsyserr(rp->log, "error reading from file");
+				logsyserr(rp->c.log, "error reading from file");
 			}
 			return false;
 		}
