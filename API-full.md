@@ -1,4 +1,4 @@
-# Rupert's bmplib -- Full API Description (v1.7.1)
+# Rupert's bmplib -- Full API Description (v1.7.5)
 
 Refer to the *Quick Start Guide* (API-quick-start.md) for a quick intro to bmplib which describes only the minimal set of functions needed to read/write BMP files.
 
@@ -588,7 +588,7 @@ of 'black' to either 0 or 1 (and white to the respective opposite).
 
 Can be used both for reading and writing BMPs.
 
-Changing this value will invert the image colors.
+Changing this value will invert the image colors!
 
 Reasons to use this function:
 
