@@ -2,13 +2,22 @@ project('bmplib', 'c', default_options: ['c_std=c11', 'warning_level=3'], versio
 
 cc = meson.get_compiler('c')
 
+add_project_arguments(['-pedantic','-fvisibility=hidden'], language : 'c')
 
-add_project_arguments('-pedantic', language : 'c')
-add_project_arguments('-fvisibility=hidden', language: 'c')
 if get_option('buildtype') == 'debug'
   add_project_arguments('-DDEBUG', language: 'c')
 elif get_option('buildtype') == 'release'
   add_project_arguments('-DNDEBUG', language: 'c')
+endif
+
+if get_option('sanitize')
+  sanitize = [
+    '-fsanitize=signed-integer-overflow',
+    '-fsanitize=undefined',
+    '-fsanitize=float-divide-by-zero',
+  ]
+  add_project_arguments(sanitize, language : 'c')
+  add_project_link_arguments(sanitize, language: 'c')
 endif
 
 m_dep = cc.find_library('m', required : false)

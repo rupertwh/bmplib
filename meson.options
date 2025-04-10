@@ -1,1 +1,2 @@
 option('insanity_limit_mb', type: 'integer', min: 0, value: 500)
+option('sanitize', type: 'boolean', value: false)
