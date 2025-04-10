@@ -104,7 +104,7 @@ struct Bmpread {
 	struct Bmpinfo   *ih;
 	unsigned int      insanity_limit;
 	int               width;
-	unsigned          height;
+	int               height;
 	enum BmpOrient    orientation;
 	bool              has_alpha;   /* original BMP has alpha channel */
 	enum BmpUndefined undefined_mode;
@@ -165,7 +165,7 @@ struct Bmpwrite {
 	int              source_channels;
 	int              source_bitsperchannel;
 	int              source_bytes_per_pixel;
-	int              source_format;
+	enum BmpFormat   source_format;
 	struct Palette  *palette;
 	int              palette_size; /* sizeof palette in bytes */
 	/* output */

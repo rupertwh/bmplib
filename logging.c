@@ -29,6 +29,12 @@
 #include "config.h"
 #include "logging.h"
 
+#if defined(__GNUC__)
+        #define MAY_BE_UNUSED __attribute__((unused))
+#else
+        #define MAY_BE_UNUSED
+#endif
+
 
 struct Log {
 	int   size;
@@ -169,8 +175,9 @@ void logsyserr(LOG log, const char *fmt, ...)
  *      s_log()
  *********************************************************/
 
-static void s_log(LOG log, const char *file, int line, const char *function,
-		  const char *etxt, const char *fmt, va_list args)
+static void s_log(LOG log, const char *file MAY_BE_UNUSED, int line MAY_BE_UNUSED,
+                  const char *function MAY_BE_UNUSED,
+                  const char *etxt, const char *fmt, va_list args)
 {
 	va_list argsdup;
 	int     len = 0,addl_len, required_len;

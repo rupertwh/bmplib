@@ -136,10 +136,15 @@ API BMPRESULT bmpread_load_info(BMPHANDLE h)
 
 	/* negative height flips the image vertically */
 	if (rp->ih->height < 0) {
+		if (rp->ih->height == INT_MIN) {
+			logerr(rp->c.log, "Unsupported image height %ld\n", (long) rp->ih->height);
+			rp->lasterr = BMP_ERR_UNSUPPORTED;
+			goto abort;
+		}
 		rp->orientation = BMP_ORIENT_TOPDOWN;
-		rp->height = (unsigned) (-(int64_t)rp->ih->height);
+		rp->height = -rp->ih->height;
 	} else {
-		rp->height = (unsigned) rp->ih->height;
+		rp->height = rp->ih->height;
 	}
 
 
@@ -296,7 +301,7 @@ API BMPRESULT bmpread_dimensions(BMPHANDLE h, int* restrict width,
 		rp->dim_queried_width = true;
 	}
 	if (height) {
-		*height = (int) rp->height;
+		*height = rp->height;
 		rp->dim_queried_height = true;
 	}
 	if (channels) {
@@ -437,7 +442,7 @@ static int s_single_dim_val(BMPHANDLE h, enum Dimint dim)
 		break;
 	case DIM_HEIGHT:
 		rp->dim_queried_height = true;
-		ret = (int) rp->height;
+		ret = rp->height;
 		break;
 	case DIM_CHANNELS:
 		rp->dim_queried_channels = true;
@@ -889,8 +894,8 @@ static bool s_check_dimensions(BMPREAD_R rp)
 	npixels   = (uint64_t) rp->width * rp->height;
 	maxpixels = SIZE_MAX / rp->result_bytes_per_pixel;
 
-	if (npixels > maxpixels || rp->width  < 1 || rp->height < 1 || rp->height > INT32_MAX) {
-		logerr(rp->c.log, "Invalid BMP dimensions (%dx%u)", rp->width, rp->height);
+	if (npixels > maxpixels || rp->width  < 1 || rp->height < 1) {
+		logerr(rp->c.log, "Invalid BMP dimensions (%dx%d)", rp->width, rp->height);
 		rp->lasterr = BMP_ERR_DIMENSIONS;
 		return false;
 	}

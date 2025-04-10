@@ -227,7 +227,7 @@ static void s_read_whole_image(BMPREAD_R rp, unsigned char *restrict image)
 
 	linesize = (size_t) rp->width * rp->result_bytes_per_pixel;
 
-	for (y = 0; y < (int) rp->height; y += yoff) {
+	for (y = 0; y < rp->height; y += yoff) {
 		real_y = (rp->orientation == BMP_ORIENT_TOPDOWN) ? y : rp->height-1-y;
 		s_read_one_line(rp, image + real_y * linesize);
 		if (rp->rle_eof || s_stopping_error(rp))
@@ -264,7 +264,7 @@ static void s_read_one_line(BMPREAD_R rp, unsigned char *restrict line)
 			}
 
 			if (!(rp->rle_eof || s_stopping_error(rp))) {
-				if (yoff > (int) rp->height - rp->lbl_file_y) {
+				if (yoff > rp->height - rp->lbl_file_y) {
 					rp->invalid_delta = true;
 				}
 				rp->lbl_file_y += yoff;
@@ -278,7 +278,7 @@ static void s_read_one_line(BMPREAD_R rp, unsigned char *restrict line)
 	}
 
 	rp->lbl_y++;
-	if (rp->lbl_y >= (int) rp->height) {
+	if (rp->lbl_y >= rp->height) {
 		rp->image_loaded = true;
 	}
 }

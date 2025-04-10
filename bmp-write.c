@@ -1021,7 +1021,7 @@ static bool s_save_line_rgb(BMPWRITE_R wp, const unsigned char *line)
  *      repeat-run.
  *****************************************************************************/
 
-static inline int s_length_of_runs(BMPWRITE_R wp, int x, int group, int minlen)
+static inline int s_length_of_runs(BMPWRITE_R wp, int group, int minlen)
 {
 	int i, len = 0;
 
@@ -1122,7 +1122,7 @@ static bool s_save_line_rle(BMPWRITE_R wp, const unsigned char *line)
 			 * run for e.g. two repeated pixels and then restarting the literal
 			 * run at a cost of 2-4 bytes (depending on padding)
 			 */
-			if (i+l < wp->group_count && s_length_of_runs(wp, x+dx, i+l, minlen) <= small_number) {
+			if (i+l < wp->group_count && s_length_of_runs(wp, i+l, minlen) <= small_number) {
 				while (i+l < wp->group_count && wp->group[i+l] > (minlen-1) && dx + wp->group[i+l] < 255) {
 					dx += wp->group[i+l];
 					l++;
@@ -1392,7 +1392,7 @@ static inline unsigned long long s_imgrgb_to_outbytes(BMPWRITE_R wp,
 		break;
 
 	default:
-		logerr(wp->c.log, "Panic, invalid source number format %d", wp->source_format);
+		logerr(wp->c.log, "Panic, invalid source number format %d", (int) wp->source_format);
 		return (unsigned long long) -1;
 	}
 

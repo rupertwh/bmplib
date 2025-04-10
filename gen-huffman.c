@@ -116,14 +116,14 @@ int main(int argc, char *argv[])
 	fprintf(file, "static const int blackroot = %d;\n", black_tree);
 	fprintf(file, "static const int whiteroot = %d;\n\n\n", white_tree);
 	fprintf(file, "static const struct Node nodebuffer[] = {\n");
-	for (i = 0; i < ARR_SIZE(nodebuffer); i++) {
+	for (i = 0; i < (int) ARR_SIZE(nodebuffer); i++) {
 		fprintf(file, "\t{ %3d, %3d, %4d, %d, %d },\n",
 			n[i].l, n[i].r, n[i].value, n[i].terminal, n[i].makeup);
 	}
 	fputs("};\n\n", file);
 
 	fputs("static const struct Huffcode huff_term_black[] = {\n\t", file);
-	for (i = 0; i < ARR_SIZE(huff_term_black); i++) {
+	for (i = 0; i < (int) ARR_SIZE(huff_term_black); i++) {
 		fprintf(file, "{ 0x%02hx, %2d },",
 			str2bits(huff_term_black[i].bits),
 			(int) strlen(huff_term_black[i].bits));
@@ -135,7 +135,7 @@ int main(int argc, char *argv[])
 	fputs("\n};\n\n", file);
 
 	fputs("static const struct Huffcode huff_term_white[] = {\n\t", file);
-	for (i = 0; i < ARR_SIZE(huff_term_white); i++) {
+	for (i = 0; i < (int) ARR_SIZE(huff_term_white); i++) {
 		fprintf(file, "{ 0x%02hx, %2d },",
 			str2bits(huff_term_white[i].bits),
 			(int) strlen(huff_term_white[i].bits));
@@ -147,7 +147,7 @@ int main(int argc, char *argv[])
 	fputs("\n};\n\n", file);
 
 	fputs("static const struct Huffcode huff_makeup_black[] = {\n\t", file);
-	for (i = 0; i < ARR_SIZE(huff_makeup_black); i++) {
+	for (i = 0; i < (int) ARR_SIZE(huff_makeup_black); i++) {
 		fprintf(file, "{ 0x%02hx, %2d },",
 			str2bits(huff_makeup_black[i].bits),
 			(int) strlen(huff_makeup_black[i].bits));
@@ -159,7 +159,7 @@ int main(int argc, char *argv[])
 	fputs("\n};\n\n", file);
 
 	fputs("static const struct Huffcode huff_makeup_white[] = {\n\t", file);
-	for (i = 0; i < ARR_SIZE(huff_makeup_white); i++) {
+	for (i = 0; i < (int) ARR_SIZE(huff_makeup_white); i++) {
 		fprintf(file, "{ 0x%02hx, %2d },",
 			str2bits(huff_makeup_white[i].bits),
 			(int) strlen(huff_makeup_white[i].bits));
@@ -197,20 +197,20 @@ static void s_buildtree(void)
 
 	memset(nodebuffer, 0, sizeof nodebuffer);
 
-	for (i = 0; i < ARR_SIZE(huff_term_black); i++) {
+	for (i = 0; i < (int) ARR_SIZE(huff_term_black); i++) {
 		add_node(&black_tree, huff_term_black[i].bits,
 				      huff_term_black[i].number, false);
 	}
-	for (i = 0; i < ARR_SIZE(huff_makeup_black); i++) {
+	for (i = 0; i < (int) ARR_SIZE(huff_makeup_black); i++) {
 		add_node(&black_tree, huff_makeup_black[i].bits,
 				      huff_makeup_black[i].number, true);
 	}
 
-	for (i = 0; i < ARR_SIZE(huff_term_white); i++) {
+	for (i = 0; i < (int) ARR_SIZE(huff_term_white); i++) {
 		add_node(&white_tree, huff_term_white[i].bits,
 				      huff_term_white[i].number, false);
 	}
-	for (i = 0; i < ARR_SIZE(huff_makeup_white); i++) {
+	for (i = 0; i < (int) ARR_SIZE(huff_makeup_white); i++) {
 		add_node(&white_tree, huff_makeup_white[i].bits,
 				      huff_makeup_white[i].number, true);
 	}
@@ -229,7 +229,7 @@ static void add_node(int *nodeidx, const char *bits, int value, bool makeup)
 		nodebuffer[*nodeidx].l = -1;
 		nodebuffer[*nodeidx].r = -1;
 	}
-	if (nnodes > ARR_SIZE(nodebuffer)) {
+	if (nnodes > (int) ARR_SIZE(nodebuffer)) {
 		printf("too many nodes (have %d, max is %d)\n",
 		       nnodes, (int) ARR_SIZE(nodebuffer));
 		exit(1);
