@@ -1233,16 +1233,16 @@ abort:
 static bool s_save_line_huff(BMPWRITE_R wp, const unsigned char *line)
 {
 	int  x = 0, len;
-	bool black = false;
+	bool black = false, flipbits;
+
+	flipbits = !wp->huffman_fg_idx ^ wp->c.huffman_black_is_zero;
 
 	if (!huff_encode_eol(wp)) /* each line starts with eol */
 		goto abort;
 
 	while (x < wp->width) {
 		len = 0;
-		while ((len < wp->width - x) &&
-		                 ((!!line[x + len]) ==
-		                  (black ^ !wp->huffman_fg_idx ^ wp->c.huffman_black_is_zero )))
+		while ((len < wp->width - x) && ((!!line[x + len]) == (black ^ flipbits)))
 			len++;
 		if (!huff_encode(wp, len, black))
 			goto abort;
