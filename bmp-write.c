@@ -41,6 +41,7 @@ static void s_decide_outformat(BMPWRITE_R wp);
 static bool s_write_palette(BMPWRITE_R wp);
 static bool s_write_bmp_file_header(BMPWRITE_R wp);
 static bool s_write_bmp_info_header(BMPWRITE_R wp);
+static bool s_write_iccprofile(BMPWRITE_R wp);
 static inline int s_write_one_byte(int byte, BMPWRITE_R wp);
 static bool s_save_header(BMPWRITE_R wp);
 static bool s_try_saving_image_size(BMPWRITE_R wp);
@@ -269,6 +270,55 @@ API BMPRESULT bmpwrite_set_palette(BMPHANDLE h, int numcolors,
 
 
 /*****************************************************************************
+ * 	bmpwrite_set_iccprofile
+ *****************************************************************************/
+
+API BMPRESULT bmpwrite_set_iccprofile(BMPHANDLE h, size_t size,
+                                      const unsigned char *iccprofile)
+{
+	BMPWRITE wp;
+
+	assert(MAX_ICCPROFILE_SIZE < INT_MAX);
+
+	if (!(wp = cm_write_handle(h)))
+		return BMP_RESULT_ERROR;
+
+	if (s_check_already_saved(wp))
+		return BMP_RESULT_ERROR;
+
+	if (!s_is_setting_compatible(wp, "iccprofile"))
+		return BMP_RESULT_ERROR;
+
+	if (wp->iccprofile) {
+		free(wp->iccprofile);
+		wp->iccprofile = NULL;
+		wp->iccprofile_size = 0;
+		wp->ih->profilesize = 0;
+		wp->ih->cstype = LCS_WINDOWS_COLOR_SPACE;
+	}
+
+	if (size > MAX_ICCPROFILE_SIZE) {
+		logerr(wp->c.log, "ICC profile is too large (%zuMB). Max is %luMB.",
+		size >> 20, (unsigned long)(MAX_ICCPROFILE_SIZE >> 20));
+		return BMP_RESULT_ERROR;
+	}
+
+	if (!(wp->iccprofile = malloc(size))) {
+		logsyserr(wp->c.log, "Allocating ICC profile");
+		return BMP_RESULT_ERROR;
+	}
+	memcpy(wp->iccprofile, iccprofile, size);
+	wp->iccprofile_size = (int) size;
+	wp->ih->profilesize = size;
+	wp->ih->cstype      = PROFILE_EMBEDDED;
+	wp->ih->intent      = LCS_GM_GRAPHICS;
+
+	printf("ICC profile set\n");
+	return BMP_RESULT_OK;
+}
+
+
+/*****************************************************************************
  * 	bmpwrite_set_orientation
  *****************************************************************************/
 
@@ -478,9 +528,41 @@ static bool s_check_already_saved(BMPWRITE_R wp)
 /*****************************************************************************
  * 	s_is_setting_compatible
  *
- * setting: "outbits", "srcbits", "srcchannels",
- *          "format", "indexed", "64bit", "rle"
+ * setting: "outbits", "srcbits", "srcchannels", "palette", "allowhuffman"
+ *          "format", "indexed", "64bit", "rle", "iccprofile"
  *****************************************************************************/
+
+static bool s_is_huffman_activated(BMPWRITE_R wp)
+{
+	return wp->palette != NULL &&
+	       wp->palette_size <= 8 &&
+	       wp->rle_requested == BMP_RLE_AUTO &&
+	       wp->allow_huffman;
+}
+
+static bool s_setting_activates_huffman(BMPWRITE_R wp, const char *setting, int value)
+{
+	if (!strcmp(setting, "palette")) {
+		if (value <= 2) {
+			if (wp->rle_requested == BMP_RLE_AUTO && wp->allow_huffman)
+				return true;
+		}
+		return false;
+	}
+	if (!strcmp(setting, "rle")) {
+		if (value == BMP_RLE_AUTO) {
+			if (wp->palette && wp->palette_size <= 8 && wp->allow_huffman)
+				return true;
+		}
+		return false;
+	}
+	if (!strcmp(setting, "allowhuff")) {
+		if (wp->palette && wp->palette_size <= 8 && wp->rle_requested == BMP_RLE_AUTO)
+			return true;
+		return false;
+	}
+	return false;
+}
 
 static bool s_is_setting_compatible(BMPWRITE_R wp, const char *setting, ...)
 {
@@ -577,6 +659,27 @@ static bool s_is_setting_compatible(BMPWRITE_R wp, const char *setting, ...)
 				logerr(wp->c.log, "RLE is invalid with top-down BMPs");
 				ret = false;
 			}
+			if (wp->iccprofile && s_setting_activates_huffman(wp, "rle", rle)) {
+				logerr(wp->c.log, "Huffmann compression cannot be used when storing ICC profile");
+				ret = false;
+			}
+		}
+
+	} else if (!strcmp(setting, "palette")) {
+		int numcolors = va_arg(args, int);
+		if (s_setting_activates_huffman(wp, "palette", numcolors)) {
+			logerr(wp->c.log, "Huffmann compression cannot be used when storing ICC profile");
+			ret = false;
+		}
+	} else if (!strcmp(setting, "allowhuffman")) {
+		if (wp->iccprofile) {
+			logerr(wp->c.log, "Huffmann compression cannot be used when storing ICC profile");
+			ret = false;
+		}
+	} else if (!strcmp(setting, "iccprofile")) {
+		if (s_is_huffman_activated(wp)) {
+			logerr(wp->c.log, "Cannot store ICC profile with Huffmann compressed image");
+			ret = false;
 		}
 	} else if (!strcmp(setting, "orientation")) {
 		orientation = va_arg(args, enum BmpOrient);
@@ -641,7 +744,7 @@ static void s_decide_outformat(BMPWRITE_R wp)
 				wp->ih->compression = BI_RLE8;
 				wp->ih->bitcount    = 8;
 
-			} else if (wp->palette->numcolors > 2 || !wp->allow_huffman) {
+			} else if (wp->palette->numcolors > 2 || !wp->allow_huffman || wp->iccprofile) {
 				wp->rle = 4;
 				wp->ih->compression = BI_RLE4;
 				wp->ih->bitcount    = 4;
@@ -664,7 +767,7 @@ static void s_decide_outformat(BMPWRITE_R wp)
 		}
 
 	} else if (wp->allow_rle24 && wp->source_channels == 3 &&
-	           wp->source_bitsperchannel && wp->rle_requested == BMP_RLE_AUTO) {
+	           wp->source_bitsperchannel && wp->rle_requested == BMP_RLE_AUTO && !wp->iccprofile) {
 		wp->rle = 24;
 		wp->ih->compression = BI_OS2_RLE24;
 		wp->ih->bitcount    = 24;
@@ -702,6 +805,12 @@ static void s_decide_outformat(BMPWRITE_R wp)
 		wp->ih->size        = BMPIHSIZE_V3;
 		wp->ih->compression = BI_RGB;
 		wp->ih->bitcount    = (bitsum + 7) / 8 * 8;
+	}
+
+	if (wp->iccprofile) {
+		assert(wp->ih->version >= BMPINFO_V3);
+		wp->ih->version = BMPINFO_V5;
+		wp->ih->size    = BMPIHSIZE_V5;
 	}
 
 	if (wp->palette) {
@@ -805,6 +914,9 @@ API BMPRESULT bmpwrite_save_image(BMPHANDLE h, const unsigned char *image)
 		}
 		s_try_saving_image_size(wp);
 	}
+	if (wp->iccprofile)
+		if (!s_write_iccprofile(wp))
+			return BMP_RESULT_ERROR;
 
 	return BMP_RESULT_OK;
 }
@@ -865,6 +977,10 @@ API BMPRESULT bmpwrite_save_line(BMPHANDLE h, const unsigned char *line)
 				}
 			}
 			s_try_saving_image_size(wp);
+		}
+		if (wp->iccprofile) {
+			if (!s_write_iccprofile(wp))
+				goto abort;
 		}
 		wp->saveimage_done = true;
 	}
@@ -1549,7 +1665,55 @@ static bool s_write_bmp_info_header(BMPWRITE_R wp)
 	}
 	wp->bytes_written += 68;
 
+	if (wp->ih->version == BMPINFO_V4)
+		return true;
+
+	if (!(write_u32_le(wp->file, wp->ih->intent) &&
+	      write_u32_le(wp->file, 0) &&
+	      write_u32_le(wp->file, wp->iccprofile_size) &&
+	      write_u32_le(wp->file, wp->ih->reserved)))
+		return false;
+
 	return true;
+}
+
+
+
+/*****************************************************************************
+ * 	s_write_iccprofile
+ *****************************************************************************/
+
+static bool s_write_iccprofile(BMPWRITE_R wp)
+{
+	uint32_t pos;
+
+	printf("Writing ICC profile\n");
+	if (wp->ih->version < BMPINFO_V5 || !wp->iccprofile)
+		return false;
+
+	pos = wp->bytes_written;
+
+	if (wp->iccprofile_size != fwrite(wp->iccprofile, 1, wp->iccprofile_size, wp->file)) {
+		logsyserr(wp->c.log, "Error writing ICC profile to file");
+		return false;
+	}
+
+	wp->bytes_written += wp->iccprofile_size;
+
+	if (fseek(wp->file, IH_PROFILEDATA_OFFSET, SEEK_SET)) {
+		logsyserr(wp->c.log, "Error writing ICC profile to file");
+		return false;
+	}
+
+	if (!write_u32_le(wp->file, pos))
+		return false;
+
+	if (wp->bytes_written < (size_t) LONG_MAX)
+		fseek(wp->file, wp->bytes_written, SEEK_SET);
+
+	printf("Wrote ICC profile\n");
+	return true;
+
 }
 
 
