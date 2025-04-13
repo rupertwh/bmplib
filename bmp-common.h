@@ -168,8 +168,10 @@ struct Bmpwrite {
 	enum BmpFormat   source_format;
 	struct Palette  *palette;
 	int              palette_size; /* sizeof palette in bytes */
+	unsigned char   *iccprofile;
+	int              iccprofile_size;
 	/* output */
-	size_t           bytes_written;
+	uint64_t         bytes_written;
 	size_t           bytes_written_before_bitdata;
 	bool             has_alpha;
 	enum BmpOrient   outorientation;
@@ -258,6 +260,7 @@ int16_t  s16_from_le(const unsigned char *buf);
 #define BMPIHSIZE_V3    40
 #define BMPIHSIZE_V4   108
 #define BMPIHSIZE_OS22  64
+#define BMPIHSIZE_V5   124
 
 struct Bmpfile {
 	uint16_t type; /* "BM" */
@@ -317,6 +320,8 @@ struct Bmpinfo {
 	enum BmpInfoVer version;
 };
 
+#define IH_PROFILEDATA_OFFSET (14L + 112L)
+
 #define MAX_ICCPROFILE_SIZE (1UL << 20)
 
 
@@ -344,3 +349,9 @@ struct Bmpinfo {
 #define LCS_WINDOWS_COLOR_SPACE 0x57696e20 /* 'Win ' */
 #define PROFILE_LINKED          0x4c494e4b /* 'LINK' */
 #define PROFILE_EMBEDDED        0x4d424544 /* 'MBED' */
+
+
+#define LCS_GM_ABS_COLORIMETRIC 8
+#define LCS_GM_BUSINESS         1
+#define LCS_GM_GRAPHICS         2
+#define LCS_GM_IMAGES           3

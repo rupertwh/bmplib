@@ -271,6 +271,9 @@ APIDECL BMPRESULT bmpwrite_set_orientation(BMPHANDLE h, BMPORIENT orientation);
 APIDECL BMPRESULT bmpwrite_set_64bit(BMPHANDLE h);
 APIDECL BMPRESULT bmpwrite_set_huffman_img_fg_idx(BMPHANDLE h, int idx);
 
+APIDECL BMPRESULT bmpwrite_set_iccprofile(BMPHANDLE h, size_t size,
+                                          const unsigned char *iccprofile);
+
 APIDECL BMPRESULT bmpwrite_save_image(BMPHANDLE h, const unsigned char *image);
 APIDECL BMPRESULT bmpwrite_save_line(BMPHANDLE h, const unsigned char *line);
 
