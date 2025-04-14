@@ -267,11 +267,130 @@ API int bmpread_is_64bit(BMPHANDLE h)
 	if (!(rp = cm_read_handle(h)))
 		return 0;
 
+	if (!rp->getinfo_called)
+		bmpread_load_info((BMPHANDLE)(void*)rp);
+
+	if (rp->getinfo_return != BMP_RESULT_OK && rp->getinfo_return != BMP_RESULT_INSANE) {
+		return 0;
+	}
+
 	if (rp->ih->bitcount == 64)
 		return 1;
 	return 0;
 }
 
+
+
+/*****************************************************************************
+ * 	bmpread_iccprofile_size
+ *****************************************************************************/
+
+API size_t bmpread_iccprofile_size(BMPHANDLE h)
+{
+	BMPREAD rp;
+
+	if (!(rp = cm_read_handle(h)))
+		return 0;
+
+	if (!rp->getinfo_called)
+		return 0;
+
+	if (rp->getinfo_return != BMP_RESULT_OK && rp->getinfo_return != BMP_RESULT_INSANE) {
+		return 0;
+	}
+
+	if (rp->ih->cstype == PROFILE_EMBEDDED && rp->ih->profilesize <= MAX_ICCPROFILE_SIZE)
+		return (size_t)rp->ih->profilesize;
+
+	return 0;
+}
+
+/********************************************************
+ * 	bmpread_load_iccprofile
+ *******************************************************/
+
+API BMPRESULT bmpread_load_iccprofile(BMPHANDLE h, unsigned char **profile)
+{
+	BMPREAD rp;
+	size_t  memsize;
+	long    pos;
+	bool    we_allocated   = false;
+	bool    file_messed_up = false;
+
+	if (!(rp = cm_read_handle(h)))
+		goto abort;
+
+	if (!rp->getinfo_called) {
+		logerr(rp->c.log, "Must call bmpread_load_info() before loading ICC profile");
+		goto abort;
+	}
+	if (rp->ih->cstype != PROFILE_EMBEDDED) {
+		logerr(rp->c.log, "Image has no ICC profile");
+		goto abort;
+	}
+
+	if (rp->ih->profilesize > MAX_ICCPROFILE_SIZE) {
+		logerr(rp->c.log, "ICC profile is too large (%lu). Max is %lu",
+		                  (unsigned long) rp->ih->profilesize,
+		                  (unsigned long) MAX_ICCPROFILE_SIZE);
+		goto abort;
+	}
+
+	if (!profile) {
+		logerr(rp->c.log, "profile is NULL");
+		goto abort;
+	}
+
+	memsize = rp->ih->profilesize;
+	if (!*profile) {
+		if (!(*profile = malloc(memsize))) {
+			logsyserr(rp->c.log, "allocating ICC profile");
+			goto abort;
+		}
+		we_allocated = true;
+	}
+	memset(*profile, 0, memsize);
+
+	if (-1 == (pos = ftell(rp->file))) {
+		logsyserr(rp->c.log, "reading current file position");
+		goto abort;
+	}
+
+	if (fseek(rp->file, rp->ih->profiledata + 14, SEEK_SET)) {
+		logsyserr(rp->c.log, "seeking ICC profile in file");
+		goto abort;
+	}
+
+	/* Any failure from here on out cannot be reasonably recovered from, as
+	 * the file position will be messed up! */
+
+	file_messed_up = true;
+
+	if (memsize != fread(*profile, 1, memsize, rp->file)) {
+		if (feof(rp->file))
+			logerr(rp->c.log, "EOF while reading ICC profile");
+		else
+			logsyserr(rp->c.log, "reading ICC profile");
+		goto abort;
+	}
+
+	if (fseek(rp->file, pos, SEEK_SET)) {
+		logsyserr(rp->c.log, "failed to reset file position after reading ICC profile");
+		goto abort;
+	}
+
+	return BMP_RESULT_OK;
+
+abort:
+	if (profile && *profile && we_allocated) {
+		free(*profile);
+		*profile = NULL;
+	}
+	if (file_messed_up)
+		rp->getinfo_return = BMP_RESULT_ERROR;
+
+	return BMP_RESULT_ERROR;
+}
 
 
 /*****************************************************************************

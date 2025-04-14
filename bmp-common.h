@@ -317,7 +317,7 @@ struct Bmpinfo {
 	enum BmpInfoVer version;
 };
 
-
+#define MAX_ICCPROFILE_SIZE (1UL << 20)
 
 
 #define BI_RGB             0

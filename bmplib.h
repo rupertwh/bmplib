@@ -239,6 +239,9 @@ APIDECL void      bmpread_set_insanity_limit(BMPHANDLE h, size_t limit);
 APIDECL int       bmpread_is_64bit(BMPHANDLE h);
 APIDECL BMPRESULT bmpread_set_64bit_conv(BMPHANDLE h, BMPCONV64 conv);
 
+APIDECL size_t    bmpread_iccprofile_size(BMPHANDLE h);
+APIDECL BMPRESULT bmpread_load_iccprofile(BMPHANDLE h, unsigned char **profile);
+
 APIDECL BMPINFOVER  bmpread_info_header_version(BMPHANDLE h);
 APIDECL const char* bmpread_info_header_name(BMPHANDLE h);
 APIDECL int         bmpread_info_header_size(BMPHANDLE h);
