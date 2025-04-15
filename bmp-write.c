@@ -714,8 +714,8 @@ static void s_decide_outformat(BMPWRITE_R wp)
 				wp->ih->bitcount = 4;
 		}
 
-	} else if (wp->allow_rle24 && wp->source_channels == 3 &&
-	           wp->source_bitsperchannel && wp->rle_requested == BMP_RLE_AUTO && !wp->iccprofile) {
+	} else if (wp->allow_rle24 && wp->source_channels == 3 && wp->source_bitsperchannel == 8 &&
+	           wp->rle_requested == BMP_RLE_AUTO && !wp->iccprofile) {
 		wp->rle = 24;
 		wp->ih->compression = BI_OS2_RLE24;
 		wp->ih->bitcount    = 24;
