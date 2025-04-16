@@ -25,7 +25,7 @@ Download [bmplib on github](https://github.com/rupertwh/bmplib).
    - most 'questionable' files (see below)
    - some 'bad' files
 
-  Questionable files that failed:
+  Questionable files that fail:
   - embedded JPEG and PNG. Not really a fail. We return BMP_RESULT_JPEG or
     BMP_RESULT_PNG and leave the file pointer in the correct state to be
     passed on to either libpng or libjpeg. Works as designed. Don't want to
@@ -125,8 +125,10 @@ conversion:
 - `bmpread_set_64bit_conv()`
 - `bmp_set_number_format()`
 
-As to writing BMPs, by default bmplib will not write 64bit BMPs, as they are so exotic that only few applications will read them (other than native Microsoft tools, the new GIMP 3.0 is the only one I am aware of).
-Use `bmpwrite_set_64bit()` in order to write 64bit BMPs.
+As to writing BMPs, by default bmplib will not write 64bit BMPs, as they are
+so exotic that only few applications will read them (other than native
+Microsoft tools, the new GIMP 3.0 is the only one I am aware of). Use
+`bmpwrite_set_64bit()` in order to write 64bit BMPs.
 
 
 ## TODOs:
@@ -138,7 +140,7 @@ Use `bmpwrite_set_64bit()` in order to write 64bit BMPs.
    - [x] read Huffman-encoded BMPs. (Still haven't found any real-life examples)
    - [x] line-by-line reading/writing. ~~Right now, the image can only be
      passed as a whole to/from bmplib.~~
-   - [ ] read/write icc-profile and chromaticity/gamma values
+   - [x] read/write icc-profile and chromaticity/gamma values
    - [x] sanity checks for size of of image / palette. Require confirmation
      above a certain size (~ 500MB?)
    - [x] store undefined pixels (RLE delta and early EOL/EOF) as alpha

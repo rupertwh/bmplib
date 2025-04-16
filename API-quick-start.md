@@ -12,7 +12,7 @@ For the complete API, refer to the *Full API Description* (API-full.md).
 
 ## 1. Reading BMP files:
 
-```
+```c
 bmpread_new()
 bmpread_dimensions()
 bmpread_load_image()
@@ -20,7 +20,8 @@ bmp_free()
 ```
 
 ### Get a handle
-```
+
+```c
 BMPHANDLE bmpread_new(FILE *file)
 ```
 
@@ -32,7 +33,7 @@ The handle cannot be reused to read multiple files.
 
 ### Get image dimensions
 
-```
+```c
 BMPRESULT bmpread_dimensions(BMPHANDLE  h,
                              int       *width,
                              int       *height,
@@ -54,7 +55,7 @@ line-by-line. Can be set to NULL. (see *Full API Description*)
 
 ### Load the image
 
-```
+```c
 BMPRESULT bmpread_load_image(BMPHANDLE h, unsigned char **pbuffer)
 ```
 
@@ -67,7 +68,7 @@ with it.
 If you allocate the buffer yourself, the buffer must be at least as large as
 the size returned by `bmpread_buffersize()` (see *Full API description*).
 
-```
+```c
 unsigned char *buffer;
 
 /* either: */
@@ -86,7 +87,7 @@ in the order R-G-B or R-G-B-A. The returned image is always top-down, i.e.
 data starts in the top left corner. Unlike BMPs which are (almost always)
 bottom-up.
 
-If `bmpread_load_image()` returns BMP_RESULT_TRUNCATED or BMP_RESULT_INVALID,
+If `bmpread_load_image()` returns `BMP_RESULT_TRUNCATED` or `BMP_RESULT_INVALID`,
 the file may have been damaged or simply contains invalid image data. Image
 data is loaded anyway as far as possible and may be partially usable.
 
@@ -94,13 +95,13 @@ data is loaded anyway as far as possible and may be partially usable.
 
 ### Release the handle
 
-```
+```c
 void bmp_free(BMPHANDLE h)
 ```
 
 Frees all resources associated with the handle `h`. **Image data is not
-affected**, so you can call bmp_free() immediately after `bmpread_load_image
-()` and still use the returned image data.
+affected**, so you can call `bmp_free()` immediately after `bmpread_load_image()`
+and still use the returned image data.
 
 Note: Any error message strings returned by `bmp_errmsg()` are invalidated by
 `bmp_free()` and must not be used anymore!
@@ -109,7 +110,7 @@ Note: Any error message strings returned by `bmp_errmsg()` are invalidated by
 
 ## 2. Writing BMP files:
 
-```
+```c
 bmpwrite_new()
 bmpwrite_set_dimensions()
 bmpwrite_save_image()
@@ -117,12 +118,14 @@ bmp_free()
 ```
 
 ### Get a handle
-```
+
+```c
 BMPHANDLE bmpwrite_new(FILE *file)
 ```
 
 ### Set image dimensions
-```
+
+```c
 BMPRESULT bmpwrite_set_dimensions(BMPHANDLE h,
                                   unsigned  width,
                                   unsigned  height,
@@ -140,7 +143,7 @@ API description*)
 
 ### Write the image
 
-```
+```c
 BMPRESULT bmpwrite_save_image(BMPHANDLE h, const unsigned char *image)
 ```
 
@@ -155,7 +158,7 @@ file will be bottom-up.)
 
 ### bmp_free()
 
-```
+```c
 void bmp_free(BMPHANDLE h)
 ```
 
@@ -182,7 +185,7 @@ Many bmplib functions return the success/failure of an operation as a
 - `BMP_RESULT_JPEG`
 - `BMP_RESULT_ERROR`
 
-Can safely be cast from/to int. BMP_RESULT_OK is guaranteed to have the value 0.
+Can safely be cast from/to int. `BMP_RESULT_OK` is guaranteed to have the value 0.
 
 
 
@@ -190,7 +193,7 @@ Can safely be cast from/to int. BMP_RESULT_OK is guaranteed to have the value 0.
 
 ### Reading BMPs
 
-```
+```c
     /* (all error checking left out for clarity) */
 
     BMPHANDLE      h;
@@ -236,7 +239,7 @@ Can safely be cast from/to int. BMP_RESULT_OK is guaranteed to have the value 0.
 
 ### Writing BMPs
 
-```
+```c
     /* (all error checking left out for clarity) */
 
     BMPHANDLE      h;
