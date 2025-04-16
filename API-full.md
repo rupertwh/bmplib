@@ -1,4 +1,4 @@
-# Rupert's bmplib -- Full API Description (v1.7.5)
+# Rupert's bmplib -- Full API Description (v1.7.6)
 
 Refer to the *Quick Start Guide* (API-quick-start.md) for a quick intro to bmplib which describes only the minimal set of functions needed to read/write BMP files.
 
@@ -517,7 +517,8 @@ chosen for the BMP file.
 
 ```c
 BMPRESULT bmpwrite_set_iccprofile(BMPHANDLE h, size_t size,
-                                  const unsigned char *iccprofile);
+                                  const unsigned char *iccprofile)
+BMPRESULT bmpwrite_set_rendering_intent(BMPHANDLE h, BMPINTENT intent)
 ```
 
 Use `bmpwrite_set_iccprofile()` to write an embedded ICC color profile to the
@@ -525,9 +526,17 @@ BMP file.
 
 bmplib will not interpret or validate the supplied profile in any way.
 
-Setting a color profile will disable Huffman and RLE24 encodings.
+Setting a color profile or rendering intent will disable Huffman and RLE24 encodings.
 (color profiles require a BITMAPV5HEADER, but those encodings would require
-an OS/2 info header, instead.)
+an older OS/2 info header, instead.)
+
+You can optionally specify a rendering intent with `bmpwrite_set_rendering_intent()`,
+where `intent` is one of:
+- `BMP_INTENT_NONE`
+- `BMP_INTENT_BUSINESS` (= saturation)
+- `BMP_INTENT_GRAPHICS` (= relative colorimetric)
+- `BMP_INTENT_IMAGES` (= perceptive)
+- `BMP_INTENT_ABS_COLORIMETRIC` (= absolute colorimetric)
 
 
 ### 64-bit RGBA BMPs

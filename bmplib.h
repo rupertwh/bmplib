@@ -250,7 +250,6 @@ APIDECL BMPRESULT bmpread_set_64bit_conv(BMPHANDLE h, BMPCONV64 conv);
 
 APIDECL size_t    bmpread_iccprofile_size(BMPHANDLE h);
 APIDECL BMPRESULT bmpread_load_iccprofile(BMPHANDLE h, unsigned char **profile);
-APIDECL BMPRESULT bmpwrite_set_rendering_intent(BMPHANDLE h, BMPINTENT intent);
 
 APIDECL BMPINFOVER  bmpread_info_header_version(BMPHANDLE h);
 APIDECL const char* bmpread_info_header_name(BMPHANDLE h);
@@ -283,6 +282,7 @@ APIDECL BMPRESULT bmpwrite_set_huffman_img_fg_idx(BMPHANDLE h, int idx);
 
 APIDECL BMPRESULT bmpwrite_set_iccprofile(BMPHANDLE h, size_t size,
                                           const unsigned char *iccprofile);
+APIDECL BMPRESULT bmpwrite_set_rendering_intent(BMPHANDLE h, BMPINTENT intent);
 
 APIDECL BMPRESULT bmpwrite_save_image(BMPHANDLE h, const unsigned char *image);
 APIDECL BMPRESULT bmpwrite_save_line(BMPHANDLE h, const unsigned char *line);
