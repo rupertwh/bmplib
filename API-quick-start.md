@@ -13,10 +13,10 @@ For the complete API, refer to the *Full API Description* (API-full.md).
 ## 1. Reading BMP files:
 
 ```c
-bmpread_new()
-bmpread_dimensions()
-bmpread_load_image()
-bmp_free()
+bmpread_new();
+bmpread_dimensions();
+bmpread_load_image();
+bmp_free();
 ```
 
 ### Get a handle
@@ -39,7 +39,7 @@ BMPRESULT bmpread_dimensions(BMPHANDLE  h,
                              int       *height,
                              int       *channels,
                              int       *bitsperchannel,
-                             BMPORIENT *orientation)
+                             BMPORIENT *orientation);
 ```
 
 Use `bmpread_dimensions()` to get all dimensions with one call. The return
@@ -56,7 +56,7 @@ line-by-line. Can be set to NULL. (see *Full API Description*)
 ### Load the image
 
 ```c
-BMPRESULT bmpread_load_image(BMPHANDLE h, unsigned char **pbuffer)
+BMPRESULT bmpread_load_image(BMPHANDLE h, unsigned char **pbuffer);
 ```
 
 Loads the complete image from the BMP file into the buffer pointed to by
@@ -96,7 +96,7 @@ data is loaded anyway as far as possible and may be partially usable.
 ### Release the handle
 
 ```c
-void bmp_free(BMPHANDLE h)
+void bmp_free(BMPHANDLE h);
 ```
 
 Frees all resources associated with the handle `h`. **Image data is not
@@ -111,16 +111,16 @@ Note: Any error message strings returned by `bmp_errmsg()` are invalidated by
 ## 2. Writing BMP files:
 
 ```c
-bmpwrite_new()
-bmpwrite_set_dimensions()
-bmpwrite_save_image()
-bmp_free()
+bmpwrite_new();
+bmpwrite_set_dimensions();
+bmpwrite_save_image();
+bmp_free();
 ```
 
 ### Get a handle
 
 ```c
-BMPHANDLE bmpwrite_new(FILE *file)
+BMPHANDLE bmpwrite_new(FILE *file);
 ```
 
 ### Set image dimensions
@@ -130,7 +130,7 @@ BMPRESULT bmpwrite_set_dimensions(BMPHANDLE h,
                                   unsigned  width,
                                   unsigned  height,
                                   unsigned  channels,
-                                  unsigned  bitsperchannel)
+                                  unsigned  bitsperchannel);
 ```
 
 Note: the dimensions set with `bmpwrite_set_dimensions()` describe the source
@@ -144,7 +144,7 @@ API description*)
 ### Write the image
 
 ```c
-BMPRESULT bmpwrite_save_image(BMPHANDLE h, const unsigned char *image)
+BMPRESULT bmpwrite_save_image(BMPHANDLE h, const unsigned char *image);
 ```
 
 Write the whole image at once with `bmpwrite_save_image()`.
@@ -159,7 +159,7 @@ file will be bottom-up.)
 ### bmp_free()
 
 ```c
-void bmp_free(BMPHANDLE h)
+void bmp_free(BMPHANDLE h);
 ```
 
 Frees all resources associated with the handle `h`.

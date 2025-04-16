@@ -50,7 +50,7 @@ BMPRESULT bmpread_dimensions(BMPHANDLE  h,
                              int       *height,
                              int       *channels,
                              int       *bitsperchannel,
-                             BMPORIENT *orientation)
+                             BMPORIENT *orientation);
 ```
 
 Use `bmpread_dimensions()` to get all dimensions with one call. It is not
@@ -69,14 +69,14 @@ Note, in order to use these functions, -- unlike with `bmpread_dimensions
 they will all return 0!
 
 ```c
-int       bmpread_width(BMPHANDLE h)
-int       bmpread_height(BMPHANDLE h)
-int       bmpread_channels(BMPHANDLE h)
-int       bmpread_bitsperchannel(BMPHANDLE h)
-BMPORIENT bmpread_orientation(BMPHANDLE h)
+int       bmpread_width(BMPHANDLE h);
+int       bmpread_height(BMPHANDLE h);
+int       bmpread_channels(BMPHANDLE h);
+int       bmpread_bitsperchannel(BMPHANDLE h);
+BMPORIENT bmpread_orientation(BMPHANDLE h);
 
-int       bmpread_resolution_xdpi(BMPHANDLE h)
-int       bmpread_resolution_ydpi(BMPHANDLE h)
+int       bmpread_resolution_xdpi(BMPHANDLE h);
+int       bmpread_resolution_ydpi(BMPHANDLE h);
 ```
 
 #### top-down / bottom-up
@@ -99,7 +99,7 @@ orientation of the original BMP.
 #### Required size for buffer to receive image
 
 ```c
-size_t    bmpread_buffersize(BMPHANDLE h)
+size_t    bmpread_buffersize(BMPHANDLE h);
 ```
 
 Returns the buffer size you have to allocate for the whole image.
@@ -113,8 +113,8 @@ If instead you want to keep the image as indexed, you have the option do so
 with these two functions:
 
 ```c
-int       bmpread_num_palette_colors(BMPHANDLE h)
-BMPRESULT bmpread_load_palette(BMPHANDLE h, unsigned char **palette)
+int       bmpread_num_palette_colors(BMPHANDLE h);
+BMPRESULT bmpread_load_palette(BMPHANDLE h, unsigned char **palette);
 ```
 
 `bmpread_num_palette_colors()` will return 0 for non-indexed images, otherwise
@@ -172,7 +172,7 @@ buffer, it will always be initialized to zero before loading the image). This
 function has no effect on non-RLE BMPs.
 
 ```c
-void bmpread_set_undefined(BMPHANDLE h, BMPUNDEFINED mode)
+void bmpread_set_undefined(BMPHANDLE h, BMPUNDEFINED mode);
 ```
 
 `mode` can be one of:
@@ -187,8 +187,8 @@ will always be left alone! (see above)
 ### ICC color profiles
 
 ```c
-size_t    bmpread_iccprofile_size(BMPHANDLE h)
-BMPRESULT bmpread_load_iccprofile(BMPHANDLE h, unsigned char **pprofile)
+size_t    bmpread_iccprofile_size(BMPHANDLE h);
+BMPRESULT bmpread_load_iccprofile(BMPHANDLE h, unsigned char **pprofile);
 ```
 
 Use `bmpread_iccprofile_size()` to query the size (or existence) of an
@@ -213,8 +213,8 @@ if (bmpread_iccprofile_size(h) > 0)
 ### Optional settings for 64bit BMPs
 
 ```c
-int bmpread_is_64bit(BMPHANDLE h)
-BMPRESULT bmpread_set_64bit_conv(BMPHANDLE h, BMPCONV64 conv)
+int bmpread_is_64bit(BMPHANDLE h);
+BMPRESULT bmpread_set_64bit_conv(BMPHANDLE h, BMPCONV64 conv);
 ```
 
 If you don't do anything, 64bit BMPs will be read like any other BMP and the
@@ -245,7 +245,7 @@ integer values. You can instead set the number format to floating point or
 fixed using:
 
 ```c
-BMPRESULT bmp_set_number_format(BMPHANDLE h, BMPFORMAT format)
+BMPRESULT bmp_set_number_format(BMPHANDLE h, BMPFORMAT format);
 ```
 
 (see below, *3. General functions for both reading/writing BMPs*)
@@ -258,7 +258,7 @@ instead return `BMP_RESULT_INSANE`. If you want to load the image anyway, call
 `limit` is the new allowed size in bytes (not MB!).
 
 ```c
-void bmpread_set_insanity_limit(BMPHANDLE h, size_t limit)
+void bmpread_set_insanity_limit(BMPHANDLE h, size_t limit);
 ```
 
 ### Load the image
@@ -266,7 +266,7 @@ void bmpread_set_insanity_limit(BMPHANDLE h, size_t limit)
 #### bmpread_load_image()
 
 ```c
-BMPRESULT bmpread_load_image(BMPHANDLE h, unsigned char **pbuffer)
+BMPRESULT bmpread_load_image(BMPHANDLE h, unsigned char **pbuffer);
 ```
 
 Loads the complete image from the BMP file into the buffer pointed to by
@@ -303,7 +303,7 @@ data is loaded anyway as far as possible and may be partially usable.
 #### bmpread_load_line()
 
 ```c
-BMPRESULT bmpread_load_line(BMPHANDLE h, unsigned char **pbuffer)
+BMPRESULT bmpread_load_line(BMPHANDLE h, unsigned char **pbuffer);
 ```
 
 Loads a single scan line from the BMP file into the buffer pointed to by
@@ -351,19 +351,19 @@ read. They do *not* describe the format of the returned image data, which may
 be different!
 
 ```c
-BMPINFOVER  bmpread_info_header_version(BMPHANDLE h)
-int         bmpread_info_header_size(BMPHANDLE h)
-int         bmpread_info_compression(BMPHANDLE h)
-int         bmpread_info_bitcount(BMPHANDLE h)
-const char* bmpread_info_header_name(BMPHANDLE h)
-const char* bmpread_info_compression_name(BMPHANDLE h)
-BMPRESULT   bmpread_info_channel_bits(BMPHANDLE h, int *r, int *g, int *b, int *a)
+BMPINFOVER  bmpread_info_header_version(BMPHANDLE h);
+int         bmpread_info_header_size(BMPHANDLE h);
+int         bmpread_info_compression(BMPHANDLE h);
+int         bmpread_info_bitcount(BMPHANDLE h);
+const char* bmpread_info_header_name(BMPHANDLE h);
+const char* bmpread_info_compression_name(BMPHANDLE h);
+BMPRESULT   bmpread_info_channel_bits(BMPHANDLE h, int *r, int *g, int *b, int *a);
 ```
 
 ### Release the handle
 
 ```c
-void bmp_free(BMPHANDLE h)
+void bmp_free(BMPHANDLE h);
 ```
 
 Frees all resources associated with the handle `h`. **Image data is not
@@ -378,7 +378,7 @@ Note: Any error message strings returned by `bmp_errmsg()` are invalidated by
 ### Get a handle
 
 ```c
-BMPHANDLE bmpwrite_new(FILE *file)
+BMPHANDLE bmpwrite_new(FILE *file);
 ```
 
 ### Set image dimensions
@@ -388,9 +388,9 @@ BMPRESULT bmpwrite_set_dimensions(BMPHANDLE h,
                                   unsigned  width,
                                   unsigned  height,
                                   unsigned  channels,
-                                  unsigned  bitsperchannel)
+                                  unsigned  bitsperchannel);
 
-BMPRESULT bmpwrite_set_resolution(BMPHANDLE h, int xdpi, int ydpi)
+BMPRESULT bmpwrite_set_resolution(BMPHANDLE h, int xdpi, int ydpi);
 ```
 
 Note: the dimensions set with `bmpwrite_set_dimensions()` describe the source
@@ -406,14 +406,14 @@ be anywhere between 0 and 32, inclusive. In sum, the bits must be at least 1
 and must not exceed 32.
 
 ```c
-BMPRESULT bmpwrite_set_output_bits(BMPHANDLE h, int red, int green, int blue, int alpha)
+BMPRESULT bmpwrite_set_output_bits(BMPHANDLE h, int red, int green, int blue, int alpha);
 ```
 
 ### Indexed images
 
 ```c
-BMPRESULT bmpwrite_set_palette(BMPHANDLE h, int numcolors, unsigned char *palette)
-BMPRESULT bmpwrite_allow_2bit(BMPHANDLE h)
+BMPRESULT bmpwrite_set_palette(BMPHANDLE h, int numcolors, unsigned char *palette);
+BMPRESULT bmpwrite_allow_2bit(BMPHANDLE h);
 ```
 
 You can write 1/2/4/8-bit indexed images by providing a color palette with
@@ -436,9 +436,9 @@ BMP for 3- or 4-color images, call `bmpwrite_allow_2bit()` before calling
 #### RLE
 
 ```c
-BMPRESULT bmpwrite_set_rle(BMPHANDLE h, BMPRLETYPE type)
-BMPRESULT bmpwrite_allow_huffman(BMPHANDLE h)
-BMPRESULT bmpwrite_set_huffman_img_fg_idx(BMPHANDLE h, int idx)
+BMPRESULT bmpwrite_set_rle(BMPHANDLE h, BMPRLETYPE type);
+BMPRESULT bmpwrite_allow_huffman(BMPHANDLE h);
+BMPRESULT bmpwrite_set_huffman_img_fg_idx(BMPHANDLE h, int idx);
 ```
 
 Indexed images may optionally be written as run-length-encoded (RLE) bitmaps.
@@ -496,7 +496,7 @@ For non-RLE files, you have the option to change the orientation to top-down.
 (RLE files always have to be written in the default bottom-up orientation.)
 
 ```c
-BMPRESULT bmpwrite_set_orientation(BMPHANDLE h, BMPORIENT orientation)
+BMPRESULT bmpwrite_set_orientation(BMPHANDLE h, BMPORIENT orientation);
 ```
 
 with `orientation` set to one of the following values:
@@ -517,8 +517,8 @@ chosen for the BMP file.
 
 ```c
 BMPRESULT bmpwrite_set_iccprofile(BMPHANDLE h, size_t size,
-                                  const unsigned char *iccprofile)
-BMPRESULT bmpwrite_set_rendering_intent(BMPHANDLE h, BMPINTENT intent)
+                                  const unsigned char *iccprofile);
+BMPRESULT bmpwrite_set_rendering_intent(BMPHANDLE h, BMPINTENT intent);
 ```
 
 Use `bmpwrite_set_iccprofile()` to write an embedded ICC color profile to the
@@ -547,7 +547,7 @@ and hardly any software can open them.
 If you do want to write 64-bit BMPs, call
 
 ```c
-BMPRESULT bmpwrite_set_64bit(BMPHANDLE h)
+BMPRESULT bmpwrite_set_64bit(BMPHANDLE h);
 ```
 
 In order to make use of the extended range available in 64-bit BMPs
@@ -562,8 +562,8 @@ BMPs. You have to provide the proper linear values in the image buffer.
 ### Write the image
 
 ```c
-BMPRESULT bmpwrite_save_image(BMPHANDLE h, const unsigned char *image)
-BMPRESULT bmpwrite_save_line(BMPHANDLE h, const unsigned char *line)
+BMPRESULT bmpwrite_save_image(BMPHANDLE h, const unsigned char *image);
+BMPRESULT bmpwrite_save_line(BMPHANDLE h, const unsigned char *line);
 ```
 
 Write either the whole image at once with `bmpwrite_save_image()` or one line
@@ -586,7 +586,7 @@ set with `bmpwrite_set_orientation()` (see above).
 ### bmp_free()
 
 ```c
-void bmp_free(BMPHANDLE h)
+void bmp_free(BMPHANDLE h);
 ```
 
 Frees all resources associated with the handle `h`. Image data is not
@@ -598,7 +598,7 @@ anymore!
 ### bmp_errmsg()
 
 ```c
-const char* bmp_errmsg(BMPHANDLE h)
+const char* bmp_errmsg(BMPHANDLE h);
 ```
 
 Returns a zero-terminated character string containing the last error
@@ -609,7 +609,7 @@ bmplib-function is called with the same handle or the handle is freed with
 ### bmp_set_number_format()
 
 ```c
-BMPRESULT bmp_set_number_format(BMPHANDLE h, BMPFORMAT format)
+BMPRESULT bmp_set_number_format(BMPHANDLE h, BMPFORMAT format);
 ```
 
 sets the number format of the image buffer received from / passed to bmplib. `format` can be one of
@@ -626,7 +626,7 @@ For indexed images, `BMP_FORMAT_INT` is the only valid format.
 ### bmp_version()
 
 ```c
-const char* bmp_version(void)
+const char* bmp_version(void);
 ```
 
 Returns a zero-terminated character string containing the version of bmplib.
@@ -634,7 +634,7 @@ Returns a zero-terminated character string containing the version of bmplib.
 ### bmp_set_huffman_t4black_value()
 
 ```c
-BMPRESULT bmp_set_huffman_t4black_value(BMPHANDLE h, int blackidx)
+BMPRESULT bmp_set_huffman_t4black_value(BMPHANDLE h, int blackidx);
 ```
 
 (not to be confused with `bmpwrite_set_huffman_img_fg_idx()`, which serves an
