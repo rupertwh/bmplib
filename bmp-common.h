@@ -190,6 +190,7 @@ struct Bmpwrite {
 	/* state */
 	bool             outbits_set;
 	bool             dimensions_set;
+	bool             saveimage_started;
 	bool             saveimage_done;
 	bool             line_by_line;
 	int              lbl_y;
@@ -351,7 +352,7 @@ struct Bmpinfo {
 #define PROFILE_EMBEDDED        0x4d424544 /* 'MBED' */
 
 
-#define LCS_GM_ABS_COLORIMETRIC 8
 #define LCS_GM_BUSINESS         1
 #define LCS_GM_GRAPHICS         2
-#define LCS_GM_IMAGES           3
+#define LCS_GM_IMAGES           4
+#define LCS_GM_ABS_COLORIMETRIC 8

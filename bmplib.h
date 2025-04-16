@@ -203,6 +203,15 @@ enum BmpFormat {
 typedef enum BmpFormat BMPFORMAT;
 
 
+enum BmpIntent {
+	BMP_INTENT_NONE,
+	BMP_INTENT_BUSINESS,        /* saturation */
+	BMP_INTENT_GRAPHICS,        /* relative colorimetric */
+	BMP_INTENT_IMAGES,          /* perceptive */
+	BMP_INTENT_ABS_COLORIMETRIC /* absolute colorimetric */
+};
+typedef enum BmpIntent BMPINTENT;
+
 APIDECL BMPHANDLE bmpread_new(FILE *file);
 
 APIDECL BMPRESULT bmpread_load_info(BMPHANDLE h);
@@ -241,6 +250,7 @@ APIDECL BMPRESULT bmpread_set_64bit_conv(BMPHANDLE h, BMPCONV64 conv);
 
 APIDECL size_t    bmpread_iccprofile_size(BMPHANDLE h);
 APIDECL BMPRESULT bmpread_load_iccprofile(BMPHANDLE h, unsigned char **profile);
+APIDECL BMPRESULT bmpwrite_set_rendering_intent(BMPHANDLE h, BMPINTENT intent);
 
 APIDECL BMPINFOVER  bmpread_info_header_version(BMPHANDLE h);
 APIDECL const char* bmpread_info_header_name(BMPHANDLE h);
