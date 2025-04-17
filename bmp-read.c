@@ -319,10 +319,13 @@ API BMPRESULT bmpread_load_iccprofile(BMPHANDLE h, unsigned char **profile)
 	if (!(rp = cm_read_handle(h)))
 		goto abort;
 
-	if (!rp->getinfo_called) {
-		logerr(rp->c.log, "Must call bmpread_load_info() before loading ICC profile");
+	if (!rp->getinfo_called)
+		bmpread_load_info((BMPHANDLE)(void*)rp);
+
+	if (rp->getinfo_return != BMP_RESULT_OK && rp->getinfo_return != BMP_RESULT_INSANE) {
 		goto abort;
 	}
+
 	if (rp->ih->cstype != PROFILE_EMBEDDED) {
 		logerr(rp->c.log, "Image has no ICC profile");
 		goto abort;
