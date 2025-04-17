@@ -37,7 +37,7 @@
 #include "huffman.h"
 #include "bmp-write.h"
 
-static void s_decide_outformat(BMPWRITE_R wp);
+static bool s_decide_outformat(BMPWRITE_R wp);
 static bool s_write_palette(BMPWRITE_R wp);
 static bool s_write_bmp_file_header(BMPWRITE_R wp);
 static bool s_write_bmp_info_header(BMPWRITE_R wp);
@@ -694,6 +694,10 @@ static bool s_is_setting_compatible(BMPWRITE_R wp, const char *setting, ...)
 			logerr(wp->c.log, "Indexed images cannot be 64bit");
 			ret = false;
 		}
+		if (wp->outbits_set) {
+			logerr(wp->c.log, "BMPs with specified channel bits cannot be 64bit");
+			ret = false;
+		}
 	} else {
 		logerr(wp->c.log, "Panic, invalid setting check for '%s'", setting);
 		ret = false;
@@ -706,62 +710,81 @@ static bool s_is_setting_compatible(BMPWRITE_R wp, const char *setting, ...)
 
 
 /*****************************************************************************
+ * 	s_infoheader_size
+ *****************************************************************************/
+
+static uint32_t s_infoheader_size(enum BmpInfoVer version)
+{
+	switch(version) {
+		case BMPINFO_CORE_OS21: return  12;
+		case BMPINFO_OS22:      return  64;
+		case BMPINFO_V3:        return  40;
+		case BMPINFO_V3_ADOBE1: return  52;
+		case BMPINFO_V3_ADOBE2: return  56;
+		case BMPINFO_V4:        return 108;
+		case BMPINFO_V5:        return 124;
+		default:
+			return  -1;
+	}
+}
+
+/*****************************************************************************
  * 	s_decide_outformat
  *****************************************************************************/
 
-static void s_decide_outformat(BMPWRITE_R wp)
+static bool s_decide_outformat(BMPWRITE_R wp)
 {
-	int      bitsum;
-	uint64_t bitmapsize, filesize, bytes_per_line;
-	bool     needv5 = false;
+	int             bitsum = 0;
+	uint64_t        bitmapsize, filesize, bytes_per_line;
+	enum BmpInfoVer version = BMPINFO_OS22, maxversion = BMPINFO_V5;
 
 	if (wp->iccprofile || (wp->ih->intent != 0))
-		needv5 = true;
+		version = MAX(BMPINFO_V5, version);
 
-	if ((wp->source_channels == 4 || wp->source_channels == 2) &&
-	    ((wp->outbits_set && wp->cmask.bits.alpha) || !wp->outbits_set) ) {
-		wp->has_alpha = true;
-	} else {
-		wp->cmask.bits.alpha = 0;
-		wp->has_alpha = false;
-	}
+	if (wp->source_channels == 4 || wp->source_channels == 2)
+		wp->source_has_alpha = true;
+	else
+		wp->source_has_alpha = false;
 
-	if (!wp->outbits_set) {
+	if (!wp->outbits_set && !wp->palette) {
 		if (wp->out64bit) {
 			wp->cmask.bits.red   = 16;
 			wp->cmask.bits.green = 16;
 			wp->cmask.bits.blue  = 16;
 			wp->cmask.bits.alpha = 16; /* 64bit always has alpha channel */
+			version = MAX(BMPINFO_V3, version);
 		} else {
 			wp->cmask.bits.red = wp->cmask.bits.green = wp->cmask.bits.blue = 8;
-			if (wp->has_alpha)
+			if (wp->source_has_alpha)
 				wp->cmask.bits.alpha = 8;
 		}
 	}
 
-	bitsum = s_calc_mask_values(wp);
-
 	if (wp->palette) {
-		wp->ih->version = BMPINFO_V3;
-		wp->ih->size    = BMPIHSIZE_V3;
+		if (wp->source_channels > 1) {
+			logerr(wp->c.log, "Panic! Palette set with %d source channels",
+			                  wp->source_channels);
+			return false;
+		}
 		if (wp->rle_requested != BMP_RLE_NONE) {
-			if (wp->palette->numcolors > 16 ||
-			    wp->rle_requested == BMP_RLE_RLE8) {
+			if (wp->palette->numcolors > 16 || wp->rle_requested == BMP_RLE_RLE8) {
 				wp->rle = 8;
 				wp->ih->compression = BI_RLE8;
 				wp->ih->bitcount    = 8;
+				version = MAX(BMPINFO_V3, version);
 
-			} else if (wp->palette->numcolors > 2 || !wp->allow_huffman || needv5) {
+			} else if (wp->palette->numcolors > 2 || !wp->allow_huffman || version > BMPINFO_OS22) {
 				wp->rle = 4;
 				wp->ih->compression = BI_RLE4;
 				wp->ih->bitcount    = 4;
+				version = MAX(BMPINFO_V3, version);
 
 			} else {
 				wp->rle = 1;
 				wp->ih->compression = BI_OS2_HUFFMAN;
 				wp->ih->bitcount    = 1;
-				wp->ih->version     = BMPINFO_OS22;
-				wp->ih->size        = BMPIHSIZE_OS22;
+				version = MAX(BMPINFO_OS22, version);
+				maxversion = BMPINFO_OS22;
 			}
 
 		} else {
@@ -771,54 +794,61 @@ static void s_decide_outformat(BMPWRITE_R wp)
 				wp->ih->bitcount *= 2;
 			if (wp->ih->bitcount == 2 && !wp->allow_2bit)
 				wp->ih->bitcount = 4;
+			version = MAX(BMPINFO_V3, version);
 		}
 
 	} else if (wp->allow_rle24 && wp->source_channels == 3 && wp->source_bitsperchannel == 8 &&
-	           wp->rle_requested == BMP_RLE_AUTO && !needv5) {
+	           wp->rle_requested == BMP_RLE_AUTO && version <= BMPINFO_OS22) {
 		wp->rle = 24;
 		wp->ih->compression = BI_OS2_RLE24;
 		wp->ih->bitcount    = 24;
-		wp->ih->version     = BMPINFO_OS22;
-		wp->ih->size        = BMPIHSIZE_OS22;
+		version = MAX(BMPINFO_OS22, version);
+		maxversion = BMPINFO_OS22;
 
-	} else if (bitsum < 64 && (!cm_all_equal_int(3, (int) wp->cmask.bits.red,
-	                                                (int) wp->cmask.bits.green,
-	                                                (int) wp->cmask.bits.blue) ||
-	                            wp->has_alpha ||
-	                            (wp->cmask.bits.red > 0  &&
-	                             wp->cmask.bits.red != 5 &&
-	                             wp->cmask.bits.red != 8    )    )) {
-		/* we need BI_BITFIELDS if any of the following is true and we are not
-		 * writing a 64bit BMP:
-		 *    - not all RGB-components have the same bitlength
-		 *    - we are writing an alpha-channel
-		 *    - bits per component are not either 5 or 8 (which have
-		 *      known RI_RGB representation)
-		 */
-
-		wp->ih->version     = BMPINFO_V4;
-		wp->ih->size        = BMPIHSIZE_V4;
-		wp->ih->compression = BI_BITFIELDS;  /* do we need BI_ALPHABITFIELDS when alpha is present */
-		                                     /* or will that just confuse other readers?   !!!!!   */
-		if (bitsum <= 16)
-			wp->ih->bitcount = 16;
-		else
-			wp->ih->bitcount = 32;
 	} else {
-		/* otherwise, use BI_RGB with either 5 or 8 bits per component
-		 * resulting in bitcount of 16 or 24, or a 64bit BMP with 16 bits/comp.
-		 */
-		wp->ih->version     = BMPINFO_V3;
-		wp->ih->size        = BMPIHSIZE_V3;
-		wp->ih->compression = BI_RGB;
-		wp->ih->bitcount    = (bitsum + 7) / 8 * 8;
+		/* RGB */
+
+		bitsum = s_calc_mask_values(wp);
+
+		if (bitsum < 64 && (!cm_all_equal_int(3, (int) wp->cmask.bits.red,
+		                                         (int) wp->cmask.bits.green,
+		                                         (int) wp->cmask.bits.blue) ||
+		                     wp->source_has_alpha ||
+		                     (wp->cmask.bits.red > 0  &&
+		                      wp->cmask.bits.red != 5 &&
+		                      wp->cmask.bits.red != 8    )    )) {
+			/* we need BI_BITFIELDS if any of the following is true and we are not
+			 * writing a 64bit BMP:
+			 *    - not all RGB-components have the same bitlength
+			 *    - we are writing an alpha-channel
+			 *    - bits per component are not either 5 or 8 (which have
+			 *      known RI_RGB representation)
+			 */
+
+			version = MAX(BMPINFO_V4, version);
+			wp->ih->compression = BI_BITFIELDS;
+
+			if (bitsum <= 16)
+				wp->ih->bitcount = 16;
+			else
+				wp->ih->bitcount = 32;
+		} else {
+			/* otherwise, use BI_RGB with either 5 or 8 bits per component
+			 * resulting in bitcount of 16 or 24, or a 64bit BMP with 16 bits/comp.
+			 */
+			version = MAX(BMPINFO_V3, version);
+			wp->ih->compression = BI_RGB;
+			wp->ih->bitcount    = (bitsum + 7) / 8 * 8;
+		}
 	}
 
-	if (needv5) {
-		assert(wp->ih->version >= BMPINFO_V3);
-		wp->ih->version = BMPINFO_V5;
-		wp->ih->size    = BMPIHSIZE_V5;
+	if (version > maxversion) {
+		logerr(wp->c.log, "Panic! Info header version conflict. Have %s, need %s",
+		                  cm_infoheader_name(version), cm_infoheader_name(maxversion));
+		return false;
 	}
+	wp->ih->version = version;
+	wp->ih->size    = s_infoheader_size(version);
 
 	if (wp->palette) {
 		wp->ih->clrused = wp->palette->numcolors;
@@ -838,7 +868,7 @@ static void s_decide_outformat(BMPWRITE_R wp)
 	bitmapsize     = (bytes_per_line + wp->padding) * wp->height;
 	filesize       = bitmapsize + BMPFHSIZE + wp->ih->size + wp->palette_size + wp->iccprofile_size;
 
-	wp->fh->type = 0x4d42; /* "BM" */
+	wp->fh->type = BMPFILE_BM;
 	wp->fh->size = (uint32_t) ((wp->rle || filesize > UINT32_MAX) ? 0 : filesize);
 	wp->fh->offbits = BMPFHSIZE + wp->ih->size + wp->palette_size;
 
@@ -850,8 +880,12 @@ static void s_decide_outformat(BMPWRITE_R wp)
 	wp->ih->planes = 1;
 	wp->ih->sizeimage = (uint32_t) ((wp->rle || bitmapsize > UINT32_MAX) ? 0 : bitmapsize);
 
-	uint64_t profileoffset = (uint64_t)wp->ih->size + wp->palette_size + bitmapsize;
-	wp->ih->profiledata = (uint32_t) ((wp->rle || profileoffset > UINT32_MAX) ? 0 : profileoffset);
+	if (wp->iccprofile) {
+		uint64_t profileoffset = bitmapsize + wp->ih->size + wp->palette_size;
+		wp->ih->profiledata = (uint32_t) ((wp->rle || profileoffset > UINT32_MAX) ? 0 : profileoffset);
+	}
+
+	return true;
 }
 
 
@@ -1013,7 +1047,8 @@ static bool s_save_header(BMPWRITE_R wp)
 		return false;
 	}
 
-	s_decide_outformat(wp);
+	if (!s_decide_outformat(wp))
+		return false;
 
 	if (!s_write_bmp_file_header(wp)) {
 		logsyserr(wp->c.log, "Writing BMP file header");
@@ -1445,7 +1480,7 @@ static inline unsigned long long s_imgrgb_to_outbytes(BMPWRITE_R wp,
 	if (wp->source_channels < 3)
 		rgb = false; /* grayscale */
 
-	if (wp->has_alpha) {
+	if (wp->source_has_alpha) {
 		alpha_offs = rgb ? 3 : 1;
 		outchannels = 4;
 	} else
@@ -1459,14 +1494,14 @@ static inline unsigned long long s_imgrgb_to_outbytes(BMPWRITE_R wp,
 			comp[0] =       imgpx[0];
 			comp[1] = rgb ? imgpx[1] : comp[0];
 			comp[2] = rgb ? imgpx[2] : comp[0];
-			if (wp->has_alpha)
+			if (wp->source_has_alpha)
 				comp[3] = imgpx[alpha_offs];
 			break;
 		case 16:
 			comp[0] =       ((const uint16_t*)imgpx)[0];
 			comp[1] = rgb ? ((const uint16_t*)imgpx)[1] : comp[0];
 			comp[2] = rgb ? ((const uint16_t*)imgpx)[2] : comp[0];
-			if (wp->has_alpha)
+			if (wp->source_has_alpha)
 				comp[3] = ((const uint16_t*)imgpx)[alpha_offs];
 			break;
 
@@ -1474,7 +1509,7 @@ static inline unsigned long long s_imgrgb_to_outbytes(BMPWRITE_R wp,
 			comp[0] =       ((const uint32_t*)imgpx)[0];
 			comp[1] = rgb ? ((const uint32_t*)imgpx)[1] : comp[0];
 			comp[2] = rgb ? ((const uint32_t*)imgpx)[2] : comp[0];
-			if (wp->has_alpha)
+			if (wp->source_has_alpha)
 				comp[3] = ((const uint32_t*)imgpx)[alpha_offs];
 			break;
 
@@ -1494,7 +1529,7 @@ static inline unsigned long long s_imgrgb_to_outbytes(BMPWRITE_R wp,
 		dcomp[0] =       ((const float*)imgpx)[0];
 		dcomp[1] = rgb ? ((const float*)imgpx)[1] : dcomp[0];
 		dcomp[2] = rgb ? ((const float*)imgpx)[2] : dcomp[0];
-		if (wp->has_alpha)
+		if (wp->source_has_alpha)
 			dcomp[3] = ((const float*)imgpx)[alpha_offs];
 
 		if (wp->out64bit) {
@@ -1517,7 +1552,7 @@ static inline unsigned long long s_imgrgb_to_outbytes(BMPWRITE_R wp,
 		comp[0] =       ((const uint16_t*)imgpx)[0];
 		comp[1] = rgb ? ((const uint16_t*)imgpx)[1] : comp[0];
 		comp[2] = rgb ? ((const uint16_t*)imgpx)[2] : comp[0];
-		if (wp->has_alpha)
+		if (wp->source_has_alpha)
 			comp[3] = ((const uint16_t*)imgpx)[alpha_offs];
 
 		if (wp->out64bit) {
@@ -1543,7 +1578,7 @@ static inline unsigned long long s_imgrgb_to_outbytes(BMPWRITE_R wp,
 	for (i = 0, bytes = 0; i < outchannels; i++) {
 		bytes |= ((unsigned long long)comp[i] & wp->cmask.mask.value[i]) << wp->cmask.shift.value[i];
 	}
-	if (!wp->has_alpha && wp->out64bit)
+	if (!wp->source_has_alpha && wp->out64bit)
 		bytes |= 8192ULL << wp->cmask.shift.alpha;
 
 	return bytes;

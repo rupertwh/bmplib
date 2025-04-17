@@ -441,3 +441,27 @@ int16_t s16_from_le(const unsigned char *buf)
 {
 	return (int16_t)u16_from_le(buf);
 }
+
+
+
+
+
+/*****************************************************************************
+ * 	cm_infoheader_name
+ *****************************************************************************/
+
+const char* cm_infoheader_name(enum BmpInfoVer infoversion)
+{
+	switch (infoversion) {
+	case BMPINFO_CORE_OS21 : return "OS21XBITMAPHEADER";
+	case BMPINFO_OS22      : return "OS22XBITMAPHEADER";
+	case BMPINFO_V3        : return "BITMAPINFOHEADER";
+	case BMPINFO_V3_ADOBE1 : return "BITMAPINFOHEADER + RGB mask";
+	case BMPINFO_V3_ADOBE2 : return "BITMAPINFOHEADER + RGBA mask";
+	case BMPINFO_V4        : return "BITMAPV4HEADER";
+	case BMPINFO_V5        : return "BITMAPV5HEADER";
+	case BMPINFO_FUTURE    : return "unknown future version";
+	default:
+		return "invalid infoheader version";
+	}
+}

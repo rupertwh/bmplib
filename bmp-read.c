@@ -35,7 +35,6 @@
 #include "bmp-read.h"
 
 
-const char* s_infoheader_name(int infoversion);
 const char* s_compression_name(int compression);
 
 
@@ -1529,7 +1528,7 @@ static const char* s_info_str(BMPHANDLE h, enum Infostr info)
 
 	switch (info) {
 	case INFO_STR_HEADER_NAME:
-		return s_infoheader_name(rp->ih->version);
+		return cm_infoheader_name(rp->ih->version);
 	case INFO_STR_COMPRESSION_NAME:
 		return s_compression_name(rp->ih->compression);
 
@@ -1570,28 +1569,6 @@ API BMPRESULT bmpread_info_channel_bits(BMPHANDLE h, int *r, int *g, int *b, int
 	}
 
 	return BMP_RESULT_OK;
-}
-
-
-
-/*****************************************************************************
- * 	s_infoheader_name
- *****************************************************************************/
-
-const char* s_infoheader_name(int infoversion)
-{
-	switch (infoversion) {
-	case BMPINFO_CORE_OS21 : return "OS21XBITMAPHEADER";
-	case BMPINFO_OS22      : return "OS22XBITMAPHEADER";
-	case BMPINFO_V3        : return "BITMAPINFOHEADER";
-	case BMPINFO_V3_ADOBE1 : return "BITMAPINFOHEADER + RGB mask";
-	case BMPINFO_V3_ADOBE2 : return "BITMAPINFOHEADER + RGBA mask";
-	case BMPINFO_V4        : return "BITMAPV4HEADER";
-	case BMPINFO_V5        : return "BITMAPV5HEADER";
-	case BMPINFO_FUTURE    : return "unknown future version";
-	default:
-		return "invalid infoheader version";
-	}
 }
 
 

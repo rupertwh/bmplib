@@ -166,6 +166,7 @@ struct Bmpwrite {
 	int              source_bitsperchannel;
 	int              source_bytes_per_pixel;
 	enum BmpFormat   source_format;
+	bool             source_has_alpha;
 	struct Palette  *palette;
 	int              palette_size; /* sizeof palette in bytes */
 	unsigned char   *iccprofile;
@@ -173,15 +174,14 @@ struct Bmpwrite {
 	/* output */
 	uint64_t         bytes_written;
 	size_t           bytes_written_before_bitdata;
-	bool             has_alpha;
 	enum BmpOrient   outorientation;
 	bool             huffman_fg_idx;
 	struct Colormask cmask;
 	enum BmpRLEtype  rle_requested;
-	int              rle; /* 1, 4, or 8 */
-	bool             allow_2bit; /* Windows CE, but many will not read it */
-	bool             allow_huffman;
-	bool             allow_rle24;
+	int              rle; /* 1, 4, 8, or 24 */
+	bool             allow_2bit;     /* Windows CE */
+	bool             allow_huffman;  /* OS/2 */
+	bool             allow_rle24;    /* OS/2 */
 	bool             out64bit;
 	int              outbytes_per_pixel;
 	int              padding;
@@ -244,6 +244,8 @@ uint32_t u32_from_le(const unsigned char *buf);
 int32_t  s32_from_le(const unsigned char *buf);
 uint16_t u16_from_le(const unsigned char *buf);
 int16_t  s16_from_le(const unsigned char *buf);
+
+const char* cm_infoheader_name(enum BmpInfoVer infoversion);
 
 
 #define HMAGIC_READ  0x44414552UL
