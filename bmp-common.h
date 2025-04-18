@@ -154,6 +154,14 @@ struct Bmpread {
 };
 
 
+enum WriteState {
+	WS_INIT,
+	WS_DIMENSIONS_SET,
+	WS_SAVE_STARTED,
+	WS_SAVE_DONE,
+	WS_FATAL,
+};
+
 struct Bmpwrite {
 	struct Bmpcommon c;
 	FILE            *file;
@@ -188,11 +196,8 @@ struct Bmpwrite {
 	int             *group;
 	int              group_count;
 	/* state */
+	enum WriteState  write_state;
 	bool             outbits_set;
-	bool             dimensions_set;
-	bool             saveimage_started;
-	bool             saveimage_done;
-	bool             line_by_line;
 	int              lbl_y;
 	uint32_t         hufbuf;
 	int              hufbuf_len;

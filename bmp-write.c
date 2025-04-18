@@ -50,6 +50,7 @@ static int s_calc_mask_values(BMPWRITE_R wp);
 static bool s_is_setting_compatible(BMPWRITE_R wp, const char *setting, ...);
 static bool s_check_already_saved(BMPWRITE_R wp);
 static bool s_check_save_started(BMPWRITE_R wp);
+static bool s_ready_to_save(BMPWRITE_R wp);
 
 
 
@@ -72,6 +73,7 @@ API BMPHANDLE bmpwrite_new(FILE *file)
 	wp->outorientation = BMP_ORIENT_BOTTOMUP;
 	wp->source_format  = BMP_FORMAT_INT;
 	wp->huffman_fg_idx = 1;
+	wp->write_state    = WS_INIT;
 
 	if (!(wp->c.log = logcreate()))
 		goto abort;
@@ -126,17 +128,21 @@ API BMPRESULT bmpwrite_set_dimensions(BMPHANDLE h,
 		return BMP_RESULT_ERROR;
 
 	if (!(s_is_setting_compatible(wp, "srcchannels", source_channels) &&
-	      s_is_setting_compatible(wp, "srcbits", source_bitsperchannel)))
+	      s_is_setting_compatible(wp, "srcbits", source_bitsperchannel))) {
+	      	wp->write_state = WS_INIT;
 		return BMP_RESULT_ERROR;
+	}
 
 	if (!cm_is_one_of(3, source_bitsperchannel, 8, 16, 32)) {
 		logerr(wp->c.log, "Invalid number of bits per channel: %d",
 		                                 (int) source_bitsperchannel);
+	      	wp->write_state = WS_INIT;
 		return BMP_RESULT_ERROR;
 	}
 
 	if (!cm_is_one_of(4, source_channels, 3, 4, 1, 2)) {
 		logerr(wp->c.log, "Invalid number of channels: %d", (int) source_channels);
+	      	wp->write_state = WS_INIT;
 		return BMP_RESULT_ERROR;
 	}
 
@@ -148,6 +154,7 @@ API BMPRESULT bmpwrite_set_dimensions(BMPHANDLE h,
 		logerr(wp->c.log, "Invalid dimensions %ux%ux%u @ %ubits",
 		                          width, height, source_channels,
 		                          source_bitsperchannel);
+	      	wp->write_state = WS_INIT;
 		return BMP_RESULT_ERROR;
 	}
 
@@ -155,7 +162,7 @@ API BMPRESULT bmpwrite_set_dimensions(BMPHANDLE h,
 	wp->height = (int) height;
 	wp->source_channels = (int) source_channels;
 	wp->source_bitsperchannel = (int) source_bitsperchannel;
-	wp->dimensions_set = true;
+	wp->write_state = WS_DIMENSIONS_SET;
 
 	return BMP_RESULT_OK;
 }
@@ -197,8 +204,10 @@ API BMPRESULT bmpwrite_set_output_bits(BMPHANDLE h, int red, int green, int blue
 	if (s_check_save_started(wp))
 		return BMP_RESULT_ERROR;
 
-	if (!s_is_setting_compatible(wp, "outbits"))
+	if (!s_is_setting_compatible(wp, "outbits")) {
+		wp->outbits_set = false;
 		return BMP_RESULT_ERROR;
+	}
 
 	if (!(cm_all_positive_int(4, red, green, blue, alpha) &&
 	      cm_all_lessoreq_int(32, 4, red, green, blue, alpha) &&
@@ -554,7 +563,7 @@ API BMPRESULT bmpwrite_set_huffman_img_fg_idx(BMPHANDLE h, int idx)
 
 static bool s_check_already_saved(BMPWRITE_R wp)
 {
-	if (wp->saveimage_done) {
+	if (wp->write_state >= WS_SAVE_DONE) {
 		logerr(wp->c.log, "Image already saved.");
 		return true;
 	}
@@ -568,7 +577,7 @@ static bool s_check_already_saved(BMPWRITE_R wp)
 
 static bool s_check_save_started(BMPWRITE_R wp)
 {
-	if (wp->saveimage_started) {
+	if (wp->write_state >= WS_SAVE_STARTED) {
 		logerr(wp->c.log, "Image save already started.");
 		return true;
 	}
@@ -637,7 +646,7 @@ static bool s_is_setting_compatible(BMPWRITE_R wp, const char *setting, ...)
 			             cm_format_name(wp->source_format));
 			ret = false;
 		}
-		if (wp->dimensions_set) {
+		if (wp->write_state >= WS_DIMENSIONS_SET) {
 			if (!(wp->source_channels == 1 && wp->source_bitsperchannel == 8)) {
 				logerr (wp->c.log, "Indexed images must be 1 channel, 8 bits");
 				ret = false;
@@ -647,7 +656,7 @@ static bool s_is_setting_compatible(BMPWRITE_R wp, const char *setting, ...)
 		format = va_arg(args, enum BmpFormat);
 		switch (format) {
 		case BMP_FORMAT_FLOAT:
-			if (wp->dimensions_set && wp->source_bitsperchannel != 32) {
+			if (wp->write_state >= WS_DIMENSIONS_SET && wp->source_bitsperchannel != 32) {
 				logerr(wp->c.log, "float cannot be %d bits per pixel",
 				                           wp->source_bitsperchannel);
 				ret = false;
@@ -658,7 +667,7 @@ static bool s_is_setting_compatible(BMPWRITE_R wp, const char *setting, ...)
 			}
 			break;
 		case BMP_FORMAT_S2_13:
-			if (wp->dimensions_set && wp->source_bitsperchannel != 16) {
+			if (wp->write_state >= WS_DIMENSIONS_SET && wp->source_bitsperchannel != 16) {
 				logerr(wp->c.log, "s2.13 cannot be %d bits per pixel",
 				                           wp->source_bitsperchannel);
 				ret = false;
@@ -674,7 +683,7 @@ static bool s_is_setting_compatible(BMPWRITE_R wp, const char *setting, ...)
 		}
 	} else if (!strcmp(setting, "rle")) {
 		rle = va_arg(args, enum BmpRLEtype);
-		if (rle == BMP_RLE_AUTO || rle == BMP_RLE_RLE8) {
+		if (rle != BMP_RLE_NONE) {
 			if (wp->outorientation != BMP_ORIENT_BOTTOMUP) {
 				logerr(wp->c.log, "RLE is invalid with top-down BMPs");
 				ret = false;
@@ -794,7 +803,6 @@ static bool s_decide_outformat(BMPWRITE_R wp)
 				wp->ih->bitcount *= 2;
 			if (wp->ih->bitcount == 2 && !wp->allow_2bit)
 				wp->ih->bitcount = 4;
-			version = MAX(BMPINFO_V3, version);
 		}
 
 	} else if (wp->allow_rle24 && wp->source_channels == 3 && wp->source_bitsperchannel == 8 &&
@@ -836,7 +844,6 @@ static bool s_decide_outformat(BMPWRITE_R wp)
 			/* otherwise, use BI_RGB with either 5 or 8 bits per component
 			 * resulting in bitcount of 16 or 24, or a 64bit BMP with 16 bits/comp.
 			 */
-			version = MAX(BMPINFO_V3, version);
 			wp->ih->compression = BI_RGB;
 			wp->ih->bitcount    = (bitsum + 7) / 8 * 8;
 		}
@@ -847,6 +854,10 @@ static bool s_decide_outformat(BMPWRITE_R wp)
 		                  cm_infoheader_name(version), cm_infoheader_name(maxversion));
 		return false;
 	}
+
+	/* always use at least V3, unless a smaller version is required */
+	version = MAX(MIN(BMPINFO_V3, maxversion), version);
+
 	wp->ih->version = version;
 	wp->ih->size    = s_infoheader_size(version);
 
@@ -906,19 +917,17 @@ API BMPRESULT bmpwrite_save_image(BMPHANDLE h, const unsigned char *image)
 	if (!(wp = cm_write_handle(h)))
 		return BMP_RESULT_ERROR;
 
-	if (s_check_already_saved(wp))
+	if (s_check_save_started(wp))
 		return BMP_RESULT_ERROR;
 
-	if (wp->line_by_line) {
-		logerr(wp->c.log, "Cannot switch from line-by-line to saving full image");
+	if (!s_ready_to_save(wp))
 		return BMP_RESULT_ERROR;
+
+	if  (!s_save_header(wp)) {
+		goto fatal;
 	}
 
-	if  (!s_save_header(wp))
-		return BMP_RESULT_ERROR;
-
-	wp->saveimage_started = true;
-	wp->saveimage_done    = true;
+	wp->write_state = WS_SAVE_STARTED;
 	wp->bytes_written_before_bitdata = wp->bytes_written;
 
 	linesize = (size_t) wp->width * wp->source_bytes_per_pixel;
@@ -940,7 +949,7 @@ API BMPRESULT bmpwrite_save_image(BMPHANDLE h, const unsigned char *image)
 		}
 		if (!res) {
 			logerr(wp->c.log, "failed saving line %d", y);
-			return BMP_RESULT_ERROR;
+			goto fatal;
 		}
 	}
 	if (wp->rle) {
@@ -948,20 +957,26 @@ API BMPRESULT bmpwrite_save_image(BMPHANDLE h, const unsigned char *image)
 			if (EOF == s_write_one_byte(0, wp) ||
 			    EOF == s_write_one_byte(1, wp)) {
 				logsyserr(wp->c.log, "Writing RLE end-of-file marker");
-				return BMP_RESULT_ERROR;
+				goto fatal;
 			}
 		}
 		else {
 			if (!(huff_encode_rtc(wp) && huff_flush(wp))) {
 				logsyserr(wp->c.log, "Writing RTC end-of-file marker");
-				return BMP_RESULT_ERROR;
+				goto fatal;
 			}
 		}
 	}
-	if (!s_finalize_file(wp))
-		return BMP_RESULT_ERROR;
 
+	if (!s_finalize_file(wp))
+		goto fatal;
+
+	wp->write_state = WS_SAVE_DONE;
 	return BMP_RESULT_OK;
+
+fatal:
+	wp->write_state = WS_FATAL;
+	return BMP_RESULT_ERROR;
 }
 
 
@@ -981,13 +996,15 @@ API BMPRESULT bmpwrite_save_line(BMPHANDLE h, const unsigned char *line)
 	if (s_check_already_saved(wp))
 		return BMP_RESULT_ERROR;
 
-	wp->saveimage_started = true;
+	if (!s_ready_to_save(wp))
+		return BMP_RESULT_ERROR;
 
-	if (!wp->line_by_line) {  /* first line */
+	if (wp->write_state < WS_SAVE_STARTED) {
 		if  (!s_save_header(wp))
-			goto abort;
+			goto fatal;
+
+		wp->write_state  = WS_SAVE_STARTED;
 		wp->bytes_written_before_bitdata = wp->bytes_written;
-		wp->line_by_line = true;
 	}
 
 	switch (wp->rle) {
@@ -1005,7 +1022,7 @@ API BMPRESULT bmpwrite_save_line(BMPHANDLE h, const unsigned char *line)
 	}
 
 	if (!res)
-		goto abort;
+		goto fatal;
 
 	if (++wp->lbl_y >= wp->height) {
 		if (wp->rle) {
@@ -1013,28 +1030,42 @@ API BMPRESULT bmpwrite_save_line(BMPHANDLE h, const unsigned char *line)
 				if (EOF == s_write_one_byte(0, wp) ||
 				    EOF == s_write_one_byte(1, wp)) {
 					logsyserr(wp->c.log, "Writing RLE end-of-file marker");
-					goto abort;
+					goto fatal;
 				}
 			} else {
 				if (!(huff_encode_rtc(wp) && huff_flush(wp))) {
 					logsyserr(wp->c.log, "Writing RTC end-of-file marker");
-					goto abort;
+					goto fatal;
 				}
 			}
 		}
-		wp->saveimage_done = true;
+
+		if (!s_finalize_file(wp))
+			goto fatal;
+
+		wp->write_state = WS_SAVE_DONE;
 	}
-
-	if (!s_finalize_file(wp))
-		goto abort;
-
 	return BMP_RESULT_OK;
-abort:
-	wp->saveimage_done = true;
+
+fatal:
+	wp->write_state = WS_FATAL;
 	return BMP_RESULT_ERROR;
 }
 
 
+
+/*****************************************************************************
+ * 	s_ready_to_save
+ *****************************************************************************/
+
+static bool s_ready_to_save(BMPWRITE_R wp)
+{
+	if (wp->write_state < WS_DIMENSIONS_SET) {
+		logerr(wp->c.log, "Must set dimensions before saving");
+		return false;
+	}
+	return true;
+}
 
 /*****************************************************************************
  * 	s_save_header
@@ -1042,11 +1073,6 @@ abort:
 
 static bool s_save_header(BMPWRITE_R wp)
 {
-	if (!wp->dimensions_set) {
-		logerr(wp->c.log, "Must set dimensions before saving");
-		return false;
-	}
-
 	if (!s_decide_outformat(wp))
 		return false;
 
