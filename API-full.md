@@ -1,4 +1,4 @@
-# Rupert's bmplib -- Full API Description (v1.7.6)
+# Rupert's bmplib -- Full API Description (v1.7.7)
 
 Refer to the *Quick Start Guide* (API-quick-start.md) for a quick intro to bmplib which describes only the minimal set of functions needed to read/write BMP files.
 
