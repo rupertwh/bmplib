@@ -226,6 +226,11 @@ API BMPRESULT bmpread_set_64bit_conv(BMPHANDLE h, enum Bmpconv64 conv)
 	if (!(rp = cm_read_handle(h)))
 		return BMP_RESULT_ERROR;
 
+	if (rp->read_state >= RS_LOAD_STARTED) {
+		logerr(rp->c.log, "Too late to set 64bit conversion");
+		return BMP_RESULT_ERROR;
+	}
+
 	switch (conv) {
 	case BMP_CONV64_SRGB:
         case BMP_CONV64_LINEAR:

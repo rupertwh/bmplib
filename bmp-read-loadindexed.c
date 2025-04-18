@@ -96,6 +96,11 @@ API BMPRESULT bmpread_load_palette(BMPHANDLE h, unsigned char **palette)
 		return BMP_RESULT_ERROR;
 	}
 
+	if (rp->result_format != BMP_FORMAT_INT) {
+		logerr(rp->c.log, "Palette can only be loaded when number format is BMP_FORMAT_INT");
+		return BMP_RESULT_ERROR;
+	}
+
 	memsize = rp->palette->numcolors * 4;
 	if (!*palette) {
 		if (!(*palette = malloc(memsize))) {
