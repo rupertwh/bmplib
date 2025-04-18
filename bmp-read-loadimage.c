@@ -124,28 +124,28 @@ static BMPRESULT s_load_image_or_line(BMPREAD_R rp, unsigned char **restrict buf
 {
 	size_t	buffer_size;
 
-	if (!(rp->getinfo_called && (rp->getinfo_return == BMP_RESULT_OK))) {
-		if (rp->getinfo_return == BMP_RESULT_INSANE) {
-			logerr(rp->c.log, "trying to load insanley large image");
-			return BMP_RESULT_INSANE;
-		}
-		logerr(rp->c.log, "getinfo had failed, cannot load image");
-		return BMP_RESULT_ERROR;
-	}
-
-	if (rp->image_loaded) {
+	if (rp->read_state >= RS_LOAD_DONE) {
 		logerr(rp->c.log, "Cannot load image more than once!");
 		return BMP_RESULT_ERROR;
 	}
 
-	if (rp->line_by_line && !line_by_line) {
+	if (rp->read_state >= RS_LOAD_STARTED && !line_by_line) {
 		logerr(rp->c.log, "Image is being loaded line-by-line. "
 		                "Cannot switch to full image.");
 		return BMP_RESULT_ERROR;
 	}
 
-	if (!rp->dimensions_queried) {
+	if (rp->read_state < RS_DIMENSIONS_QUERIED) {
 		logerr(rp->c.log, "must query dimensions before loading image");
+		return BMP_RESULT_ERROR;
+	}
+
+	if (!(rp->read_state >= RS_HEADER_OK && (rp->getinfo_return == BMP_RESULT_OK))) {
+		if (rp->getinfo_return == BMP_RESULT_INSANE) {
+			logerr(rp->c.log, "trying to load insanley large image");
+			return BMP_RESULT_INSANE;
+		}
+		logerr(rp->c.log, "getinfo had failed, cannot load image");
 		return BMP_RESULT_ERROR;
 	}
 
@@ -171,10 +171,7 @@ static BMPRESULT s_load_image_or_line(BMPREAD_R rp, unsigned char **restrict buf
 	if (rp->we_allocated_buffer || (rp->rle && (rp->undefined_mode == BMP_UNDEFINED_TO_ALPHA)))
 		memset(*buffer, 0, buffer_size);
 
-	if (!line_by_line)
-		rp->image_loaded = true; /* point of no return */
-
-	if (!rp->line_by_line) {  /* either whole image or first line */
+	if (rp->read_state < RS_LOAD_STARTED) {  /* either whole image or first line */
 		if (rp->bytes_read > rp->fh->offbits) {
 			logerr(rp->c.log, "Corrupt file");
 			goto abort;
@@ -185,20 +182,18 @@ static BMPRESULT s_load_image_or_line(BMPREAD_R rp, unsigned char **restrict buf
 			goto abort;
 		}
 		rp->bytes_read += rp->fh->offbits - rp->bytes_read;
+		rp->read_state = RS_LOAD_STARTED;
 	}
 
-	if (line_by_line) {
-		rp->line_by_line = true;  /* don't set this earlier, or we won't */
-		                          /* be able to identify first line      */
+	if (line_by_line)
 		s_read_one_line(rp, *buffer);
-	} else {
+	else
 		s_read_whole_image(rp, *buffer);
-	}
 
 	s_log_error_from_state(rp);
 	if (s_stopping_error(rp)) {
 		rp->truncated = true;
-		rp->image_loaded = true;
+		rp->read_state = RS_FATAL;
 		return BMP_RESULT_TRUNCATED;
 	} else if (s_cont_error(rp))
 		return BMP_RESULT_INVALID;
@@ -210,7 +205,7 @@ abort:
 		free(*buffer);
 		*buffer = NULL;
 	}
-	rp->image_loaded = true;
+	rp->read_state = RS_FATAL;
 	return BMP_RESULT_ERROR;
 }
 
@@ -279,7 +274,7 @@ static void s_read_one_line(BMPREAD_R rp, unsigned char *restrict line)
 
 	rp->lbl_y++;
 	if (rp->lbl_y >= rp->height) {
-		rp->image_loaded = true;
+		rp->read_state = RS_LOAD_DONE;
 	}
 }
 

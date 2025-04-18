@@ -95,6 +95,14 @@ struct Bmpcommon {
 	bool     huffman_black_is_zero; /* defaults to false */
 };
 
+enum ReadState {
+	RS_INIT,
+	RS_HEADER_OK,
+	RS_DIMENSIONS_QUERIED,
+	RS_LOAD_STARTED,
+	RS_LOAD_DONE,
+	RS_FATAL,
+};
 
 struct Bmpread {
 	struct Bmpcommon  c;
@@ -109,7 +117,6 @@ struct Bmpread {
 	bool              has_alpha;   /* original BMP has alpha channel */
 	enum BmpUndefined undefined_mode;
 	bool              we_allocated_buffer;
-	bool              line_by_line;
 	struct Palette   *palette;
 	struct Colormask  cmask;
 	/* result image dimensions */
@@ -124,17 +131,15 @@ struct Bmpread {
 	bool              result_format_explicit;
 	size_t            result_size;
 	/* state */
+	enum ReadState    read_state;
 	unsigned long     lasterr;
-	bool              getinfo_called;
 	int               getinfo_return;
 	bool              jpeg;
 	bool              png;
-	bool              dimensions_queried;
 	bool              dim_queried_width;
 	bool              dim_queried_height;
 	bool              dim_queried_channels;
 	bool              dim_queried_bitsperchannel;
-	bool              image_loaded;
 	bool              rle;
 	bool              rle_eol;
 	bool              rle_eof;
@@ -152,7 +157,6 @@ struct Bmpread {
 	bool              panic;
 
 };
-
 
 enum WriteState {
 	WS_INIT,

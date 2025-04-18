@@ -57,6 +57,7 @@ API BMPHANDLE bmpread_new(FILE *file)
 	rp->orientation    = BMP_ORIENT_BOTTOMUP;
 	rp->conv64         = BMP_CONV64_SRGB;
 	rp->result_format  = BMP_FORMAT_INT;
+	rp->read_state     = RS_INIT;
 
 	if (!(rp->c.log = logcreate()))
 		goto abort;
@@ -102,7 +103,7 @@ API BMPRESULT bmpread_load_info(BMPHANDLE h)
 	if (!(rp = cm_read_handle(h)))
 		return BMP_RESULT_ERROR;
 
-	if (rp->getinfo_called)
+	if (rp->read_state >= RS_HEADER_OK)
 		return rp->getinfo_return;
 
 	if (!s_read_file_header(rp))
@@ -203,11 +204,11 @@ API BMPRESULT bmpread_load_info(BMPHANDLE h)
 	} else {
 		rp->getinfo_return = BMP_RESULT_OK;
 	}
-	rp->getinfo_called = true;
+	rp->read_state = RS_HEADER_OK;
 	return rp->getinfo_return;
 
 abort:
-	rp->getinfo_called = true;
+	rp->read_state = RS_FATAL;
 	rp->getinfo_return = BMP_RESULT_ERROR;
 	return BMP_RESULT_ERROR;
 }
@@ -266,12 +267,8 @@ API int bmpread_is_64bit(BMPHANDLE h)
 	if (!(rp = cm_read_handle(h)))
 		return 0;
 
-	if (!rp->getinfo_called)
-		bmpread_load_info((BMPHANDLE)(void*)rp);
-
-	if (rp->getinfo_return != BMP_RESULT_OK && rp->getinfo_return != BMP_RESULT_INSANE) {
+	if (rp->read_state < RS_HEADER_OK || rp->read_state >= RS_FATAL)
 		return 0;
-	}
 
 	if (rp->ih->bitcount == 64)
 		return 1;
@@ -291,12 +288,8 @@ API size_t bmpread_iccprofile_size(BMPHANDLE h)
 	if (!(rp = cm_read_handle(h)))
 		return 0;
 
-	if (!rp->getinfo_called)
-		return 0;
-
-	if (rp->getinfo_return != BMP_RESULT_OK && rp->getinfo_return != BMP_RESULT_INSANE) {
-		return 0;
-	}
+	if (rp->read_state < RS_HEADER_OK || rp->read_state >= RS_FATAL)
+ 		return 0;
 
 	if (rp->ih->cstype == PROFILE_EMBEDDED && rp->ih->profilesize <= MAX_ICCPROFILE_SIZE)
 		return (size_t)rp->ih->profilesize;
@@ -319,12 +312,11 @@ API BMPRESULT bmpread_load_iccprofile(BMPHANDLE h, unsigned char **profile)
 	if (!(rp = cm_read_handle(h)))
 		goto abort;
 
-	if (!rp->getinfo_called)
+	if (rp->read_state < RS_HEADER_OK)
 		bmpread_load_info((BMPHANDLE)(void*)rp);
 
-	if (rp->getinfo_return != BMP_RESULT_OK && rp->getinfo_return != BMP_RESULT_INSANE) {
+	if (rp->read_state < RS_HEADER_OK || rp->read_state >= RS_FATAL)
 		goto abort;
-	}
 
 	if (rp->ih->cstype != PROFILE_EMBEDDED) {
 		logerr(rp->c.log, "Image has no ICC profile");
@@ -388,8 +380,10 @@ abort:
 		free(*profile);
 		*profile = NULL;
 	}
-	if (file_messed_up)
+	if (file_messed_up) {
+		rp->read_state = RS_FATAL;
 		rp->getinfo_return = BMP_RESULT_ERROR;
+	}
 
 	return BMP_RESULT_ERROR;
 }
@@ -410,12 +404,11 @@ API BMPRESULT bmpread_dimensions(BMPHANDLE h, int* restrict width,
 	if (!(rp = cm_read_handle(h)))
 		return BMP_RESULT_ERROR;
 
-	if (!rp->getinfo_called)
+	if (rp->read_state < RS_HEADER_OK)
 		bmpread_load_info((BMPHANDLE)(void*)rp);
 
-	if (rp->getinfo_return != BMP_RESULT_OK && rp->getinfo_return != BMP_RESULT_INSANE) {
-		return rp->getinfo_return;
-	}
+	if (rp->read_state < RS_HEADER_OK || rp->read_state >= RS_FATAL)
+		return BMP_RESULT_ERROR;
 
 	if (width) {
 		*width = rp->width;
@@ -438,8 +431,9 @@ API BMPRESULT bmpread_dimensions(BMPHANDLE h, int* restrict width,
 	}
 
 	if (rp->dim_queried_width    && rp->dim_queried_height &&
-	    rp->dim_queried_channels && rp->dim_queried_bitsperchannel)
-		rp->dimensions_queried = true;
+	    rp->dim_queried_channels && rp->dim_queried_bitsperchannel) {
+		rp->read_state = MAX(RS_DIMENSIONS_QUERIED, rp->read_state);
+	}
 
 	return rp->getinfo_return;
 }
@@ -458,14 +452,6 @@ BMPRESULT br_set_number_format(BMPREAD_R rp, enum BmpFormat format)
 		return BMP_RESULT_OK;
 	}
 
-	if (!(format == BMP_FORMAT_INT ||
-	      format == BMP_FORMAT_FLOAT ||
-	      format == BMP_FORMAT_S2_13)) {
-		logerr(rp->c.log, "Invalid number format (%d) specified", (int) format);
-		rp->lasterr = BMP_ERR_FORMAT;
-		return BMP_RESULT_ERROR;
-	}
-
 	switch (format) {
 	case BMP_FORMAT_INT:
 		/* always ok */
@@ -473,7 +459,7 @@ BMPRESULT br_set_number_format(BMPREAD_R rp, enum BmpFormat format)
 
 	case BMP_FORMAT_FLOAT:
 	case BMP_FORMAT_S2_13:
-		if (rp->getinfo_called && rp->result_indexed) {
+		if (rp->result_indexed) {
 			logerr(rp->c.log, "Cannot load color index as float or s2.13");
 			rp->lasterr = BMP_ERR_FORMAT;
 			return BMP_RESULT_ERROR;
@@ -489,8 +475,10 @@ BMPRESULT br_set_number_format(BMPREAD_R rp, enum BmpFormat format)
 	rp->result_format = format;
 	rp->result_format_explicit = true;
 
-	if (!br_set_resultbits(rp))
+	if (!br_set_resultbits(rp)) {
+		rp->read_state = RS_FATAL;
 		return BMP_RESULT_ERROR;
+	}
 	return BMP_RESULT_OK;
 
 }
@@ -553,7 +541,7 @@ static int s_single_dim_val(BMPHANDLE h, enum Dimint dim)
 	if (!(rp = cm_read_handle(h)))
 		return 0;
 
-	if (!rp->getinfo_called)
+	if (rp->read_state < RS_HEADER_OK || rp->read_state >= RS_FATAL)
 		return 0;
 
 	switch (dim) {
@@ -586,9 +574,9 @@ static int s_single_dim_val(BMPHANDLE h, enum Dimint dim)
 		return 0;
 	}
 	if (rp->dim_queried_width && rp->dim_queried_height &&
-	    rp->dim_queried_channels &&
-	    rp->dim_queried_bitsperchannel)
-		rp->dimensions_queried = true;
+	    rp->dim_queried_channels && rp->dim_queried_bitsperchannel) {
+		rp->read_state = MAX(RS_DIMENSIONS_QUERIED, rp->read_state);
+	}
 	return ret;
 }
 
@@ -605,12 +593,10 @@ API size_t bmpread_buffersize(BMPHANDLE h)
 	if (!(rp = cm_read_handle(h)))
 		return 0;
 
-	if (!(rp->getinfo_called &&
-                      (rp->getinfo_return == BMP_RESULT_OK ||
-                       rp->getinfo_return == BMP_RESULT_INSANE)))
+	if (rp->read_state < RS_HEADER_OK || rp->read_state >= RS_FATAL)
 		return 0;
 
-	rp->dimensions_queried = true;
+	rp->read_state = MAX(RS_DIMENSIONS_QUERIED, rp->read_state);
 	return rp->result_size;
 
 }
@@ -662,11 +648,6 @@ API void bmpread_set_undefined(BMPHANDLE h, enum BmpUndefined mode)
 
 	rp->undefined_mode = mode;
 
-	if (!rp->getinfo_called || (rp->getinfo_return != BMP_RESULT_OK &&
-		                    rp->getinfo_return != BMP_RESULT_INSANE)) {
-		return;
-	}
-
 	/* we are changing the setting after dimensions have */
 	/* been established. Only relevant for RLE-encoding  */
 
@@ -675,7 +656,13 @@ API void bmpread_set_undefined(BMPHANDLE h, enum BmpUndefined mode)
 
 	rp->result_channels = (mode == BMP_UNDEFINED_TO_ALPHA) ?  4 :  3;
 
-	br_set_resultbits(rp);
+	rp->read_state = MIN(RS_HEADER_OK, rp->read_state);
+	rp->dim_queried_channels = false;
+
+	if (!br_set_resultbits(rp)) {
+		rp->lasterr = BMP_ERR_DIMENSIONS;
+		rp->read_state = RS_FATAL;
+	}
 }
 
 
@@ -977,7 +964,7 @@ bool br_set_resultbits(BMPREAD_R rp)
 
 	if (newbits != rp->result_bitsperchannel) {
 		rp->dim_queried_bitsperchannel = false;
-		rp->dimensions_queried = false;
+		rp->read_state = MIN(RS_HEADER_OK, rp->read_state);
 	}
 	rp->result_bitsperchannel = newbits;
 	rp->result_bits_per_pixel = rp->result_bitsperchannel * rp->result_channels;
@@ -988,7 +975,7 @@ bool br_set_resultbits(BMPREAD_R rp)
 
 	rp->result_size = (size_t) rp->width * rp->height * rp->result_bytes_per_pixel;
 
-	if (rp->getinfo_called) {
+	if (rp->read_state >= RS_HEADER_OK) {
 		if (rp->insanity_limit && rp->result_size > rp->insanity_limit) {
 		 	if (rp->getinfo_return == BMP_RESULT_OK) {
 				logerr(rp->c.log, "file is insanely large");
@@ -1018,6 +1005,7 @@ static bool s_check_dimensions(BMPREAD_R rp)
 	if (npixels > maxpixels || rp->width  < 1 || rp->height < 1) {
 		logerr(rp->c.log, "Invalid BMP dimensions (%dx%d)", rp->width, rp->height);
 		rp->lasterr = BMP_ERR_DIMENSIONS;
+		rp->read_state = RS_FATAL;
 		return false;
 	}
 	return true;
@@ -1296,6 +1284,11 @@ static bool s_read_info_header(BMPREAD_R rp)
 		goto abort_file_err;
 	rp->bytes_read += 4;
 
+	if (rp->ih->size > INT_MAX) {
+		logerr(rp->c.log, "Ridiculous info header size (%lu)", (unsigned long) rp->ih->size);
+		return false;
+	}
+
 	switch (rp->ih->size) {
 	case  12: rp->ih->version = BMPINFO_CORE_OS21; break;
 	case  16:
@@ -1481,7 +1474,7 @@ static int s_info_int(BMPHANDLE h, enum Infoint info)
 	if (!(rp = cm_read_handle(h)))
 		return 0;
 
-	if (!rp->getinfo_called)
+	if (rp->read_state < RS_HEADER_OK || rp->read_state >= RS_FATAL)
 		return 0;
 
 	switch (info) {
@@ -1526,7 +1519,7 @@ static const char* s_info_str(BMPHANDLE h, enum Infostr info)
 	if (!(rp = cm_read_handle(h)))
 		return "";
 
-	if (!rp->getinfo_called)
+	if (rp->read_state < RS_HEADER_OK || rp->read_state >= RS_FATAL)
 		return "";
 
 	switch (info) {
@@ -1552,9 +1545,7 @@ API BMPRESULT bmpread_info_channel_bits(BMPHANDLE h, int *r, int *g, int *b, int
 	if (!(rp = cm_read_handle(h)))
 		return BMP_RESULT_ERROR;
 
-	if (!(rp->getinfo_called &&
-	               (rp->getinfo_return == BMP_RESULT_OK ||
-	                rp->getinfo_return == BMP_RESULT_INSANE)))
+	if (rp->read_state < RS_HEADER_OK || rp->read_state >= RS_FATAL)
 		return BMP_RESULT_ERROR;
 
 	if (rp->ih->compression == BI_OS2_RLE24) {

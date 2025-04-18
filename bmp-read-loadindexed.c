@@ -77,10 +77,15 @@ API BMPRESULT bmpread_load_palette(BMPHANDLE h, unsigned char **palette)
 	if (!(rp = cm_read_handle(h)))
 		return BMP_RESULT_ERROR;
 
-	if (!rp->getinfo_called) {
+	if (rp->read_state < RS_HEADER_OK) {
 		logerr(rp->c.log, "Must call bmpread_load_info() before loading palette");
 		return BMP_RESULT_ERROR;
 	}
+	if (rp->read_state >= RS_LOAD_STARTED) {
+		logerr(rp->c.log, "Cannot load palette after image data");
+		return BMP_RESULT_ERROR;
+	}
+
 	if (!rp->palette) {
 		logerr(rp->c.log, "Image has no palette");
 		return BMP_RESULT_ERROR;
@@ -95,6 +100,7 @@ API BMPRESULT bmpread_load_palette(BMPHANDLE h, unsigned char **palette)
 	if (!*palette) {
 		if (!(*palette = malloc(memsize))) {
 			logsyserr(rp->c.log, "allocating palette");
+			rp->read_state = RS_FATAL;
 			return BMP_RESULT_ERROR;
 		}
 	}
@@ -103,11 +109,13 @@ API BMPRESULT bmpread_load_palette(BMPHANDLE h, unsigned char **palette)
 	/* irreversible. image will be returned as indexed pixels */
 	if (!rp->result_indexed) {
 		rp->result_indexed = true;
-		rp->dimensions_queried = false;
+		rp->read_state = MIN(RS_HEADER_OK, rp->read_state);
 		rp->dim_queried_channels = false;
 		rp->result_channels = 1;
-		if (!br_set_resultbits(rp))
+		if (!br_set_resultbits(rp)) {
+			rp->read_state = RS_FATAL;
 			return BMP_RESULT_ERROR;
+		}
 	}
 
 	for (i = 0; i < rp->palette->numcolors; i++) {
