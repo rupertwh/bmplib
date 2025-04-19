@@ -624,9 +624,15 @@ API void bmpread_set_insanity_limit(BMPHANDLE h, size_t limit)
 
 	rp->insanity_limit = limit;
 
-	if (rp->getinfo_return == BMP_RESULT_INSANE &&
-	    (limit == 0 || limit >= rp->result_size)) {
-		rp->getinfo_return = BMP_RESULT_OK;
+	if (rp->read_state < RS_HEADER_OK)
+		return;
+
+	if (rp->getinfo_return == BMP_RESULT_INSANE) {
+		if (limit == 0 || limit >= rp->result_size)
+			rp->getinfo_return = BMP_RESULT_OK;
+	} else if (rp->getinfo_return == BMP_RESULT_OK) {
+		if (limit > 0 && rp->result_size > limit)
+			rp->getinfo_return = BMP_RESULT_INSANE;
 	}
 }
 
@@ -990,8 +996,10 @@ bool br_set_resultbits(BMPREAD_R rp)
 				rp->lasterr = BMP_ERR_INSANE;
 				rp->getinfo_return = BMP_RESULT_INSANE;
 			}
-		} else if (rp->getinfo_return == BMP_RESULT_INSANE)
-			rp->getinfo_return = BMP_RESULT_OK;
+		} else {
+			if (rp->getinfo_return == BMP_RESULT_INSANE)
+				rp->getinfo_return = BMP_RESULT_OK;
+		}
 	}
 	return true;
 }
