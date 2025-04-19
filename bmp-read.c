@@ -196,8 +196,7 @@ API BMPRESULT bmpread_load_info(BMPHANDLE h)
 	if (!br_set_resultbits(rp))
 		goto abort;
 
-	if (rp->insanity_limit &&
-	    rp->result_size > rp->insanity_limit) {
+	if (rp->insanity_limit && rp->result_size > rp->insanity_limit) {
 		logerr(rp->c.log, "file is insanely large");
 		rp->lasterr = BMP_ERR_INSANE;
 		rp->getinfo_return = BMP_RESULT_INSANE;
@@ -296,8 +295,10 @@ API size_t bmpread_iccprofile_size(BMPHANDLE h)
 	if (rp->read_state < RS_HEADER_OK || rp->read_state >= RS_FATAL)
  		return 0;
 
-	if (rp->ih->cstype == PROFILE_EMBEDDED && rp->ih->profilesize <= MAX_ICCPROFILE_SIZE)
+	if (rp->ih->cstype == PROFILE_EMBEDDED && rp->ih->profilesize <= MAX_ICCPROFILE_SIZE) {
+		rp->iccprofile_size_queried = true;
 		return (size_t)rp->ih->profilesize;
+	}
 
 	return 0;
 }
@@ -317,11 +318,15 @@ API BMPRESULT bmpread_load_iccprofile(BMPHANDLE h, unsigned char **profile)
 	if (!(rp = cm_read_handle(h)))
 		goto abort;
 
-	if (rp->read_state < RS_HEADER_OK)
-		bmpread_load_info((BMPHANDLE)(void*)rp);
-
-	if (rp->read_state < RS_HEADER_OK || rp->read_state >= RS_FATAL)
+	if (rp->read_state < RS_HEADER_OK || rp->read_state >= RS_FATAL) {
+		logerr(rp->c.log, "Must load info before loading ICC profile");
 		goto abort;
+	}
+
+	if (!rp->iccprofile_size_queried) {
+		logerr(rp->c.log, "Must query profile size before loading ICC profile");
+		goto abort;
+	}
 
 	if (rp->ih->cstype != PROFILE_EMBEDDED) {
 		logerr(rp->c.log, "Image has no ICC profile");
@@ -385,10 +390,8 @@ abort:
 		free(*profile);
 		*profile = NULL;
 	}
-	if (file_messed_up) {
+	if (file_messed_up)
 		rp->read_state = RS_FATAL;
-		rp->getinfo_return = BMP_RESULT_ERROR;
-	}
 
 	return BMP_RESULT_ERROR;
 }

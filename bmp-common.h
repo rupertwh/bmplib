@@ -140,6 +140,7 @@ struct Bmpread {
 	bool              dim_queried_height;
 	bool              dim_queried_channels;
 	bool              dim_queried_bitsperchannel;
+	bool              iccprofile_size_queried;
 	bool              rle;
 	bool              rle_eol;
 	bool              rle_eof;
