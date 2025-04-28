@@ -396,23 +396,33 @@ static void s_read_rgb_line(BMPREAD_R rp, unsigned char *restrict line)
 
 static inline double s_s2_13_to_float(uint16_t s2_13)
 {
-	return (int16_t)s2_13 / 8192.0;
+	int16_t s16;
+
+	if (s2_13 >= 0x8000)
+		s16 = (int16_t)(s2_13 - 0x8000) - 0x7fff - 1;
+	else
+		s16 = (int16_t)s2_13;
+
+	return s16 / 8192.0;
 }
 
 
 static inline double s_int_to_float(unsigned long ul, int bits)
 {
-	return (double) ul / ((1ULL<<bits)-1);
+	return (double) ul / ((1ULL << bits) - 1);
 }
 
 
 static inline void s_convert64(uint16_t *val64)
 {
+	/* convert the s2.13 values of a 64bit BMP to plain old 16bit integers.
+	 * Values are clipped to the representable [0..1] range
+	 */
+
 	double d;
 
 	for (int i = 0; i < 4; i++) {
-		d = (double) (int16_t) val64[i];
-		d /= 8192.0;
+		d = s_s2_13_to_float(val64[i]);
 		d = MAX(0.0, d);
 		d = MIN(d, 1.0);
 		val64[i] = (uint16_t) (d * 0xffff + 0.5);
@@ -422,11 +432,12 @@ static inline void s_convert64(uint16_t *val64)
 
 static inline void s_convert64srgb(uint16_t *val64)
 {
+	/* Same as s_convert64(), but also apply sRGB gamma. */
+
 	double  d;
 
 	for (int i = 0; i < 4; i++) {
-		d = (double) (int16_t) val64[i];
-		d /= 8192.0;
+		d = s_s2_13_to_float(val64[i]);
 		d = MAX(0.0, d);
 		d = MIN(d, 1.0);
 
@@ -452,11 +463,11 @@ static inline double s_srgb_gamma_float(double d)
 
 static inline uint16_t s_srgb_gamma_s2_13(uint16_t s2_13)
 {
-	double d;
+	double  d;
 
-	d = (int16_t)s2_13 / 8192.0;
+	d = s_s2_13_to_float(s2_13);
 	d = s_srgb_gamma_float(d);
-	return (uint16_t) (((int)(d * 8192.0 + 0.5)) & 0xffff);
+	return (uint16_t) ((int)round(d * 8192.0) & 0xffff);
 }
 
 
