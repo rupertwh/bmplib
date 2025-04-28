@@ -23,6 +23,7 @@
 #include <string.h>
 #include <stdint.h>
 #include <stdbool.h>
+#include <limits.h>
 #include <assert.h>
 #include <math.h>
 
@@ -75,7 +76,7 @@ static void s_read_rle_line(BMPREAD_R rp, unsigned char *restrict line,
 static void s_read_huffman_line(BMPREAD_R rp, unsigned char *restrict line);
 
 _Static_assert(sizeof(float) == 4, "sizeof(float) must be 4. Cannot build bmplib.");
-_Static_assert(sizeof(int) >= 4, "int must be at least 32bit. Cannot build bmplib.");
+_Static_assert(sizeof(int) * CHAR_BIT >= 32, "int must be at least 32bit. Cannot build bmplib.");
 
 
 /********************************************************
