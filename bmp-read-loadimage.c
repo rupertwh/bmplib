@@ -125,6 +125,11 @@ static BMPRESULT s_load_image_or_line(BMPREAD_R rp, unsigned char **restrict buf
 {
 	size_t	buffer_size;
 
+	if (rp->read_state == RS_FATAL) {
+		logerr(rp->c.log, "Cannot load image due to a previous fatal error");
+		return BMP_RESULT_ERROR;
+	}
+
 	if (rp->read_state >= RS_LOAD_DONE) {
 		logerr(rp->c.log, "Cannot load image more than once!");
 		return BMP_RESULT_ERROR;
@@ -132,26 +137,22 @@ static BMPRESULT s_load_image_or_line(BMPREAD_R rp, unsigned char **restrict buf
 
 	if (rp->read_state >= RS_LOAD_STARTED && !line_by_line) {
 		logerr(rp->c.log, "Image is being loaded line-by-line. "
-		                "Cannot switch to full image.");
+		                  "Cannot switch to full image.");
 		return BMP_RESULT_ERROR;
 	}
 
 	if (rp->read_state < RS_DIMENSIONS_QUERIED) {
-		logerr(rp->c.log, "must query dimensions before loading image");
+		logerr(rp->c.log, "Must query dimensions before loading image");
 		return BMP_RESULT_ERROR;
 	}
 
-	if (!(rp->read_state >= RS_HEADER_OK && (rp->getinfo_return == BMP_RESULT_OK))) {
-		if (rp->getinfo_return == BMP_RESULT_INSANE) {
-			logerr(rp->c.log, "trying to load insanley large image");
-			return BMP_RESULT_INSANE;
-		}
-		logerr(rp->c.log, "getinfo had failed, cannot load image");
-		return BMP_RESULT_ERROR;
+	if (rp->getinfo_return == BMP_RESULT_INSANE) {
+		logerr(rp->c.log, "trying to load insanley large image");
+		return BMP_RESULT_INSANE;
 	}
 
 	if (!buffer) {
-		logerr(rp->c.log, "buffer pointer is NULL");
+		logerr(rp->c.log, "Buffer pointer is NULL. (It may point to a NULL pointer, but must not itself be NULL)");
 		return BMP_RESULT_ERROR;
 	}
 
@@ -174,7 +175,7 @@ static BMPRESULT s_load_image_or_line(BMPREAD_R rp, unsigned char **restrict buf
 
 	if (rp->read_state < RS_LOAD_STARTED) {  /* either whole image or first line */
 		if (rp->bytes_read > rp->fh->offbits) {
-			logerr(rp->c.log, "Corrupt file");
+			logerr(rp->c.log, "Corrupt file, invalid offset to image bitmap data");
 			goto abort;
 		}
 		/* skip to actual bitmap data: */
