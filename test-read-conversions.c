@@ -67,7 +67,7 @@ int main(int argc, const char **argv)
 
 		struct {
 			uint16_t s2_13;
-			float expected;
+			double   expected;
 		} data[] = {
 			{ .s2_13 = 0x2000u, .expected =  1.0},
 			{ .s2_13 = 0xe000u, .expected = -1.0},
@@ -78,9 +78,10 @@ int main(int argc, const char **argv)
 
 		for (int i = 0; i < ARRAY_LEN(data); i++) {
 			double d = s_s2_13_to_float(data[i].s2_13);
-			if (d != data[i].expected) {
+			printf("is %.12f, expected %.12f\n", d, data[i].expected);
+			if (fabs(d - data[i].expected) > 0.000000001) {
 				printf("%s() failed on data set %d: 0x%04x\n", func, i, data[i].s2_13);
-				printf("expected %f, got %f\n", data[i].expected, d);
+				printf("expected %.12f, got %.12f\n", data[i].expected, d);
 				return 1;
 			}
 		}
@@ -128,6 +129,33 @@ int main(int argc, const char **argv)
 		}
 		return 0;
 	}
+
+
+	if (!strcmp(func, "s_srgb_gamma_float")) {
+
+		struct {
+			double lin;
+			double expected;
+		} data[] = {
+			{ .lin = 0.0, .expected =  0.0},
+			{ .lin = 1.0, .expected =  1.0},
+			{ .lin = 0.1, .expected =  0.349190213},
+			{ .lin = 0.5, .expected =  0.735356983},
+			{ .lin = 0.9, .expected =  0.954687172},
+		};
+
+		for (int i = 0; i < ARRAY_LEN(data); i++) {
+			double d = s_srgb_gamma_float(data[i].lin);
+			printf("is %.12f, expected %.12f\n", d, data[i].expected);
+			if (fabs(d - data[i].expected) > 0.000000001) {
+				printf("%s() failed on data set %d: %f\n", func, i, data[i].lin);
+				printf("expected %.12f, got %.12f\n", data[i].expected, d);
+				return 1;
+			}
+		}
+		return 0;
+	}
+
 
 	fprintf(stderr, "Invalid test '%s'\n", func);
 

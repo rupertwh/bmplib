@@ -70,8 +70,8 @@ pkg_mod.generate(libraries: bmplib,
                  description: 'Library for reading/writing Windows BMP files.',
 )
 
-test_read_s2_13 = executable('test_read_s2_13',
-                 'test-read_s2_13.c',
+test_read_conversions = executable('test_read_conversions',
+                 'test-read-conversions.c',
                  'bmp-common.c',
                  'bmp-read.c',
                  'bmp-write.c',
@@ -81,7 +81,8 @@ test_read_s2_13 = executable('test_read_s2_13',
                  dependencies: m_dep,
 )
 
-test('read - s_s2_13_to_float',            test_read_s2_13, args : ['s_s2_13_to_float'])
-test('read - s_convert64',                 test_read_s2_13, args : ['s_convert64'])
-test('read - s_float_to_s2_13',            test_read_s2_13, args : ['s_float_to_s2_13'])
-test('read - roundtrip_s2.13-float-s2.13', test_read_s2_13, args : ['roundtrip_s2.13-float-s2.13'])
+test('read - s_s2_13_to_float',            test_read_conversions, args : ['s_s2_13_to_float'])
+test('read - s_convert64',                 test_read_conversions, args : ['s_convert64'])
+test('read - s_float_to_s2_13',            test_read_conversions, args : ['s_float_to_s2_13'])
+test('read - roundtrip_s2.13-float-s2.13', test_read_conversions, args : ['roundtrip_s2.13-float-s2.13'])
+test('read - s_srgb_gamma_float',          test_read_conversions, args : ['s_srgb_gamma_float'])
