@@ -288,6 +288,7 @@ static void s_read_one_line(BMPREAD_R rp, unsigned char *restrict line)
 
 static inline bool     s_read_rgb_pixel(BMPREAD_R rp, union Pixel *restrict px);
 static inline double   s_s2_13_to_float(uint16_t s2_13);
+static inline uint16_t s_float_to_s2_13(double d);
 static inline double   s_int_to_float(unsigned long ul, int bits);
 static inline void     s_convert64(uint16_t *val64);
 static inline void     s_convert64srgb(uint16_t *val64);
@@ -373,8 +374,7 @@ static void s_read_rgb_line(BMPREAD_R rp, unsigned char *restrict line)
 			} else {
 				for (i = 0; i < rp->result_channels; i++) {
 					d = s_int_to_float(px.value[i], rp->cmask.bits.value[i]);
-					d = d * 8192.0 + 0.5;
-					((uint16_t*)line)[offs+i] = (uint16_t) d;
+					((uint16_t*)line)[offs+i] = s_float_to_s2_13(d);
 				}
 			}
 			break;
@@ -404,6 +404,14 @@ static inline double s_s2_13_to_float(uint16_t s2_13)
 		s16 = (int16_t)s2_13;
 
 	return s16 / 8192.0;
+}
+
+
+static inline uint16_t s_float_to_s2_13(double d)
+{
+	d = MIN(d, 3.99987793);
+	d = MAX(-4.0, d);
+	return (uint16_t) ((int)round(d * 8192.0) & 0xffff);
 }
 
 
@@ -467,7 +475,7 @@ static inline uint16_t s_srgb_gamma_s2_13(uint16_t s2_13)
 
 	d = s_s2_13_to_float(s2_13);
 	d = s_srgb_gamma_float(d);
-	return (uint16_t) ((int)round(d * 8192.0) & 0xffff);
+	return s_float_to_s2_13(d);
 }
 
 
@@ -908,10 +916,10 @@ static inline void s_int_to_result_format(BMPREAD_R rp, int frombits, unsigned c
 		}
 		switch (rp->result_format) {
 		case BMP_FORMAT_FLOAT:
-			((float*)px)[c] = (float) ((double) v / ((1ULL<<frombits)-1));
+			((float*)px)[c] = s_int_to_float(v, frombits);
 			break;
 		case BMP_FORMAT_S2_13:
-			((uint16_t*)px)[c] = (uint16_t) ((double) v / ((1ULL<<frombits)-1) * 8192.0 + 0.5);
+			((uint16_t*)px)[c] = s_float_to_s2_13(s_int_to_float(v, frombits));
 			break;
 		default:
 #ifdef DEBUG
