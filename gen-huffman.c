@@ -26,7 +26,7 @@
 #include <string.h>
 
 
-#if (! __bool_true_false_are_defined)
+#if (! __bool_true_false_are_defined && __STDC_VERSION__ < 202000L)
 typedef int bool;
 #define true  1
 #define false 0
