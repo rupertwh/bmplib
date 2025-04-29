@@ -81,8 +81,11 @@ test_read_conversions = executable('test_read_conversions',
                  dependencies: m_dep,
 )
 
-test('read - s_s2_13_to_float',            test_read_conversions, args : ['s_s2_13_to_float'])
-test('read - s_convert64',                 test_read_conversions, args : ['s_convert64'])
-test('read - s_float_to_s2_13',            test_read_conversions, args : ['s_float_to_s2_13'])
-test('read - roundtrip_s2.13-float-s2.13', test_read_conversions, args : ['roundtrip_s2.13-float-s2.13'])
-test('read - s_srgb_gamma_float',          test_read_conversions, args : ['s_srgb_gamma_float'])
+test('read - s_s2_13_to_float',              test_read_conversions, args : ['s_s2_13_to_float'])
+test('read - s_convert64',                   test_read_conversions, args : ['s_convert64'])
+test('read - s_float_to_s2_13',              test_read_conversions, args : ['s_float_to_s2_13'])
+test('read - roundtrip_s2.13-float-s2.13',   test_read_conversions, args : ['roundtrip_s2.13-float-s2.13'])
+test('read - s_srgb_gamma_float',            test_read_conversions, args : ['s_srgb_gamma_float'])
+test('read - s_int8_to_result_format/float', test_read_conversions, args : ['s_int8_to_result_format', 'float'])
+test('read - s_int8_to_result_format/int',   test_read_conversions, args : ['s_int8_to_result_format', 'int'])
+test('read - s_int8_to_result_format/s2.13', test_read_conversions, args : ['s_int8_to_result_format', 's2.13'])

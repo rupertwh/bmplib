@@ -26,14 +26,15 @@
 
 int main(int argc, const char **argv)
 {
-	const char *func;
+	const char *func, *subtest ="";
 
-	if (argc != 2) {
+	if (argc < 2) {
 		fprintf(stderr, "Invalid invocation\n");
 		return 2;
 	}
 	func = argv[1];
-
+	if (argc >= 3)
+		subtest = argv[2];
 
 	if (!strcmp(func, "s_float_to_s2_13")) {
 
@@ -87,7 +88,6 @@ int main(int argc, const char **argv)
 		}
 		return 0;
 	}
-
 
 
 	if (!strcmp(func, "roundtrip_s2.13-float-s2.13")) {
@@ -157,7 +157,93 @@ int main(int argc, const char **argv)
 	}
 
 
-	fprintf(stderr, "Invalid test '%s'\n", func);
+	if (!strcmp(func, "s_int8_to_result_format") && !strcmp(subtest, "float")) {
 
+		struct Bmpread br = { .result_format = BMP_FORMAT_FLOAT, .result_bitsperchannel = 32 };
+		struct {
+			int    channels;
+			int    rgba[4];
+			float  expected[4];
+		} data[] = {
+			{ .channels = 3, .rgba = { 0, 0, 0, 0}, .expected = { 0.0, 0.0, 0.0, 0.0 } },
+			{ .channels = 3, .rgba = { 255, 255, 255, 255}, .expected = { 1.0, 1.0, 1.0, 0.0 } },
+			{ .channels = 4, .rgba = { 127, 128, 1, 254}, .expected = { 0.4980392, 0.5019608, 0.0039216, 0.9960784 } },
+		};
+		float floatbuf[4] = { 0 };
+
+		for (int i = 0; i < ARRAY_LEN(data); i++) {
+			br.result_channels = data[i].channels;
+			s_int8_to_result_format(&br, data[i].rgba, (unsigned char*) floatbuf);
+			//printf("is %.12f, expected %.12f\n", d, data[i].expected);
+			for (int j = 0; j < 4; j++) {
+				if (fabs(floatbuf[j] - data[i].expected[j]) > 0.0000001) {
+					printf("%s()/%s - failed on data set %d:\n", func, subtest, i);
+					printf("expected %.12f, got %.12f\n", data[i].expected[j], floatbuf[j]);
+					return 1;
+				}
+			}
+		}
+		return 0;
+	}
+
+
+	if (!strcmp(func, "s_int8_to_result_format") && !strcmp(subtest, "int")) {
+
+		struct Bmpread br = { .result_format = BMP_FORMAT_INT, .result_bitsperchannel = 8 };
+		struct {
+			int      channels;
+			int      rgba[4];
+			unsigned expected[4];
+		} data[] = {
+			{ .channels = 3, .rgba = { 0, 0, 0, 0}, .expected = { 0, 0, 0, 0 } },
+			{ .channels = 3, .rgba = { 255, 255, 255, 255}, .expected = { 255, 255, 255, 0 } },
+			{ .channels = 4, .rgba = { 127, 128, 1, 254}, .expected = { 127, 128, 1, 254 } },
+		};
+		uint8_t int8buf[4] = { 0 };
+
+		for (int i = 0; i < ARRAY_LEN(data); i++) {
+			br.result_channels = data[i].channels;
+			s_int8_to_result_format(&br, data[i].rgba, (unsigned char*) int8buf);
+			for (int j = 0; j < 4; j++) {
+				if (int8buf[j] != data[i].expected[j]) {
+					printf("%s()/%s - failed on data set %d:\n", func, subtest, i);
+					printf("expected %u, got %u\n", (unsigned)data[i].expected[j], (unsigned)int8buf[j]);
+					return 1;
+				}
+			}
+		}
+		return 0;
+	}
+
+
+	if (!strcmp(func, "s_int8_to_result_format") && !strcmp(subtest, "s2.13")) {
+
+		struct Bmpread br = { .result_format = BMP_FORMAT_S2_13, .result_bitsperchannel = 16 };
+		struct {
+			int      channels;
+			int      rgba[4];
+			uint16_t expected[4];
+		} data[] = {
+			{ .channels = 3, .rgba = { 0, 0, 0, 0}, .expected = { 0, 0, 0, 0 } },
+			{ .channels = 3, .rgba = { 255, 255, 255, 255}, .expected = { 0x2000, 0x2000, 0x2000, 0 } },
+			{ .channels = 4, .rgba = { 127, 128, 1, 254}, .expected = { 0x0ff0, 0x1010, 0x0020, 0x1fe0 } },
+		};
+		uint16_t s213buf[4] = { 0 };
+
+		for (int i = 0; i < ARRAY_LEN(data); i++) {
+			br.result_channels = data[i].channels;
+			s_int8_to_result_format(&br, data[i].rgba, (unsigned char*) s213buf);
+			for (int j = 0; j < 4; j++) {
+				if (s213buf[j] != data[i].expected[j]) {
+					printf("%s()/%s - failed on data set %d:\n", func, subtest, i);
+					printf("expected %u, got %u\n", (unsigned)data[i].expected[j], (unsigned)s213buf[j]);
+					return 1;
+				}
+			}
+		}
+		return 0;
+	}
+
+	fprintf(stderr, "Invalid test '%s'\n", func);
 	return 2;
 }
