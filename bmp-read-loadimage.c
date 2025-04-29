@@ -66,7 +66,7 @@ static void s_log_error_from_state(BMPREAD_R rp);
 static bool s_cont_error(BMPREAD_R rp);
 static bool s_stopping_error(BMPREAD_R rp);
 static inline int s_read_one_byte(BMPREAD_R rp);
-static inline void s_int_to_result_format(BMPREAD_R rp, int frombits, unsigned char *restrict px);
+static inline void s_int8_to_result_format(BMPREAD_R rp, const int *restrict fromrgba, unsigned char *restrict px);
 
 static BMPRESULT s_load_image_or_line(BMPREAD_R rp, unsigned char **restrict buffer, bool line_by_line);
 static void s_read_rgb_line(BMPREAD_R rp, unsigned char *restrict line);
@@ -556,9 +556,10 @@ static inline uint32_t s_buffer32_bits(struct Buffer32 *restrict buf, int nbits)
 static void s_read_indexed_line(BMPREAD_R rp, unsigned char *restrict line)
 {
 	int             x = 0, v;
-	bool            done = false;
 	struct Buffer32 buffer;
 	size_t          offs;
+	int             rgba[4] = { 0 };
+	bool            done = false;
 
 	/* the buffer size of 32 bits takes care of padding bytes */
 
@@ -577,10 +578,10 @@ static void s_read_indexed_line(BMPREAD_R rp, unsigned char *restrict line)
 			if (rp->result_indexed) {
 				line[offs] = v;
 			} else {
-				line[offs]   = rp->palette->color[v].red;
-				line[offs+1] = rp->palette->color[v].green;
-				line[offs+2] = rp->palette->color[v].blue;
-				s_int_to_result_format(rp, 8, line + offs);
+				rgba[0] = rp->palette->color[v].red;
+				rgba[1] = rp->palette->color[v].green;
+				rgba[2] = rp->palette->color[v].blue;
+				s_int8_to_result_format(rp, rgba, line + offs);
 			}
 
 			if (++x == rp->width) {
@@ -605,6 +606,7 @@ static void s_read_rle_line(BMPREAD_R rp, unsigned char *restrict line,
 	bool    repeat = false, padding = false, odd = false;
 	int     right, up;
 	int     v, r = 0, g = 0, b = 0;
+	int     rgba[4] = { 0, 0, 0, 0xff };
 	size_t  offs;
 	int     bits = rp->ih->bitcount;
 
@@ -638,14 +640,12 @@ static void s_read_rle_line(BMPREAD_R rp, unsigned char *restrict line,
 			}
 
 			offs = (size_t) *x * rp->result_bytes_per_pixel;
-			if ((rp->undefined_mode == BMP_UNDEFINED_TO_ALPHA) && !rp->result_indexed)
-				line[offs+3] = 0xff; /* set alpha to 1.0 for defined pixels */
 			switch (bits) {
 			case 24:
-				line[offs]   = r;
-				line[offs+1] = g;
-				line[offs+2] = b;
-				s_int_to_result_format(rp, 8, line + offs);
+				rgba[0] = r;
+				rgba[1] = g;
+				rgba[2] = b;
+				s_int8_to_result_format(rp, rgba, line + offs);
 				break;
 			case 4:
 			case 8:
@@ -662,10 +662,10 @@ static void s_read_rle_line(BMPREAD_R rp, unsigned char *restrict line,
 				if (rp->result_indexed) {
 					line[offs] = v;
 				} else {
-					line[offs]   = rp->palette->color[v].red;
-					line[offs+1] = rp->palette->color[v].green;
-					line[offs+2] = rp->palette->color[v].blue;
-					s_int_to_result_format(rp, 8, line + offs);
+					rgba[0] = rp->palette->color[v].red;
+					rgba[1] = rp->palette->color[v].green;
+					rgba[2] = rp->palette->color[v].blue;
+					s_int8_to_result_format(rp, rgba, line + offs);
 				}
 				break;
 			}
@@ -780,6 +780,7 @@ static void s_read_huffman_line(BMPREAD_R rp, unsigned char *restrict line)
 {
 	size_t   offs;
 	int      x = 0, runlen;
+	int      rgba[4] = { 0 };
 	bool     black = false;
 
 	while (x < rp->width)  {
@@ -818,10 +819,10 @@ static void s_read_huffman_line(BMPREAD_R rp, unsigned char *restrict line)
 			if (rp->result_indexed) {
 				line[offs] = black ^ rp->c.huffman_black_is_zero;
 			} else {
-				line[offs]   = rp->palette->color[black ^ rp->c.huffman_black_is_zero].red;
-				line[offs+1] = rp->palette->color[black ^ rp->c.huffman_black_is_zero].green;
-				line[offs+2] = rp->palette->color[black ^ rp->c.huffman_black_is_zero].blue;
-				s_int_to_result_format(rp, 8, line + offs);
+				rgba[0] = rp->palette->color[black ^ rp->c.huffman_black_is_zero].red;
+				rgba[1] = rp->palette->color[black ^ rp->c.huffman_black_is_zero].green;
+				rgba[2] = rp->palette->color[black ^ rp->c.huffman_black_is_zero].blue;
+				s_int8_to_result_format(rp, rgba, line + offs);
 			}
 		}
 		black = !black;
@@ -875,51 +876,25 @@ static bool s_huff_find_eol(BMPREAD_R rp)
 
 
 /********************************************************
- * 	s_int_to_result_format
- * convert integer values in image buffer
+ * s_int8_to_result_format
+ * convert 8-bit integer values (from indexed images)
  * to selected number format.
  *******************************************************/
 
-static inline void s_int_to_result_format(BMPREAD_R rp, int frombits, unsigned char *restrict px)
+static inline void s_int8_to_result_format(BMPREAD_R rp, const int *restrict fromrgba, unsigned char *restrict px)
 {
-	int      c;
-	uint32_t v;
 
-	if (rp->result_format == BMP_FORMAT_INT)
-		return;
-#ifdef DEBUG
-	if (frombits > rp->result_bitsperchannel) {
-		printf("This is bad, frombits must be <= result_bitsperchannel");
-		exit(1);
-	}
-#endif
-	for (c = rp->result_channels - 1; c >= 0; c--) {
-		/* going backwards because we are converting in place and
-		 * always growing, never shrinking
-		 */
-		switch (frombits) {
-		case 8:
-			v = px[c];
-			break;
-		case 16:
-			v = ((uint16_t*)px)[c];
-			break;
-		case 32:
-			v = ((uint32_t*)px)[c];
-			break;
-		default:
-#ifdef DEBUG
-			printf("Invalid pixel int size %d!!!", frombits);
-			exit(1);
-#endif
-			break;
-		}
+	for (int c = 0; c < rp->result_channels; c++) {
 		switch (rp->result_format) {
+		case BMP_FORMAT_INT:
+			assert(rp->result_bitsperchannel == 8);
+			px[c] = fromrgba[c];
+			break;
 		case BMP_FORMAT_FLOAT:
-			((float*)px)[c] = s_int_to_float(v, frombits);
+			((float*)px)[c] = s_int_to_float(fromrgba[c], 8);
 			break;
 		case BMP_FORMAT_S2_13:
-			((uint16_t*)px)[c] = s_float_to_s2_13(s_int_to_float(v, frombits));
+			((uint16_t*)px)[c] = s_float_to_s2_13(s_int_to_float(fromrgba[c], 8));
 			break;
 		default:
 #ifdef DEBUG
