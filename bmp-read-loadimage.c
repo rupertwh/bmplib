@@ -529,14 +529,13 @@ static inline bool s_buffer32_fill(BMPREAD_R rp, struct Buffer32 *restrict buf)
 	for (int i = 0; i < 4; i++) {
 		if (EOF == (byte = s_read_one_byte(rp))) {
 			s_set_file_error(rp);
-			return false;
+			break;
 		}
-		buf->buffer <<= 8;
-		buf->buffer |= byte;
+		buf->buffer |= ((uint32_t)byte) << (8 * (3 - i));
+		buf->n += 8;
 	}
-	buf->n = 32;
 
-	return true;
+	return buf->n > 0;
 }
 
 
@@ -544,7 +543,7 @@ static inline uint32_t s_buffer32_bits(struct Buffer32 *restrict buf, int nbits)
 {
 	uint32_t result;
 
-	assert(nbits < 32);
+	assert(0 < nbits && nbits < 32);
 
 	result = buf->buffer >> (32 - nbits);
 	buf->buffer = (buf->buffer << nbits) & 0xffffffffUL;
