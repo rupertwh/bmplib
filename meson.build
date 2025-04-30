@@ -102,3 +102,4 @@ test('read - s_int8_to_result_format/float', test_read_conversions, args : ['s_i
 test('read - s_int8_to_result_format/int',   test_read_conversions, args : ['s_int8_to_result_format', 'int'])
 test('read - s_int8_to_result_format/s2.13', test_read_conversions, args : ['s_int8_to_result_format', 's2.13'])
 test('read - s_buffer32_fill',               test_read_io, args : ['s_buffer32_fill'])
+test('read - s_buffer32_bits',               test_read_io, args : ['s_buffer32_bits'])

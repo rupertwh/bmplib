@@ -91,6 +91,38 @@ int main(int argc, const char **argv)
 		return 0;
 	}
 
+	if (!strcmp(func, "s_buffer32_bits")) {
+		struct Buffer32 buf32 = { 0 };
+
+		struct {
+			uint32_t buffer;
+			int      n;
+			int      request;
+			uint32_t expected;
+		} data[] = {
+			{ .buffer = 0x0f000000UL, .n =  8, .request = 8, .expected = 0x0f },
+			{ .buffer = 0x34ffffffUL, .n = 16, .request = 4, .expected = 0x03 },
+			{ .buffer = 0x1234ffffUL, .n = 32, .request = 8, .expected = 0x12 },
+			{ .buffer = 0x8234ffffUL, .n = 16, .request = 2, .expected = 0x02 },
+			{ .buffer = 0x8234ffffUL, .n = 16, .request = 1, .expected = 0x01 },
+		};
+
+		for (int i = 0; i < ARRAY_LEN(data); i++) {
+			buf32.buffer = data[i].buffer;
+			buf32.n      = data[i].n;
+			uint32_t result = s_buffer32_bits(&buf32, data[i].request);
+			if (result != data[i].expected) {
+				printf("%s() failed on dataset %d:\n", func, i);
+				printf("expected 0x%08lx, got 0x%08lx\n",
+				                    (unsigned long)data[i].expected,
+				                    (unsigned long)result);
+				return 1;
+			}
+		}
+
+		return 0;
+	}
+
 	fprintf(stderr, "Invalid test '%s'\n", func);
 
 	return 2;
