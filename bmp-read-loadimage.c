@@ -543,7 +543,8 @@ static inline uint32_t s_buffer32_bits(struct Buffer32 *restrict buf, int nbits)
 {
 	uint32_t result;
 
-	assert(0 < nbits && nbits < 32);
+	assert(nbits == 1 || nbits == 2 || nbits == 4 || nbits == 8);
+	assert(nbits <= buf->n);
 
 	result = buf->buffer >> (32 - nbits);
 	buf->buffer = (buf->buffer << nbits) & 0xffffffffUL;
