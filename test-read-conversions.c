@@ -1,6 +1,6 @@
-/* bmplib - test-read_s2_13.c
+/* bmplib - test-read-conversions.c
  *
- * Copyright (c) 2024, Rupert Weber.
+ * Copyright (c) 2025, Rupert Weber.
  *
  * This file is part of bmplib.
  * bmplib is free software: you can redistribute it and/or modify
@@ -18,9 +18,7 @@
  * If not, see <https://www.gnu.org/licenses/>
  */
 
-
 #include "bmp-read-loadimage.c"
-
 
 #define ARRAY_LEN(a) ((int)(sizeof (a) / sizeof ((a)[0])))
 

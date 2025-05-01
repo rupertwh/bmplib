@@ -1,6 +1,6 @@
 /* bmplib - bmplib.h
  *
- * Copyright (c) 2024, Rupert Weber.
+ * Copyright (c) 2024, 2025, Rupert Weber.
  *
  * This file is part of bmplib.
  * bmplib is free software: you can redistribute it and/or modify
