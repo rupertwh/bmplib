@@ -1,4 +1,4 @@
-/* bmplib - test-read_s2_13.c
+/* bmplib - test-read-io.c
  *
  * Copyright (c) 2024, Rupert Weber.
  *
@@ -87,9 +87,9 @@ int main(int argc, const char **argv)
 			fclose(br.file);
 			}
 		}
-
 		return 0;
 	}
+
 
 	if (!strcmp(func, "s_buffer32_bits")) {
 		struct Buffer32 buf32 = { 0 };
@@ -119,11 +119,93 @@ int main(int argc, const char **argv)
 				return 1;
 			}
 		}
+		return 0;
+	}
 
+
+	if (!strcmp(func, "s_read_rgb_pixel")) {
+		struct Bmpread br = { 0 };
+		struct Bmpinfo ih = { 0 };
+		union Pixel    px = { 0 };
+
+		br.ih = &ih;
+
+		struct {
+			unsigned char *filedata;
+			size_t         datalen;
+			int            bitcount;
+			uint64_t       mask[4];
+			int            shift[4];
+			uint32_t       expected[4];
+			bool           has_alpha;
+			int            result_bitsperchannel;
+		} data[] = {
+			{ .filedata = (unsigned char[]){0x03,0x02,0x01,0x00},
+			  .datalen = 4,
+			  .bitcount = 32,
+			  .mask = { 0xff0000, 0xff00, 0xff, 0 },
+			  .shift = { 16, 8, 0, 0 },
+			  .has_alpha = false,
+			  .expected = { 1, 2, 3, 255 },
+			  .result_bitsperchannel = 8,
+			},
+			{ .filedata = (unsigned char[]){0x01,0x02,0x03,0x04,0x05,0x06,0x07,0x08},
+			  .datalen = 8,
+			  .bitcount = 64,
+			  .mask = { 0xffffULL, 0xffff0000ULL, 0xffff00000000ULL, 0xffff000000000000ULL },
+			  .shift = { 0, 16, 32, 48 },
+			  .has_alpha = true,
+			  .expected = { 0x0201, 0x0403, 0x0605, 0x0807 },
+			  .result_bitsperchannel = 16,
+			},
+			{ .filedata = (unsigned char[]){ 0x12, 0x34 },
+			  .datalen = 2,
+			  .bitcount = 16,
+			  .mask = { 0x0f, 0xf0, 0x0f00, 0xf000 },
+			  .shift = { 0, 4, 8, 12 },
+			  .has_alpha = true,
+			  .expected = { 2, 1, 4, 3 },
+			  .result_bitsperchannel = 8,
+			},
+		};
+
+		for (int i = 0; i < ARRAY_LEN(data); i++) {
+			br.file = provide_as_file(data[i].filedata, data[i].datalen);
+			if (!br.file)
+				return 1;
+
+			br.cmask.mask.red   = data[i].mask[0];
+			br.cmask.mask.green = data[i].mask[1];
+			br.cmask.mask.blue  = data[i].mask[2];
+			br.cmask.mask.alpha = data[i].mask[3];
+			br.cmask.shift.red   = data[i].shift[0];
+			br.cmask.shift.green = data[i].shift[1];
+			br.cmask.shift.blue  = data[i].shift[2];
+			br.cmask.shift.alpha = data[i].shift[3];
+			br.has_alpha = data[i].has_alpha;
+			br.result_bitsperchannel = data[i].result_bitsperchannel;
+			ih.bitcount = data[i].bitcount;
+
+			if (!s_read_rgb_pixel(&br, &px)) {
+				printf("%s(): EOF or file error (.filedata too short?)\n", func);
+				return 2;
+			}
+
+			for (int j = 0; j < 4; j++) {
+				if (px.value[j] != data[i].expected[j]) {
+					printf("%s() failed on dataset %d, val %d:\n", func, i, j);
+					printf("expected %d, got %d\n",
+						(int)data[i].expected[j],
+						(int)px.value[j]);
+					return 1;
+				}
+			}
+			fclose(br.file);
+			br.file = NULL;
+		}
 		return 0;
 	}
 
 	fprintf(stderr, "Invalid test '%s'\n", func);
-
 	return 2;
 }
