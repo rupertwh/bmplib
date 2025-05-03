@@ -402,7 +402,10 @@ bool read_s16_le(FILE *file, int16_t *val)
 	if (!read_u16_le(file, &u16))
 		return false;
 
-	*val = (int16_t)u16;
+	if (u16 >= 0x8000U)
+		*val = (int16_t)(u16 - 0x8000U) - 32767 - 1;
+	else
+		*val = (int16_t)u16;
 
 	return true;
 }
@@ -414,7 +417,10 @@ bool read_s32_le(FILE *file, int32_t *val)
 	if (!read_u32_le(file, &u32))
 		return false;
 
-	*val = (int32_t)u32;
+	if (u32 >= 0x80000000UL)
+		*val = (int32_t)(u32 - 0x80000000UL) - 0x7fffffffL - 1;
+	else
+		*val = (int32_t)u32;
 
 	return true;
 }
