@@ -228,9 +228,7 @@ bool cm_all_positive_int(int n, ...);
 bool cm_is_one_of(int n, int candidate, ...);
 
 #define cm_align4size(a)     ((((a) + 3) >> 2) << 2)
-#define cm_align2size(a)     ((((a) + 1) >> 1) << 1)
 int cm_align4padding(unsigned long long a);
-int cm_align2padding(unsigned long long a);
 int cm_count_bits(unsigned long v);
 
 bool cm_gobble_up(BMPREAD_R rp, int count);

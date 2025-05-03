@@ -320,17 +320,10 @@ bool cm_is_one_of(int n, int candidate, ...)
 }
 
 
-
 int cm_align4padding(unsigned long long a)
 {
 	return (int) (cm_align4size(a) - a);
 }
-
-int cm_align2padding(unsigned long long a)
-{
-	return (int) (cm_align2size(a) - a);
-}
-
 
 
 /*********************************************************
