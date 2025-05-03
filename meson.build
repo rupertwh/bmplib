@@ -106,3 +106,4 @@ test('read - s_buffer32_bits',               test_read_io, args : ['s_buffer32_b
 test('read - s_read_rgb_pixel',              test_read_io, args : ['s_read_rgb_pixel'])
 test('read - read_u16_le',                   test_read_io, args : ['read_u16_le'])
 test('read - read_s16_le',                   test_read_io, args : ['read_s16_le'])
+test('read - read_u32_le',                   test_read_io, args : ['read_u32_le'])
