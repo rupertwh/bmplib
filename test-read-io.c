@@ -327,6 +327,51 @@ int main(int argc, const char **argv)
 		return 0;
 	}
 
+	if (!strcmp(func, "read_s32_le")) {
+
+		struct {
+			unsigned char *filedata;
+			int            datalen;
+			long           expected;
+		} data[] = {
+			{ .filedata = (unsigned char[]){0x00,0x00,0x00,0x00},
+		          .datalen = 4, .expected = 0 },
+			{ .filedata = (unsigned char[]){0x01,0x00,0x00,0x00},
+		          .datalen = 4, .expected = 1 },
+			{ .filedata = (unsigned char[]){0xff,0xff,0xff,0xff},
+		          .datalen = 4, .expected = -1 },
+			{ .filedata = (unsigned char[]){0x00,0x00,0x00,0x80},
+		          .datalen = 4, .expected = -2147483648L },
+			{ .filedata = (unsigned char[]){0x01,0x00,0x00,0x80},
+		          .datalen = 4, .expected = -2147483647L },
+			{ .filedata = (unsigned char[]){0xfe,0xff,0xff,0x7f},
+		          .datalen = 4, .expected = 2147483646L },
+			{ .filedata = (unsigned char[]){0xff,0xff,0xff,0x7f},
+		          .datalen = 4, .expected = 2147483647L },
+			{ .filedata = (unsigned char[]){0x12,0x34,0x56,0x78},
+		          .datalen = 4, .expected = 2018915346L },
+		};
+
+		for (int i = 0; i < ARRAY_LEN(data); i++) {
+			FILE *file = provide_as_file(data[i].filedata, data[i].datalen);
+			if (!file)
+				return 2;
+
+			int32_t result = 0;
+			if (!read_s32_le(file, &result)) {
+				perror(func);
+				return 3;
+			}
+			if (result != data[i].expected) {
+				printf("%s() failed on dataset %d:\n", func, i);
+				printf("expected %ld, got %ld\n", (long)data[i].expected,
+				                                  (long)result);
+				return 1;
+			}
+		}
+		return 0;
+	}
+
 	fprintf(stderr, "Invalid test '%s'\n", func);
 	return 2;
 }
