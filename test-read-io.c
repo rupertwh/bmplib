@@ -73,7 +73,7 @@ int main(int argc, const char **argv)
 		for (int i = 0; i < ARRAY_LEN(data); i++) {
 			br.file = provide_as_file(data[i].filedata, data[i].datalen);
 			if (!br.file)
-				return 1;
+				return 2;
 			bool result = s_buffer32_fill(&br, &buf32);
 			if (result != data[i].expected_return || buf32.buffer != data[i].expected_data ||
 			                                         buf32.n != data[i].expected_n) {
@@ -172,7 +172,7 @@ int main(int argc, const char **argv)
 		for (int i = 0; i < ARRAY_LEN(data); i++) {
 			br.file = provide_as_file(data[i].filedata, data[i].datalen);
 			if (!br.file)
-				return 1;
+				return 2;
 
 			br.cmask.mask.red   = data[i].mask[0];
 			br.cmask.mask.green = data[i].mask[1];
@@ -202,6 +202,44 @@ int main(int argc, const char **argv)
 			}
 			fclose(br.file);
 			br.file = NULL;
+		}
+		return 0;
+	}
+
+	if (!strcmp(func, "read_u16_le")) {
+
+		struct {
+			unsigned char *filedata;
+			int            datalen;
+			unsigned       expected;
+		} data[] = {
+			{ .filedata = (unsigned char[]){0x00,0x00},
+		          .datalen = 2, .expected = 0 },
+			{ .filedata = (unsigned char[]){0x01,0x00},
+		          .datalen = 2, .expected = 1 },
+			{ .filedata = (unsigned char[]){0xfe,0xff},
+		          .datalen = 2, .expected = 65534 },
+			{ .filedata = (unsigned char[]){0xff,0xff},
+		          .datalen = 2, .expected = 65535 },
+		};
+
+		for (int i = 0; i < ARRAY_LEN(data); i++) {
+			FILE *file = provide_as_file(data[i].filedata, data[i].datalen);
+			if (!file)
+				return 2;
+
+			uint16_t result = 0;
+			if (!read_u16_le(file, &result)) {
+				perror(func);
+				return 3;
+			}
+			if (result != data[i].expected) {
+				printf("%s() failed on dataset %d:\n", func, i);
+				printf("expected 0x%04x, got 0x%04x\n",
+				                    (unsigned)data[i].expected,
+				                    (unsigned)result);
+				return 1;
+			}
 		}
 		return 0;
 	}

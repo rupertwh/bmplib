@@ -104,3 +104,4 @@ test('read - s_int8_to_result_format/s2.13', test_read_conversions, args : ['s_i
 test('read - s_buffer32_fill',               test_read_io, args : ['s_buffer32_fill'])
 test('read - s_buffer32_bits',               test_read_io, args : ['s_buffer32_bits'])
 test('read - s_read_rgb_pixel',              test_read_io, args : ['s_read_rgb_pixel'])
+test('read - read_u16_le',                   test_read_io, args : ['read_u16_le'])
