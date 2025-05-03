@@ -227,7 +227,7 @@ bool cm_all_equal_int(int n, ...);
 bool cm_all_positive_int(int n, ...);
 bool cm_is_one_of(int n, int candidate, ...);
 
-#define cm_align4size(a)     ((((a) + 3) >> 2) << 2)
+#define cm_align4size(a)     (((a) + 3) & ~3ULL)
 int cm_align4padding(unsigned long long a);
 int cm_count_bits(unsigned long v);
 
