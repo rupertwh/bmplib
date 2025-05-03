@@ -244,6 +244,49 @@ int main(int argc, const char **argv)
 		return 0;
 	}
 
+	if (!strcmp(func, "read_s16_le")) {
+
+		struct {
+			unsigned char *filedata;
+			int            datalen;
+			int            expected;
+		} data[] = {
+			{ .filedata = (unsigned char[]){0x00,0x00},
+		          .datalen = 2, .expected = 0 },
+			{ .filedata = (unsigned char[]){0x01,0x00},
+		          .datalen = 2, .expected = 1 },
+			{ .filedata = (unsigned char[]){0xff,0xff},
+		          .datalen = 2, .expected = -1 },
+			{ .filedata = (unsigned char[]){0x00,0x80},
+		          .datalen = 2, .expected = -32768 },
+			{ .filedata = (unsigned char[]){0x01,0x80},
+		          .datalen = 2, .expected = -32767 },
+			{ .filedata = (unsigned char[]){0xfe,0x7f},
+		          .datalen = 2, .expected = 32766 },
+			{ .filedata = (unsigned char[]){0xff,0x7f},
+		          .datalen = 2, .expected = 32767 },
+		};
+
+		for (int i = 0; i < ARRAY_LEN(data); i++) {
+			FILE *file = provide_as_file(data[i].filedata, data[i].datalen);
+			if (!file)
+				return 2;
+
+			int16_t result = 0;
+			if (!read_s16_le(file, &result)) {
+				perror(func);
+				return 3;
+			}
+			if (result != data[i].expected) {
+				printf("%s() failed on dataset %d:\n", func, i);
+				printf("expected %d, got %d\n", (int)data[i].expected,
+				                                (int)result);
+				return 1;
+			}
+		}
+		return 0;
+	}
+
 	fprintf(stderr, "Invalid test '%s'\n", func);
 	return 2;
 }
