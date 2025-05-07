@@ -1492,7 +1492,7 @@ static int s_calc_mask_values(BMPWRITE_R wp)
  * 	s_imgrgb_to_outbytes
  *****************************************************************************/
 
-static inline uint16_t float_to_s2_13(double d);
+static inline uint16_t s_float_to_2_13(double d);
 
 static inline unsigned long long s_imgrgb_to_outbytes(BMPWRITE_R wp,
 	                                   const unsigned char *restrict imgpx)
@@ -1560,7 +1560,7 @@ static inline unsigned long long s_imgrgb_to_outbytes(BMPWRITE_R wp,
 
 		if (wp->out64bit) {
 			for (i = 0; i < outchannels; i++) {
-				comp[i] = float_to_s2_13(dcomp[i]);
+				comp[i] = s_float_to_2_13(dcomp[i]);
 			}
 		} else {
 			for (i = 0; i < outchannels; i++) {
@@ -1613,23 +1613,15 @@ static inline unsigned long long s_imgrgb_to_outbytes(BMPWRITE_R wp,
 
 
 /*****************************************************************************
- * 	float_to_s2_13
+ * 	s_float_to_2_13
+ * 	(duplicate from bmp-read-loadimage.c)
  *****************************************************************************/
 
-static inline uint16_t float_to_s2_13(double d)
+static inline uint16_t s_float_to_2_13(double d)
 {
-	uint16_t s2_13;
-
-	d = round(d * 8192.0);
-
-	if (d >= 32767.0)
-		s2_13 = 0x7fff; /* max positive value */
-	else if (d <= -32768.0)
-		s2_13 = 0x8000; /* min negative value */
-	else
-		s2_13 = (uint16_t) (0xffff & (int)d);
-
-	return s2_13;
+	d = MIN(d, 3.99987793);
+	d = MAX(-4.0, d);
+	return (uint16_t) ((int)round(d * 8192.0) & 0xffff);
 }
 
 
