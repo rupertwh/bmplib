@@ -18,4 +18,12 @@
  * If not, see <https://www.gnu.org/licenses/>
  */
 
+struct WritePipe {
+	FILE *file_read;
+};
+
+
 FILE* provide_as_file(const unsigned char *data, size_t size);
+
+FILE* open_write_pipe(struct WritePipe **hwp);
+int data_from_write_pipe(struct WritePipe *wp, unsigned char *buffer, int size);

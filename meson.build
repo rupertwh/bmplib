@@ -93,6 +93,17 @@ test_read_io = executable('test_read_io',
                  dependencies: m_dep,
 )
 
+test_write_io = executable('test_write_io',
+                 'test-write-io.c',
+                 'bmp-common.c',
+                 'bmp-read.c',
+                 'huffman.c',
+                 'logging.c',
+                 'test-fileio-pipes.c',
+                 huff_codes[0],
+                 dependencies: m_dep,
+)
+
 test('read - s_s2_13_to_float',              test_read_conversions, args : ['s_s2_13_to_float'])
 test('read - s_convert64',                   test_read_conversions, args : ['s_convert64'])
 test('read - s_float_to_s2_13',              test_read_conversions, args : ['s_float_to_s2_13'])
@@ -108,3 +119,7 @@ test('read - read_u16_le',                   test_read_io, args : ['read_u16_le'
 test('read - read_s16_le',                   test_read_io, args : ['read_s16_le'])
 test('read - read_u32_le',                   test_read_io, args : ['read_u32_le'])
 test('read - read_s32_le',                   test_read_io, args : ['read_s32_le'])
+test('write - write_u32_le',                 test_write_io, args : ['write_u32_le'])
+test('write - write_s32_le',                 test_write_io, args : ['write_s32_le'])
+test('write - write_u16_le',                 test_write_io, args : ['write_u16_le'])
+test('write - write_s16_le',                 test_write_io, args : ['write_s16_le'])

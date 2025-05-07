@@ -69,3 +69,77 @@ abort:
 
 	return NULL;
 }
+
+
+
+FILE* open_write_pipe(struct WritePipe **hwp)
+{
+	int   fd[2] = { -1, -1 };
+	FILE *file_read = NULL, *file_write = NULL;
+	struct WritePipe *wp = NULL;
+
+	if (!hwp)
+		return NULL;
+	*hwp = NULL;
+
+	if (!(wp = malloc(sizeof *wp))) {
+		perror(__func__);
+		goto abort;
+	}
+	memset(wp, 0, sizeof *wp);
+
+	if (pipe(fd)) {
+		perror("pipe");
+		goto abort;
+	}
+
+	if (!(file_read = fdopen(fd[0], "rb"))) {
+		perror("fdopen read pipe");
+		goto abort;
+	}
+
+	if (!(file_write = fdopen(fd[1], "w"))) {
+		perror("fdopen write pipe");
+		goto abort;
+	}
+
+	wp->file_read = file_read;
+	*hwp = wp;
+
+	return file_write;
+
+abort:
+	if (file_write)
+		fclose(file_write);
+	else if (fd[1] != -1)
+		close(fd[1]);
+
+	if (file_read)
+		fclose(file_read);
+	else if (fd[0] != -1)
+		close(fd[0]);
+
+	if (wp)
+		free(wp);
+
+	return NULL;
+}
+
+int data_from_write_pipe(struct WritePipe *wp, unsigned char *buffer, int size)
+{
+	int nread;
+
+	if (!(wp && buffer)) {
+		fprintf(stderr, "%s(): invalid NULL argument(s)\n", __func__);
+		exit(3);
+	}
+	if (!wp->file_read) {
+		fprintf(stderr, "%s(): FILE* is NULL\n", __func__);
+		exit(3);
+	}
+	nread = fread(buffer, 1, size, wp->file_read);
+	fclose(wp->file_read);
+	free(wp);
+
+	return nread;
+}
