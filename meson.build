@@ -123,3 +123,6 @@ test('write - write_u32_le',                 test_write_io, args : ['write_u32_l
 test('write - write_s32_le',                 test_write_io, args : ['write_s32_le'])
 test('write - write_u16_le',                 test_write_io, args : ['write_u16_le'])
 test('write - write_s16_le',                 test_write_io, args : ['write_s16_le'])
+test('write - s_imgrgb_to_outbytes/int',     test_write_io, args : ['s_imgrgb_to_outbytes', 'int'])
+test('write - s_imgrgb_to_outbytes/float',   test_write_io, args : ['s_imgrgb_to_outbytes', 'float'])
+test('write - s_imgrgb_to_outbytes/s2.13',   test_write_io, args : ['s_imgrgb_to_outbytes', 's2.13'])
