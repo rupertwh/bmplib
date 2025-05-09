@@ -75,8 +75,8 @@ static void s_read_rle_line(BMPREAD_R rp, unsigned char *restrict line,
                                int *restrict x, int *restrict yoff);
 static void s_read_huffman_line(BMPREAD_R rp, unsigned char *restrict line);
 
-_Static_assert(sizeof(float) == 4, "sizeof(float) must be 4. Cannot build bmplib.");
-_Static_assert(sizeof(int) * CHAR_BIT >= 32, "int must be at least 32bit. Cannot build bmplib.");
+static_assert(sizeof(float) == 4, "sizeof(float) must be 4. Cannot build bmplib.");
+static_assert(sizeof(int) * CHAR_BIT >= 32, "int must be at least 32bit. Cannot build bmplib.");
 
 
 /********************************************************

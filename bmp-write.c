@@ -290,7 +290,7 @@ API BMPRESULT bmpwrite_set_iccprofile(BMPHANDLE h, size_t size,
 {
 	BMPWRITE wp;
 
-	assert(MAX_ICCPROFILE_SIZE < INT_MAX);
+	static_assert(MAX_ICCPROFILE_SIZE < INT_MAX);
 
 	if (!(wp = cm_write_handle(h)))
 		return BMP_RESULT_ERROR;
