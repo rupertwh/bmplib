@@ -84,6 +84,9 @@ typedef union Bmphandle *BMPHANDLE;
  *                       the image unless you first call
  *                       bmpread_set_insanity_limit() to set a new
  *                       sufficiently high limit.
+ *
+ * BMP_RESULT_ARRAY      The BMP file contains an OS/2 bitmap array.
+ *
  */
 enum Bmpresult {
 	BMP_RESULT_OK = 0,
@@ -93,6 +96,7 @@ enum Bmpresult {
 	BMP_RESULT_PNG,
 	BMP_RESULT_JPEG,
 	BMP_RESULT_ERROR,
+	BMP_RESULT_ARRAY
 };
 typedef enum Bmpresult BMPRESULT;
 
@@ -113,10 +117,11 @@ typedef enum Bmpresult BMPRESULT;
  */
 enum Bmpconv64 {
 	BMP_CONV64_SRGB   = 0,  /* default */
-	BMP_CONV64_LINEAR = 1,
+	BMP_CONV64_LINEAR,
+	BMP_CONV64_NONE,
+
 	BMP_CONV64_16BIT_SRGB DEPR("use BMP_CONV64_SRGB instead")   = 0,
-	BMP_CONV64_16BIT      DEPR("use BMP_CONV64_LINEAR instead") = 1,
-	BMP_CONV64_NONE
+	BMP_CONV64_16BIT      DEPR("use BMP_CONV64_LINEAR instead") = 1
 };
 typedef enum Bmpconv64 BMPCONV64;
 
@@ -131,7 +136,7 @@ typedef enum Bmpconv64 BMPCONV64;
  */
 enum BmpInfoVer {
 	BMPINFO_CORE_OS21 = 1,  /* 12 bytes */
-	BMPINFO_OS22,           /* 16 / 40(!) / 64 bytes */
+	BMPINFO_OS22,           /* 16 / 40(!) / up to 64 bytes */
 	BMPINFO_V3,             /* 40 bytes */
 	BMPINFO_V3_ADOBE1,      /* 52 bytes, unofficial */
 	BMPINFO_V3_ADOBE2,      /* 56 bytes, unofficial */
@@ -164,8 +169,9 @@ typedef enum BmpRLEtype BMPRLETYPE;
 /*
  * undefined pixels in RLE images
  *
- * BMP_UNDEFINED_TO_ZERO   set undefined pixels to 0 (= first
- *                         entry in color table).
+ * BMP_UNDEFINED_LEAVE     leaves image buffer at whatever pixel value it was
+ *                         initialized to. (0, i.e. first entry in color table if
+ *                         buffer was allocated by bmplib).
  *
  * BMP_UNDEFINED_TO_ALPHA  (default) make undefined pixels
  *                         transparent. Always adds an alpha
@@ -174,8 +180,9 @@ typedef enum BmpRLEtype BMPRLETYPE;
  */
 enum BmpUndefined {
 	BMP_UNDEFINED_LEAVE,
+	BMP_UNDEFINED_TO_ALPHA,  /* default */
+
 	BMP_UNDEFINED_TO_ZERO DEPR("use BMP_UNDEFINED_LEAVE instead") = 0,
-	BMP_UNDEFINED_TO_ALPHA  /* default */
 };
 typedef enum BmpUndefined BMPUNDEFINED;
 
@@ -195,6 +202,19 @@ enum BmpOrient {
 typedef enum BmpOrient BMPORIENT;
 
 
+/*
+ * number format
+ *
+ * format of input/output RGB(A) image data. (indexed image data
+ * is always 8-bit integer).
+ *
+ * BMP_FORMAT_INT    8/16/32-bit integer
+ *
+ * BMP_FORMAT_FLOAT  32-bit float
+ *
+ * BMP_FORMAT_S2_13  16-bit s2.13 fixed point with range from
+ *                   -4.0 to +3.999...
+ */
 enum BmpFormat {
 	BMP_FORMAT_INT,
 	BMP_FORMAT_FLOAT,
@@ -212,16 +232,37 @@ enum BmpIntent {
 };
 typedef enum BmpIntent BMPINTENT;
 
+
+enum BmpImagetype {
+	BMP_IMAGETYPE_NONE,
+	BMP_IMAGETYPE_BM = 0x4d42,
+	BMP_IMAGETYPE_CI = 0x4943,
+	BMP_IMAGETYPE_CP = 0x5043,
+	BMP_IMAGETYPE_IC = 0x4349,
+	BMP_IMAGETYPE_PT = 0x5450,
+	BMP_IMAGETYPE_BA = 0x4142
+};
+typedef enum BmpImagetype BMPIMAGETYPE;
+
+struct BmpArrayInfo {
+	BMPIMAGETYPE type;
+	int          width, height;
+	int          ncolors;                   /* -1 = RGB */
+	int          screenwidth, screenheight; /* typically 0, or 1024x768 for 'hi-res' */
+};
+
+
+
 APIDECL BMPHANDLE bmpread_new(FILE *file);
 
 APIDECL BMPRESULT bmpread_load_info(BMPHANDLE h);
 
 APIDECL BMPRESULT bmpread_dimensions(BMPHANDLE  h,
-			     int       *width,
-			     int       *height,
-			     int       *channels,
-			     int       *bitsperchannel,
-			     BMPORIENT *orientation);
+                                     int       *width,
+                                     int       *height,
+                                     int       *channels,
+                                     int       *bitsperchannel,
+                                     BMPORIENT *orientation);
 
 APIDECL int       bmpread_width(BMPHANDLE h);
 APIDECL int       bmpread_height(BMPHANDLE h);
@@ -237,10 +278,8 @@ APIDECL size_t    bmpread_buffersize(BMPHANDLE h);
 APIDECL BMPRESULT bmpread_load_image(BMPHANDLE h, unsigned char **buffer);
 APIDECL BMPRESULT bmpread_load_line(BMPHANDLE h, unsigned char **buffer);
 
-
 APIDECL int       bmpread_num_palette_colors(BMPHANDLE h);
 APIDECL BMPRESULT bmpread_load_palette(BMPHANDLE h, unsigned char **palette);
-
 
 APIDECL void      bmpread_set_undefined(BMPHANDLE h, BMPUNDEFINED mode);
 APIDECL void      bmpread_set_insanity_limit(BMPHANDLE h, size_t limit);
@@ -286,6 +325,7 @@ APIDECL BMPRESULT bmpwrite_set_rendering_intent(BMPHANDLE h, BMPINTENT intent);
 
 APIDECL BMPRESULT bmpwrite_save_image(BMPHANDLE h, const unsigned char *image);
 APIDECL BMPRESULT bmpwrite_save_line(BMPHANDLE h, const unsigned char *line);
+
 
 
 APIDECL BMPRESULT bmp_set_number_format(BMPHANDLE h, BMPFORMAT format);
