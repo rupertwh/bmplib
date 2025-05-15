@@ -179,7 +179,8 @@ static BMPRESULT s_load_image_or_line(BMPREAD_R rp, unsigned char **restrict buf
 			goto abort;
 		}
 		/* skip to actual bitmap data: */
-		if (!cm_gobble_up(rp, rp->fh->offbits - rp->bytes_read)) {
+		/*if (!cm_gobble_up(rp, rp->fh->offbits - rp->bytes_read)) {*/
+		if (fseek(rp->file, (long)rp->fh->offbits, SEEK_SET)) {
 			logerr(rp->c.log, "while seeking start of bitmap data");
 			goto abort;
 		}
@@ -214,6 +215,21 @@ abort:
 
 
 /********************************************************
+ * 	apply_icon_alpha
+ *******************************************************/
+
+static void apply_icon_alpha(BMPREAD_R rp, int y, unsigned char *restrict line)
+{
+	if (!(rp->result_channels == 4 && rp->result_bitsperchannel == 8))
+		return;
+
+	for (int x = 0; x < rp->width; x++) {
+		line[x * 4 + 3] = rp->icon_mono_and[(rp->height - y - 1) * rp->width + x];
+	}
+}
+
+
+/********************************************************
  * 	s_read_whole_image
  *******************************************************/
 
@@ -237,6 +253,7 @@ static void s_read_whole_image(BMPREAD_R rp, unsigned char *restrict image)
 /********************************************************
  * 	s_read_one_line
  *******************************************************/
+static void s_read_monoicon_line(BMPREAD_R rp, unsigned char *restrict line, int y);
 
 static void s_read_one_line(BMPREAD_R rp, unsigned char *restrict line)
 {
@@ -255,6 +272,8 @@ static void s_read_one_line(BMPREAD_R rp, unsigned char *restrict line)
 			} else {
 				if (rp->ih->compression == BI_OS2_HUFFMAN) {
 					s_read_huffman_line(rp, line);
+				} else if (rp->is_mono_icon) {
+					s_read_monoicon_line(rp, line, rp->lbl_y);
 				} else {
 					s_read_indexed_line(rp, line);
 				}
@@ -274,12 +293,30 @@ static void s_read_one_line(BMPREAD_R rp, unsigned char *restrict line)
 		s_read_rgb_line(rp, line);
 	}
 
+	if (rp->is_color_icon || rp->is_mono_icon) {
+		apply_icon_alpha(rp, rp->lbl_y, line);
+	}
+
 	rp->lbl_y++;
 	if (rp->lbl_y >= rp->height) {
 		rp->read_state = RS_LOAD_DONE;
 	}
 }
 
+
+/********************************************************
+ * 	s_read_monoicon_line
+ *******************************************************/
+
+static void s_read_monoicon_line(BMPREAD_R rp, unsigned char *restrict line, int y)
+{
+	for (int x = 0; x < rp->width; x++) {
+		for (int c = 0; c < 3; c++) {
+			line[rp->result_bytes_per_pixel * x + c] =
+			            rp->icon_mono_xor[(rp->height - y - 1) * rp->width + x];
+		}
+	}
+}
 
 
 /********************************************************

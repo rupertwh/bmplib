@@ -97,6 +97,7 @@ struct Bmpcommon {
 
 enum ReadState {
 	RS_INIT,
+	RS_EXPECT_ICON_MASK,
 	RS_HEADER_OK,
 	RS_DIMENSIONS_QUERIED,
 	RS_LOAD_STARTED,
@@ -114,11 +115,17 @@ struct Bmpread {
 	int               width;
 	int               height;
 	enum BmpOrient    orientation;
+	bool              is_color_icon;
+	bool              is_mono_icon;
 	bool              has_alpha;   /* original BMP has alpha channel */
 	enum BmpUndefined undefined_mode;
 	bool              we_allocated_buffer;
 	struct Palette   *palette;
 	struct Colormask  cmask;
+	unsigned char    *icon_mono_and;
+	unsigned char    *icon_mono_xor;
+	int               icon_mono_width;
+	int               icon_mono_height;
 	/* result image dimensions */
 	enum Bmpconv64    conv64;
 	int               result_channels;
