@@ -130,6 +130,11 @@ static BMPRESULT s_load_image_or_line(BMPREAD_R rp, unsigned char **restrict buf
 		return BMP_RESULT_ERROR;
 	}
 
+	if (rp->read_state >= RS_ARRAY) {
+		logerr(rp->c.log, "Invalid operation on bitmap array");
+		return BMP_RESULT_ERROR;
+	}
+
 	if (rp->read_state >= RS_LOAD_DONE) {
 		logerr(rp->c.log, "Cannot load image more than once!");
 		return BMP_RESULT_ERROR;

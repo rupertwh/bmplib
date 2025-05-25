@@ -102,6 +102,7 @@ enum ReadState {
 	RS_DIMENSIONS_QUERIED,
 	RS_LOAD_STARTED,
 	RS_LOAD_DONE,
+	RS_ARRAY,
 	RS_FATAL,
 };
 
@@ -111,6 +112,9 @@ struct Bmpread {
 	size_t            bytes_read;  /* number of bytes we have read from the file */
 	struct Bmpfile   *fh;
 	struct Bmpinfo   *ih;
+	struct Arraylist *arrayimgs;
+	int               narrayimgs;
+	bool              is_arrayimg;
 	unsigned int      insanity_limit;
 	int               width;
 	int               height;
@@ -335,6 +339,14 @@ struct Bmpinfo {
 
 	/* internal only, not from file: */
 	enum BmpInfoVer version;
+};
+
+struct Bmparray {
+	uint16_t type;
+	uint32_t size;
+	uint32_t offsetnext;
+	uint16_t screenwidth;
+	uint16_t screenheight;
 };
 
 #define IH_PROFILEDATA_OFFSET (14L + 112L)
