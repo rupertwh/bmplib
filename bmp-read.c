@@ -32,6 +32,7 @@
 #include "bmplib.h"
 #include "logging.h"
 #include "bmp-common.h"
+#include "bmp-read-icons.h"
 #include "bmp-read.h"
 
 
@@ -92,7 +93,6 @@ abort:
  *****************************************************************************/
 static bool s_read_file_header(BMPREAD_R rp);
 static bool s_read_info_header(BMPREAD_R rp);
-static long s_load_icon_masks(BMPREAD_R rp);
 static bool s_is_bmptype_supported(BMPREAD_R rp);
 static struct Palette* s_read_palette(BMPREAD_R rp);
 static bool s_read_colormasks(BMPREAD_R rp);
@@ -123,7 +123,7 @@ API BMPRESULT bmpread_load_info(BMPHANDLE h)
 	case BMPFILE_IC:
 	case BMPFILE_PT:
 		if (rp->read_state < RS_EXPECT_ICON_MASK) {
-			pos = s_load_icon_masks(rp);
+			pos = icon_load_masks(rp);
 			if (pos < 0)
 				goto abort;
 
@@ -151,9 +151,18 @@ API BMPRESULT bmpread_load_info(BMPHANDLE h)
 		break;
 
 	case BMPFILE_BA:
-		logerr(rp->c.log, "OS/2 Bitmap arrays not supported");
-		rp->lasterr = BMP_ERR_UNSUPPORTED;
-		goto abort;
+		if (rp->is_arrayimg) {
+			logerr(rp->c.log, "Invalid nested bitmap array");
+			goto abort;
+		}
+		if (!icon_read_array(rp)) {
+			logerr(rp->c.log, "Failed to read icon array index");
+			goto abort;
+		}
+
+		rp->read_state = RS_ARRAY;
+		return BMP_RESULT_ARRAY;
+
 
 	default:
 		logerr(rp->c.log, "Unkown BMP type 0x%04x\n", (unsigned int) rp->fh->type);
@@ -263,141 +272,6 @@ abort:
 
 
 /*****************************************************************************
- * 	s_load_icon_masks
- *****************************************************************************/
-
-static long s_load_icon_masks(BMPREAD_R rp)
-{
-	/* OS/2 icons and pointers contain 1-bit AND and XOR masks, stacked in a single
-	 * image. For monochrome (IC/PT), that's all the image; for color (CI/CP), these are
-	 * followed by a complete color image (including headers), the masks are only used
-	 * for transparency information.
-	 */
-
-	BMPHANDLE      hmono = NULL;
-	BMPREAD        rpmono;
-	unsigned char *monobuf = NULL;
-	size_t         bufsize;
-	unsigned       bmptype = rp->fh->type;
-	long           posmono = 0, poscolor = 0;
-
-	if (fseek(rp->file, -14, SEEK_CUR)) {
-		logsyserr(rp->c.log, "Seeking to start of icon/pointer");
-		goto abort;
-	}
-
-	if (-1 == (posmono = ftell(rp->file))) {
-		logsyserr(rp->c.log, "Saving file position");
-		goto abort;
-	}
-
-	/* first, load monochrome XOR/AND bitmap. We'll use the
-	 * AND bitmap as alpha channel
-	 */
-
-	if (!(hmono = bmpread_new(rp->file))) {
-		logerr(rp->c.log, "Getting handle for monochrome XOR/AND map");
-		goto abort;
-	}
-	rpmono = cm_read_handle(hmono);
-
-	rpmono->read_state = RS_EXPECT_ICON_MASK;
-	if (BMP_RESULT_OK != bmpread_load_info(hmono)) {
-		logerr(rp->c.log, "%s", bmp_errmsg(hmono));
-		goto abort;
-	}
-
-	if (rpmono->fh->type != bmptype) {
-		logerr(rp->c.log, "File type mismatch. Have 0x%04x, expected 0x%04x",
-		                                       (unsigned)rpmono->fh->type, bmptype);
-	}
-
-	if (rp->fh->type == BMPFILE_CI || rp->fh->type == BMPFILE_CP) {
-		if (-1 == (poscolor = ftell(rp->file))) {
-			logsyserr(rp->c.log, "Saving position of color header");
-			goto abort;
-		}
-	}
-
-	if (!(rpmono->width > 0 && rpmono->height > 0 && rpmono->width <=512 && rpmono->height <= 512)) {
-		logerr(rp->c.log, "Invalid icon/pointer dimensions: %dx%d", rpmono->width, rpmono->height);
-		goto abort;
-	}
-
-	if (rpmono->ih->bitcount != 1) {
-		logerr(rp->c.log, "Invalid icon/pointer monochrome bitcount: %d", rpmono->ih->bitcount);
-		goto abort;
-	}
-
-	if (rpmono->height & 1) {
-		logerr(rp->c.log, "Invalid odd icon/pointer height: %d (must be even)", rpmono->height);
-		goto abort;
-	}
-
-	int width, height, bitsperchannel, channels;
-	if (BMP_RESULT_OK != bmpread_dimensions(hmono, &width, &height, &channels, &bitsperchannel, NULL)) {
-		logerr(rp->c.log, "%s", bmp_errmsg(hmono));
-		goto abort;
-	}
-
-	height /= 2; /* mochrome contains two stacked bitmaps (AND and XOR) */
-
-	if (channels != 3 || bitsperchannel != 8) {
-		logerr(rp->c.log, "Unexpected result color depth for monochrome image: %d channels, %d bits/channel",
-		                                                                            channels, bitsperchannel);
-		goto abort;
-	}
-
-	/* store the AND/XOR bitmaps in the main BMPREAD struct */
-
-	bufsize = bmpread_buffersize(hmono);
-	if (BMP_RESULT_OK != bmpread_load_image(hmono, &monobuf)) {
-		logerr(rp->c.log, "%s", bmp_errmsg(hmono));
-		goto abort;
-	}
-
-	if (!(bufsize > 0 && monobuf != NULL)) {
-		logerr(rp->c.log, "Panic! unkown error while loading monochrome bitmap");
-		goto abort;
-	}
-
-	if (!(rp->icon_mono_and = malloc(width * height))) {
-		logsyserr(rp->c.log, "Allocating mono AND bitmap");
-		goto abort;
-	}
-	if (!(rp->icon_mono_xor = malloc(width * height))) {
-		logsyserr(rp->c.log, "Allocating mono XOR bitmap");
-		goto abort;
-	}
-
-	for (int i = 0; i < width * height; i++)
-		rp->icon_mono_and[i] = 255 - monobuf[3 * i];
-
-	for (int i = 0; i < width * height; i++)
-		rp->icon_mono_xor[i] = monobuf[3 * (width * height + i)];
-
-	rp->icon_mono_width  = width;
-	rp->icon_mono_height = height;
-	free(monobuf);
-	monobuf = NULL;
-	bmp_free(hmono);
-	hmono = NULL;
-
-	if (rp->fh->type == BMPFILE_CI || rp->fh->type == BMPFILE_CP)
-		return poscolor;
-
-	return posmono;
-
-abort:
-	if (hmono)
-		bmp_free(hmono);
-	if (monobuf)
-		free(monobuf);
-	return -1;
-}
-
-
-/*****************************************************************************
  * 	bmpread_set_64bit_conv
  *****************************************************************************/
 
@@ -454,7 +328,7 @@ API int bmpread_is_64bit(BMPHANDLE h)
 	if (!(rp = cm_read_handle(h)))
 		return 0;
 
-	if (rp->read_state < RS_HEADER_OK || rp->read_state >= RS_FATAL)
+	if (rp->read_state < RS_HEADER_OK || rp->read_state >= RS_ARRAY)
 		return 0;
 
 	if (rp->ih->bitcount == 64)
@@ -475,7 +349,7 @@ API size_t bmpread_iccprofile_size(BMPHANDLE h)
 	if (!(rp = cm_read_handle(h)))
 		return 0;
 
-	if (rp->read_state < RS_HEADER_OK || rp->read_state >= RS_FATAL)
+	if (rp->read_state < RS_HEADER_OK || rp->read_state >= RS_ARRAY)
  		return 0;
 
 	if (rp->ih->cstype == PROFILE_EMBEDDED && rp->ih->profilesize <= MAX_ICCPROFILE_SIZE) {
@@ -501,7 +375,7 @@ API BMPRESULT bmpread_load_iccprofile(BMPHANDLE h, unsigned char **profile)
 	if (!(rp = cm_read_handle(h)))
 		goto abort;
 
-	if (rp->read_state < RS_HEADER_OK || rp->read_state >= RS_FATAL) {
+	if (rp->read_state < RS_HEADER_OK || rp->read_state >= RS_ARRAY) {
 		logerr(rp->c.log, "Must load info before loading ICC profile");
 		goto abort;
 	}
@@ -598,7 +472,7 @@ API BMPRESULT bmpread_dimensions(BMPHANDLE h, int* restrict width,
 	if (rp->read_state < RS_HEADER_OK)
 		bmpread_load_info((BMPHANDLE)(void*)rp);
 
-	if (rp->read_state < RS_HEADER_OK || rp->read_state >= RS_FATAL)
+	if (rp->read_state < RS_HEADER_OK || rp->read_state >= RS_ARRAY)
 		return BMP_RESULT_ERROR;
 
 	if (width) {
@@ -642,6 +516,9 @@ BMPRESULT br_set_number_format(BMPREAD_R rp, enum BmpFormat format)
 		rp->result_format_explicit = true;
 		return BMP_RESULT_OK;
 	}
+
+	if (rp->read_state >= RS_ARRAY)
+		return BMP_RESULT_ERROR;
 
 	switch (format) {
 	case BMP_FORMAT_INT:
@@ -737,7 +614,7 @@ static int s_single_dim_val(BMPHANDLE h, enum Dimint dim)
 	if (!(rp = cm_read_handle(h)))
 		return 0;
 
-	if (rp->read_state < RS_HEADER_OK || rp->read_state >= RS_FATAL)
+	if (rp->read_state < RS_HEADER_OK || rp->read_state >= RS_ARRAY)
 		return 0;
 
 	switch (dim) {
@@ -789,7 +666,7 @@ API size_t bmpread_buffersize(BMPHANDLE h)
 	if (!(rp = cm_read_handle(h)))
 		return 0;
 
-	if (rp->read_state < RS_HEADER_OK || rp->read_state >= RS_FATAL)
+	if (rp->read_state < RS_HEADER_OK || rp->read_state >= RS_ARRAY)
 		return 0;
 
 	rp->read_state = MAX(RS_DIMENSIONS_QUERIED, rp->read_state);
@@ -877,6 +754,16 @@ void br_free(BMPREAD rp)
 {
 	rp->c.magic = 0;
 
+	if (rp->is_arrayimg)
+		return;
+
+	if (rp->arrayimgs) {
+		for (int i = 0; i < rp->narrayimgs; i++) {
+			((BMPREAD)rp->arrayimgs[i].handle)->is_arrayimg = false;
+			br_free((BMPREAD)rp->arrayimgs[i].handle);
+		}
+		free(rp->arrayimgs);
+	}
 	if (rp->icon_mono_and)
 		free(rp->icon_mono_and);
 	if (rp->icon_mono_xor)
@@ -1696,7 +1583,7 @@ static int s_info_int(BMPHANDLE h, enum Infoint info)
 	if (!(rp = cm_read_handle(h)))
 		return 0;
 
-	if (rp->read_state < RS_HEADER_OK || rp->read_state >= RS_FATAL)
+	if (rp->read_state < RS_HEADER_OK || rp->read_state >= RS_ARRAY)
 		return 0;
 
 	switch (info) {
@@ -1767,7 +1654,7 @@ API BMPRESULT bmpread_info_channel_bits(BMPHANDLE h, int *r, int *g, int *b, int
 	if (!(rp = cm_read_handle(h)))
 		return BMP_RESULT_ERROR;
 
-	if (rp->read_state < RS_HEADER_OK || rp->read_state >= RS_FATAL)
+	if (rp->read_state < RS_HEADER_OK || rp->read_state >= RS_ARRAY)
 		return BMP_RESULT_ERROR;
 
 	if (rp->ih->compression == BI_OS2_RLE24) {
