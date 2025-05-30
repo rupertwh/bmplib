@@ -121,18 +121,18 @@ struct Bmpread {
 	struct Colormask  cmask;
 	/* result image dimensions */
 	enum Bmpconv64    conv64;
-	bool              conv64_explicit;
 	int               result_channels;
-	bool              result_indexed;
 	int               result_bits_per_pixel;
 	int               result_bytes_per_pixel;
 	int               result_bitsperchannel;
 	enum BmpFormat    result_format;
-	bool              result_format_explicit;
 	size_t            result_size;
+	bool              conv64_explicit;
+	bool              result_indexed;
+	bool              result_format_explicit;
 	/* state */
-	enum ReadState    read_state;
 	unsigned long     lasterr;
+	enum ReadState    read_state;
 	int               getinfo_return;
 	bool              jpeg;
 	bool              png;
@@ -156,7 +156,6 @@ struct Bmpread {
 	bool              file_err;
 	bool              file_eof;
 	bool              panic;
-
 };
 
 enum WriteState {
