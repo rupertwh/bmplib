@@ -900,21 +900,21 @@ static bool s_decide_outformat(BMPWRITE_R wp)
 }
 
 
-
 /*****************************************************************************
  * 	bmpwrite_save_image
  *****************************************************************************/
-static bool s_save_line_rgb(BMPWRITE_R wp, const unsigned char *line);
-static bool s_save_line_rle(BMPWRITE_R wp, const unsigned char *line);
-static bool s_save_line_huff(BMPWRITE_R wp, const unsigned char *line);
+static bool s_save_line(BMPWRITE_R wp, const unsigned char *line);
 
 API BMPRESULT bmpwrite_save_image(BMPHANDLE h, const unsigned char *image)
 {
 	BMPWRITE wp;
-	size_t   offs, linesize;
-	int      y, real_y, res;
+	size_t   linesize, real_y;
+	int      y;
 
 	if (!(wp = cm_write_handle(h)))
+		return BMP_RESULT_ERROR;
+
+	if (s_check_already_saved(wp))
 		return BMP_RESULT_ERROR;
 
 	if (s_check_save_started(wp))
@@ -923,62 +923,18 @@ API BMPRESULT bmpwrite_save_image(BMPHANDLE h, const unsigned char *image)
 	if (!s_ready_to_save(wp))
 		return BMP_RESULT_ERROR;
 
-	if  (!s_save_header(wp)) {
-		goto fatal;
-	}
-
-	wp->write_state = WS_SAVE_STARTED;
-	wp->bytes_written_before_bitdata = wp->bytes_written;
-
-	linesize = (size_t) wp->width * wp->source_bytes_per_pixel;
+	linesize = (size_t)wp->width * wp->source_bytes_per_pixel;
 	for (y = 0; y < wp->height; y++) {
-		real_y = (wp->outorientation == BMP_ORIENT_TOPDOWN) ? y : wp->height - y - 1;
-		offs = (size_t) real_y * linesize;
-		switch (wp->rle) {
-		case 4:
-		case 8:
-		case 24:
-			res = s_save_line_rle(wp, image + offs);
-			break;
-		case 1:
-			res = s_save_line_huff(wp, image + offs);
-			break;
-		default:
-			res = s_save_line_rgb(wp, image + offs);
-			break;
-		}
-		if (!res) {
-			logerr(wp->c.log, "failed saving line %d", y);
-			goto fatal;
-		}
-	}
-	if (wp->rle) {
-		if (wp->rle > 1) {
-			if (EOF == s_write_one_byte(0, wp) ||
-			    EOF == s_write_one_byte(1, wp)) {
-				logsyserr(wp->c.log, "Writing RLE end-of-file marker");
-				goto fatal;
-			}
-		}
-		else {
-			if (!(huff_encode_rtc(wp) && huff_flush(wp))) {
-				logsyserr(wp->c.log, "Writing RTC end-of-file marker");
-				goto fatal;
-			}
+		real_y = (size_t) ((wp->outorientation == BMP_ORIENT_TOPDOWN) ? y : wp->height - y - 1);
+
+		if (!s_save_line(wp, image + real_y * linesize)) {
+			wp->write_state = WS_FATAL;
+			return BMP_RESULT_ERROR;
 		}
 	}
 
-	if (!s_finalize_file(wp))
-		goto fatal;
-
-	wp->write_state = WS_SAVE_DONE;
 	return BMP_RESULT_OK;
-
-fatal:
-	wp->write_state = WS_FATAL;
-	return BMP_RESULT_ERROR;
 }
-
 
 
 /*****************************************************************************
@@ -988,7 +944,6 @@ fatal:
 API BMPRESULT bmpwrite_save_line(BMPHANDLE h, const unsigned char *line)
 {
 	BMPWRITE wp;
-	int      res;
 
 	if (!(wp = cm_write_handle(h)))
 		return BMP_RESULT_ERROR;
@@ -999,11 +954,29 @@ API BMPRESULT bmpwrite_save_line(BMPHANDLE h, const unsigned char *line)
 	if (!s_ready_to_save(wp))
 		return BMP_RESULT_ERROR;
 
+	if (!s_save_line(wp, line))
+		return BMP_RESULT_ERROR;
+
+	return BMP_RESULT_OK;
+}
+
+
+/*****************************************************************************
+ * 	s_save_line
+ *****************************************************************************/
+static bool s_save_line_rgb(BMPWRITE_R wp, const unsigned char *line);
+static bool s_save_line_rle(BMPWRITE_R wp, const unsigned char *line);
+static bool s_save_line_huff(BMPWRITE_R wp, const unsigned char *line);
+
+static bool s_save_line(BMPWRITE_R wp, const unsigned char *line)
+{
+	bool     res;
+
 	if (wp->write_state < WS_SAVE_STARTED) {
 		if  (!s_save_header(wp))
 			goto fatal;
 
-		wp->write_state  = WS_SAVE_STARTED;
+		wp->write_state = WS_SAVE_STARTED;
 		wp->bytes_written_before_bitdata = wp->bytes_written;
 	}
 
@@ -1045,11 +1018,11 @@ API BMPRESULT bmpwrite_save_line(BMPHANDLE h, const unsigned char *line)
 
 		wp->write_state = WS_SAVE_DONE;
 	}
-	return BMP_RESULT_OK;
+	return true;
 
 fatal:
 	wp->write_state = WS_FATAL;
-	return BMP_RESULT_ERROR;
+	return false;
 }
 
 
