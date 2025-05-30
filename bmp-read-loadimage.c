@@ -290,8 +290,8 @@ static inline bool     s_read_rgb_pixel(BMPREAD_R rp, union Pixel *restrict px);
 static inline double   s_s2_13_to_float(uint16_t s2_13);
 static inline uint16_t s_float_to_s2_13(double d);
 static inline double   s_int_to_float(unsigned long ul, int bits);
-static inline void     s_convert64(uint16_t *val64);
-static inline void     s_convert64srgb(uint16_t *val64);
+static inline void s_convert64(uint16_t val64[static 4]);
+static inline void s_convert64srgb(uint16_t val64[static 4]);
 static inline double   s_srgb_gamma_float(double d);
 static inline uint16_t s_srgb_gamma_s2_13(uint16_t s2_13);
 
@@ -421,7 +421,7 @@ static inline double s_int_to_float(unsigned long ul, int bits)
 }
 
 
-static inline void s_convert64(uint16_t *val64)
+static inline void s_convert64(uint16_t val64[static 4])
 {
 	/* convert the s2.13 values of a 64bit BMP to plain old 16bit integers.
 	 * Values are clipped to the representable [0..1] range
@@ -438,7 +438,7 @@ static inline void s_convert64(uint16_t *val64)
 }
 
 
-static inline void s_convert64srgb(uint16_t *val64)
+static inline void s_convert64srgb(uint16_t val64[static 4])
 {
 	/* Same as s_convert64(), but also apply sRGB gamma. */
 
