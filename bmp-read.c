@@ -32,6 +32,7 @@
 #include "bmplib.h"
 #include "logging.h"
 #include "bmp-common.h"
+#include "bmp-read-icons.h"
 #include "bmp-read.h"
 
 
@@ -109,6 +110,9 @@ API BMPRESULT bmpread_load_info(BMPHANDLE h)
 	if (!s_read_file_header(rp))
 		goto abort;
 
+	long     pos;
+	unsigned type = rp->fh->type;
+
 	switch (rp->fh->type) {
 	case BMPFILE_BM:
 		/* ok */
@@ -118,16 +122,60 @@ API BMPRESULT bmpread_load_info(BMPHANDLE h)
 	case BMPFILE_CP:
 	case BMPFILE_IC:
 	case BMPFILE_PT:
+		if (rp->read_state < RS_EXPECT_ICON_MASK) {
+			pos = icon_load_masks(rp);
+			if (pos < 0)
+				goto abort;
+
+			rp->bytes_read = 0;
+			if (fseek(rp->file, pos, SEEK_SET)) {
+				logsyserr(rp->c.log, "Setting file position");
+				goto abort;
+			}
+			if (!s_read_file_header(rp))
+				goto abort;
+
+			if (rp->fh->type != type) {
+				logerr(rp->c.log, "Filetype mismatch: have %x, expected %x",
+				                                   (unsigned)rp->fh->type, type);
+				goto abort;
+			}
+
+			if (type == BMPFILE_CI || type == BMPFILE_CP)
+				rp->is_color_icon = true;
+			else
+				rp->is_mono_icon = true;
+		}
+
+		/* otherwise we read the AND/XOR masks as a normal image */
+		break;
+
 	case BMPFILE_BA:
-		logerr(rp->c.log, "Bitmap array and icon/pointer files not supported");
-		rp->lasterr = BMP_ERR_UNSUPPORTED;
-		goto abort;
+		if (rp->is_arrayimg) {
+			logerr(rp->c.log, "Invalid nested bitmap array");
+			goto abort;
+		}
+		if (!icon_read_array(rp)) {
+			logerr(rp->c.log, "Failed to read icon array index");
+			goto abort;
+		}
+
+		rp->read_state = RS_ARRAY;
+		return BMP_RESULT_ARRAY;
+
 
 	default:
 		logerr(rp->c.log, "Unkown BMP type 0x%04x\n", (unsigned int) rp->fh->type);
 		rp->lasterr = BMP_ERR_UNSUPPORTED;
 		goto abort;
 	}
+
+#if ( LONG_MAX <= 0x7fffffffL )
+	if (rp->fh->offbits > (unsigned long)LONG_MAX) {
+		logerr(rp->c.log, "Invalid offset to image data: %lu", (unsigned long)rp->fh->offbits);
+		goto abort;
+	}
+#endif
 
 	if (!s_read_info_header(rp))
 		goto abort;
@@ -136,6 +184,11 @@ API BMPRESULT bmpread_load_info(BMPHANDLE h)
 
 	/* negative height flips the image vertically */
 	if (rp->ih->height < 0) {
+		if (rp->is_color_icon || rp->is_mono_icon) {
+			logerr(rp->c.log, "Top-down orientation incompatible with icons/pointers");
+			rp->lasterr = BMP_ERR_HEADER;
+			goto abort;
+		}
 		if (rp->ih->height == INT_MIN) {
 			logerr(rp->c.log, "Unsupported image height %ld\n", (long) rp->ih->height);
 			rp->lasterr = BMP_ERR_UNSUPPORTED;
@@ -147,11 +200,14 @@ API BMPRESULT bmpread_load_info(BMPHANDLE h)
 		rp->height = rp->ih->height;
 	}
 
+	if (rp->is_mono_icon)
+		rp->height /= 2;
 
 	if (rp->ih->compression == BI_RLE4 ||
 	    rp->ih->compression == BI_RLE8 ||
-	    rp->ih->compression == BI_OS2_RLE24)
+	    rp->ih->compression == BI_OS2_RLE24) {
 		rp->rle = true;
+	}
 
 	if (rp->ih->compression == BI_JPEG || rp->ih->compression == BI_PNG) {
 		if (!cm_gobble_up(rp, rp->fh->offbits - rp->bytes_read)) {
@@ -192,6 +248,8 @@ API BMPRESULT bmpread_load_info(BMPHANDLE h)
 	if (rp->rle) {
 		rp->result_channels = (rp->undefined_mode == BMP_UNDEFINED_TO_ALPHA) ? 4 : 3;
 	}
+	if (rp->is_color_icon || rp->is_mono_icon)
+		rp->result_channels = 4;
 
 	if (!br_set_resultbits(rp))
 		goto abort;
@@ -211,7 +269,6 @@ abort:
 	rp->getinfo_return = BMP_RESULT_ERROR;
 	return BMP_RESULT_ERROR;
 }
-
 
 
 /*****************************************************************************
@@ -271,7 +328,7 @@ API int bmpread_is_64bit(BMPHANDLE h)
 	if (!(rp = cm_read_handle(h)))
 		return 0;
 
-	if (rp->read_state < RS_HEADER_OK || rp->read_state >= RS_FATAL)
+	if (rp->read_state < RS_HEADER_OK || rp->read_state >= RS_ARRAY)
 		return 0;
 
 	if (rp->ih->bitcount == 64)
@@ -292,7 +349,7 @@ API size_t bmpread_iccprofile_size(BMPHANDLE h)
 	if (!(rp = cm_read_handle(h)))
 		return 0;
 
-	if (rp->read_state < RS_HEADER_OK || rp->read_state >= RS_FATAL)
+	if (rp->read_state < RS_HEADER_OK || rp->read_state >= RS_ARRAY)
  		return 0;
 
 	if (rp->ih->cstype == PROFILE_EMBEDDED && rp->ih->profilesize <= MAX_ICCPROFILE_SIZE) {
@@ -318,7 +375,7 @@ API BMPRESULT bmpread_load_iccprofile(BMPHANDLE h, unsigned char **profile)
 	if (!(rp = cm_read_handle(h)))
 		goto abort;
 
-	if (rp->read_state < RS_HEADER_OK || rp->read_state >= RS_FATAL) {
+	if (rp->read_state < RS_HEADER_OK || rp->read_state >= RS_ARRAY) {
 		logerr(rp->c.log, "Must load info before loading ICC profile");
 		goto abort;
 	}
@@ -415,7 +472,7 @@ API BMPRESULT bmpread_dimensions(BMPHANDLE h, int* restrict width,
 	if (rp->read_state < RS_HEADER_OK)
 		bmpread_load_info((BMPHANDLE)(void*)rp);
 
-	if (rp->read_state < RS_HEADER_OK || rp->read_state >= RS_FATAL)
+	if (rp->read_state < RS_HEADER_OK || rp->read_state >= RS_ARRAY)
 		return BMP_RESULT_ERROR;
 
 	if (width) {
@@ -460,6 +517,9 @@ BMPRESULT br_set_number_format(BMPREAD_R rp, enum BmpFormat format)
 		return BMP_RESULT_OK;
 	}
 
+	if (rp->read_state >= RS_ARRAY)
+		return BMP_RESULT_ERROR;
+
 	switch (format) {
 	case BMP_FORMAT_INT:
 		/* always ok */
@@ -469,6 +529,11 @@ BMPRESULT br_set_number_format(BMPREAD_R rp, enum BmpFormat format)
 	case BMP_FORMAT_S2_13:
 		if (rp->result_indexed) {
 			logerr(rp->c.log, "Cannot load color index as float or s2.13");
+			rp->lasterr = BMP_ERR_FORMAT;
+			return BMP_RESULT_ERROR;
+		}
+		if (rp->is_color_icon || rp->is_mono_icon) {
+			logerr(rp->c.log, "Cannot load icons/pointers as float or s2.13");
 			rp->lasterr = BMP_ERR_FORMAT;
 			return BMP_RESULT_ERROR;
 		}
@@ -549,7 +614,7 @@ static int s_single_dim_val(BMPHANDLE h, enum Dimint dim)
 	if (!(rp = cm_read_handle(h)))
 		return 0;
 
-	if (rp->read_state < RS_HEADER_OK || rp->read_state >= RS_FATAL)
+	if (rp->read_state < RS_HEADER_OK || rp->read_state >= RS_ARRAY)
 		return 0;
 
 	switch (dim) {
@@ -601,7 +666,7 @@ API size_t bmpread_buffersize(BMPHANDLE h)
 	if (!(rp = cm_read_handle(h)))
 		return 0;
 
-	if (rp->read_state < RS_HEADER_OK || rp->read_state >= RS_FATAL)
+	if (rp->read_state < RS_HEADER_OK || rp->read_state >= RS_ARRAY)
 		return 0;
 
 	rp->read_state = MAX(RS_DIMENSIONS_QUERIED, rp->read_state);
@@ -689,6 +754,20 @@ void br_free(BMPREAD rp)
 {
 	rp->c.magic = 0;
 
+	if (rp->is_arrayimg)
+		return;
+
+	if (rp->arrayimgs) {
+		for (int i = 0; i < rp->narrayimgs; i++) {
+			((BMPREAD)rp->arrayimgs[i].handle)->is_arrayimg = false;
+			br_free((BMPREAD)rp->arrayimgs[i].handle);
+		}
+		free(rp->arrayimgs);
+	}
+	if (rp->icon_mono_and)
+		free(rp->icon_mono_and);
+	if (rp->icon_mono_xor)
+		free(rp->icon_mono_xor);
 	if (rp->palette)
 		free(rp->palette);
 	if (rp->ih)
@@ -711,12 +790,23 @@ static bool s_is_bmptype_supported_indexed(BMPREAD_R rp);
 static bool s_is_bmptype_supported(BMPREAD_R rp)
 {
 	if (rp->ih->planes != 1) {
-		logerr(rp->c.log, "Unsupported number of planes (%d). "
-			        "Must be 1.", (int) rp->ih->planes);
+		logerr(rp->c.log, "Unsupported number of planes (%d). Must be 1.", (int) rp->ih->planes);
 		rp->lasterr = BMP_ERR_HEADER;
 		return false;
 	}
 
+	if (rp->is_color_icon || rp->is_mono_icon) {
+		if (rp->ih->compression != BI_RGB) {
+			logerr(rp->c.log, "Unsupported compression %s for icon/pointer",
+			                                         s_compression_name(rp->ih->compression));
+			return false;
+		}
+		if (rp->ih->version > BMPINFO_OS22) {
+			logerr(rp->c.log, "Unsupported header version %s for icon/pointer",
+			                                         cm_infoheader_name(rp->ih->version));
+			return false;
+		}
+	}
 	if (rp->ih->bitcount <= 8)
 		return s_is_bmptype_supported_indexed(rp);
 	else
@@ -1286,7 +1376,7 @@ static bool s_read_file_header(BMPREAD_R rp)
 /*****************************************************************************
  * 	s_read_info_header
  *****************************************************************************/
-static void s_detect_os2_compression(BMPREAD_R rp);
+static void s_detect_os2_header(BMPREAD_R rp);
 
 static bool s_read_info_header(BMPREAD_R rp)
 {
@@ -1414,7 +1504,7 @@ header_done:
 		rp->bytes_read++;
 	}
 
-	s_detect_os2_compression(rp);
+	s_detect_os2_header(rp);
 
 	return true;
 
@@ -1433,16 +1523,19 @@ abort_file_err:
 
 
 /*****************************************************************************
- * 	s_detect_os2_compression
+ * 	s_detect_os2_header
  *****************************************************************************/
 
-static void s_detect_os2_compression(BMPREAD_R rp)
+static void s_detect_os2_header(BMPREAD_R rp)
 {
 	if (rp->ih->version == BMPINFO_V3) {
 		/* might actually be a 40-byte OS/2 header */
 		if (rp->fh->size == 54 ||
 		    (rp->ih->compression == BI_OS2_HUFFMAN_DUP && rp->ih->bitcount == 1) ||
 		    (rp->ih->compression == BI_OS2_RLE24_DUP && rp->ih->bitcount == 24)) {
+			rp->ih->version = BMPINFO_OS22;
+		} else if (rp->fh->type != BMPFILE_BM) {
+			/* arrays, icons, and pointers are always OS/2 */
 			rp->ih->version = BMPINFO_OS22;
 		}
 	}
@@ -1490,7 +1583,7 @@ static int s_info_int(BMPHANDLE h, enum Infoint info)
 	if (!(rp = cm_read_handle(h)))
 		return 0;
 
-	if (rp->read_state < RS_HEADER_OK || rp->read_state >= RS_FATAL)
+	if (rp->read_state < RS_HEADER_OK || rp->read_state >= RS_ARRAY)
 		return 0;
 
 	switch (info) {
@@ -1561,7 +1654,7 @@ API BMPRESULT bmpread_info_channel_bits(BMPHANDLE h, int *r, int *g, int *b, int
 	if (!(rp = cm_read_handle(h)))
 		return BMP_RESULT_ERROR;
 
-	if (rp->read_state < RS_HEADER_OK || rp->read_state >= RS_FATAL)
+	if (rp->read_state < RS_HEADER_OK || rp->read_state >= RS_ARRAY)
 		return BMP_RESULT_ERROR;
 
 	if (rp->ih->compression == BI_OS2_RLE24) {

@@ -245,9 +245,10 @@ enum BmpImagetype {
 typedef enum BmpImagetype BMPIMAGETYPE;
 
 struct BmpArrayInfo {
+	BMPHANDLE    handle;
 	BMPIMAGETYPE type;
 	int          width, height;
-	int          ncolors;                   /* -1 = RGB */
+	int          ncolors;                   /* 0 = RGB */
 	int          screenwidth, screenheight; /* typically 0, or 1024x768 for 'hi-res' */
 };
 
@@ -289,6 +290,11 @@ APIDECL BMPRESULT bmpread_set_64bit_conv(BMPHANDLE h, BMPCONV64 conv);
 
 APIDECL size_t    bmpread_iccprofile_size(BMPHANDLE h);
 APIDECL BMPRESULT bmpread_load_iccprofile(BMPHANDLE h, unsigned char **profile);
+
+
+APIDECL int bmpread_array_num(BMPHANDLE h);
+APIDECL BMPRESULT bmpread_array_info(BMPHANDLE h, struct BmpArrayInfo *ai, int idx);
+
 
 APIDECL BMPINFOVER  bmpread_info_header_version(BMPHANDLE h);
 APIDECL const char* bmpread_info_header_name(BMPHANDLE h);
