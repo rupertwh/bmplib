@@ -141,10 +141,11 @@ API BMPRESULT bmpread_load_info(BMPHANDLE h)
 				goto abort;
 			}
 
+			rp->is_icon = true;
 			if (type == BMPFILE_CI || type == BMPFILE_CP)
-				rp->is_color_icon = true;
+				rp->icon_is_mono = false;
 			else
-				rp->is_mono_icon = true;
+				rp->icon_is_mono = true;
 		}
 
 		/* otherwise we read the AND/XOR masks as a normal image */
@@ -184,7 +185,7 @@ API BMPRESULT bmpread_load_info(BMPHANDLE h)
 
 	/* negative height flips the image vertically */
 	if (rp->ih->height < 0) {
-		if (rp->is_color_icon || rp->is_mono_icon) {
+		if (rp->is_icon) {
 			logerr(rp->c.log, "Top-down orientation incompatible with icons/pointers");
 			rp->lasterr = BMP_ERR_HEADER;
 			goto abort;
@@ -200,7 +201,7 @@ API BMPRESULT bmpread_load_info(BMPHANDLE h)
 		rp->height = rp->ih->height;
 	}
 
-	if (rp->is_mono_icon)
+	if (rp->is_icon && rp->icon_is_mono)
 		rp->height /= 2;
 
 	if (rp->ih->compression == BI_RLE4 ||
@@ -248,7 +249,7 @@ API BMPRESULT bmpread_load_info(BMPHANDLE h)
 	if (rp->rle) {
 		rp->result_channels = (rp->undefined_mode == BMP_UNDEFINED_TO_ALPHA) ? 4 : 3;
 	}
-	if (rp->is_color_icon || rp->is_mono_icon)
+	if (rp->is_icon)
 		rp->result_channels = 4;
 
 	if (!br_set_resultbits(rp))
@@ -532,7 +533,7 @@ BMPRESULT br_set_number_format(BMPREAD_R rp, enum BmpFormat format)
 			rp->lasterr = BMP_ERR_FORMAT;
 			return BMP_RESULT_ERROR;
 		}
-		if (rp->is_color_icon || rp->is_mono_icon) {
+		if (rp->is_icon) {
 			logerr(rp->c.log, "Cannot load icons/pointers as float or s2.13");
 			rp->lasterr = BMP_ERR_FORMAT;
 			return BMP_RESULT_ERROR;
@@ -795,7 +796,7 @@ static bool s_is_bmptype_supported(BMPREAD_R rp)
 		return false;
 	}
 
-	if (rp->is_color_icon || rp->is_mono_icon) {
+	if (rp->is_icon) {
 		if (rp->ih->compression != BI_RGB) {
 			logerr(rp->c.log, "Unsupported compression %s for icon/pointer",
 			                                         s_compression_name(rp->ih->compression));

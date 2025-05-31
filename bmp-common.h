@@ -119,8 +119,8 @@ struct Bmpread {
 	int               width;
 	int               height;
 	enum BmpOrient    orientation;
-	bool              is_color_icon;
-	bool              is_mono_icon;
+	bool              is_icon;
+	bool              icon_is_mono;
 	bool              has_alpha;   /* original BMP has alpha channel */
 	enum BmpUndefined undefined_mode;
 	bool              we_allocated_buffer;

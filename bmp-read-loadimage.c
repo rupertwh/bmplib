@@ -277,7 +277,7 @@ static void s_read_one_line(BMPREAD_R rp, unsigned char *restrict line)
 			} else {
 				if (rp->ih->compression == BI_OS2_HUFFMAN) {
 					s_read_huffman_line(rp, line);
-				} else if (rp->is_mono_icon) {
+				} else if (rp->is_icon && rp->icon_is_mono) {
 					s_read_monoicon_line(rp, line, rp->lbl_y);
 				} else {
 					s_read_indexed_line(rp, line);
@@ -298,7 +298,7 @@ static void s_read_one_line(BMPREAD_R rp, unsigned char *restrict line)
 		s_read_rgb_line(rp, line);
 	}
 
-	if (rp->is_color_icon || rp->is_mono_icon) {
+	if (rp->is_icon) {
 		apply_icon_alpha(rp, rp->lbl_y, line);
 	}
 
