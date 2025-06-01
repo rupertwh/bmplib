@@ -802,6 +802,11 @@ static bool s_is_bmptype_supported(BMPREAD_R rp)
 			                                         s_compression_name(rp->ih->compression));
 			return false;
 		}
+		if (rp->ih->bitcount > 32) {
+			logerr(rp->c.log, "Unsupported bitcount %d for icon/pointer",
+			                                         (int) rp->ih->bitcount);
+			return false;
+		}
 		if (rp->ih->version > BMPINFO_OS22) {
 			logerr(rp->c.log, "Unsupported header version %s for icon/pointer",
 			                                         cm_infoheader_name(rp->ih->version));
