@@ -8,7 +8,7 @@
 
 Download [bmplib on github](https://github.com/rupertwh/bmplib).
 
-## Current status (v1.7.7):
+## Current status (v1.8.0):
 ### Reading BMP files:
   - 16/24/32 bit RGB(A) with any bits/channel combination
     (BI_RGB, BI_BITFIELDS, BI_ALPHABITFIELDS).
@@ -16,6 +16,8 @@ Download [bmplib on github](https://github.com/rupertwh/bmplib).
   - 1/2/4/8 bit indexed (palette), including RLE4 and RLE8 compressed.
   - RLE24 compressed (OS/2).
   - Huffman encoded (OS/2).
+  - OS/2 bitmap arrays.
+  - OS/2 icons and pointers.
   - optional line-by-line reading of BMPs.
   - optionally return image data as float or s2.13 fixed point.
 
@@ -153,11 +155,11 @@ Microsoft tools, the new GIMP 3.0 is the only one I am aware of). Use
    - [ ] interpret icc-profile, to enable giving at least sRGB/not-sRGB info.
      (Like sRGB / probably-sRGB / maybe-sRGB). Torn on that one, would need
      dependency on liblcms2.
-   - [ ] "BA"-files (bitmap-arrays). Either return the first bitmap only
+   - [x] "BA"-files (bitmap-arrays). Either return the first bitmap only
      (which is the 'official' default) or let user pick one/multiple/all to
      be read in sequence.
    - [ ] Add a 'not-a-BMP-file' return type instead of just returning error.
-   - ~~[ ] icon- and pointer-files ("CI", "CP", "IC", "PT").~~
+   - [x] icon- and pointer-files ("CI", "CP", "IC", "PT").
    - [x] 64-bits BMPs. (I changed my mind)
 
 ### Unclear:

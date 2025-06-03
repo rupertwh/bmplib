@@ -1,4 +1,4 @@
-# Rupert's bmplib -- Full API Description (v1.7.7)
+# Rupert's bmplib -- Full API Description (v1.8.0)
 
 Refer to the *Quick Start Guide* (API-quick-start.md) for a quick intro to bmplib which describes only the minimal set of functions needed to read/write BMP files.
 
@@ -261,9 +261,69 @@ instead return `BMP_RESULT_INSANE`. If you want to load the image anyway, call
 void bmpread_set_insanity_limit(BMPHANDLE h, size_t limit);
 ```
 
-### 1.10. Load the image
+### 1.10. OS/2 bitmap arrays (type 'BA')
 
-#### 1.10.1. bmpread_load_image()
+Bitmap arrays are meant to contain several versions (with different
+resolutions and color depths) of the same image. They are not meant to
+contain different images like e.g. several scanned pages.
+
+If a BMP file is of type 'BA', `bmpread_load_info()` will return
+`BMP_RESULT_ARRAY`. Use the following functions to to query the number and
+type of contained images and get a new `BMPHANDLE` for any of the contained
+images:
+
+```c
+int bmpread_array_num(BMPHANDLE h);
+BMPRESULT bmpread_array_info(BMPHANDLE h, struct BmpArrayInfo *ai, int idx);
+
+struct BmpArrayInfo {
+  BMPHANDLE    handle;
+  BMPIMAGETYPE type;
+  int          width, height;
+  int          ncolors;                   /* 0 = RGB */
+  int          screenwidth, screenheight; /* typically 0, or 1024x768 for 'hi-res' */
+};
+```
+
+`bmpread_array_num()` returns the number of images contained in the array.
+
+`bmpread_array_info()` fills the supplied `struct BmpArrayInfo` with
+information about any of the contained images:
+- `handle`: A handle that can be used with all the usual bmpread_* functions
+  to read the respective image. These handles for array images don't have to
+  be freed individually, it is sufficient to call `bmp_free()` on the
+  main array handle once the images have been loaded.
+- `type`: Image type, one of
+  - `BMP_IMAGETYPE_BM` bitmap (normal image)
+  - `BMP_IMAGETYPE_CI` color icon
+  - `BMP_IMAGETYPE_CP` color pointer
+  - `BMP_IMAGETYPE_IC` icon (monochrome)
+  - `BMP_IMAGETYPE_PT` pointer (monochrome)
+- `width, height`: Width and height of the image
+- `ncolors`: number of colors (2/16/256) for indexed images, or 0 for RGB
+  images
+- `screenwidth, screenheight`: The screen size the image was intended for.
+  Typically 0, or 1024x768 for 'hi-res'.
+
+NOTE: You must not interleave calls to `bmpread_load_line()` for several array
+images or simultanously call `bmpread_load_image()` from different threads.
+First completely read one image before proceeding to the next one.
+
+#### 1.10.1 OS/2 icons and pointers
+
+OS/2 icons and pointers are often contained in bitmap arrays.
+
+Some limitations apply for loading icons and pointers:
+- The image is always returned as RGBA, loading index values and palette does
+  not work (yet).
+- Maximum supported size is 512x512. This shouldn't be limiting for actual
+  legacy icons and pointers.
+- RLE is not supported (yet)
+
+
+### 1.11. Load the image
+
+#### 1.11.1. bmpread_load_image()
 
 ```c
 BMPRESULT bmpread_load_image(BMPHANDLE h, unsigned char **pbuffer);
@@ -300,7 +360,7 @@ If `bmpread_load_image()` returns `BMP_RESULT_TRUNCATED` or `BMP_RESULT_INVALID`
 the file may have been damaged or simply contains invalid image data. Image
 data is loaded anyway as far as possible and may be partially usable.
 
-#### 1.10.2. bmpread_load_line()
+#### 1.11.2. bmpread_load_line()
 
 ```c
 BMPRESULT bmpread_load_line(BMPHANDLE h, unsigned char **pbuffer);
@@ -332,7 +392,7 @@ returned in whichever order they are stored in the BMP. Use the value
 returned by `bmpread_orientation()` to determine if it is top-down or
 bottom-up. Almost all BMPs will be bottom-up. (see above)
 
-### 1.11. Invalid pixels
+### 1.12. Invalid pixels
 
 Invalid pixels may occur in indexed BMPs, both RLE and non-RLE. Invalid pixels
 either point beyond the given color palette, or they try to set pixels
@@ -344,7 +404,7 @@ In both cases, `bmpread_load_image()` and `bmpread_load_line()` will return
 `BMP_RESULT_INVALID`, unless the image is also truncated, then
 `BMP_RESULT_TRUNCATED` is returned.
 
-### 1.12. Query info about the BMP file
+### 1.13. Query info about the BMP file
 
 Note: these functions return information about the original BMP file being
 read. They do *not* describe the format of the returned image data, which may
@@ -360,7 +420,7 @@ const char* bmpread_info_compression_name(BMPHANDLE h);
 BMPRESULT   bmpread_info_channel_bits(BMPHANDLE h, int *r, int *g, int *b, int *a);
 ```
 
-### 1.13. Release the handle
+### 1.14. Release the handle
 
 ```c
 void bmp_free(BMPHANDLE h);
