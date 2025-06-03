@@ -812,6 +812,11 @@ static bool s_is_bmptype_supported(BMPREAD_R rp)
 			                                         cm_infoheader_name(rp->ih->version));
 			return false;
 		}
+		if (rp->result_format != BMP_FORMAT_INT) {
+			logerr(rp->c.log, "Chosen number format %s is incompatible with icon/pointer",
+			                                         cm_format_name(rp->result_format));
+			return false;
+		}
 	}
 	if (rp->ih->bitcount <= 8)
 		return s_is_bmptype_supported_indexed(rp);
@@ -846,6 +851,7 @@ static bool s_is_bmptype_supported_rgb(BMPREAD_R rp)
 	case BI_RGB:
 		/* ok */
 		break;
+
 	case BI_BITFIELDS:
 	case BI_ALPHABITFIELDS:
 		if (rp->ih->bitcount == 64) {
@@ -854,6 +860,7 @@ static bool s_is_bmptype_supported_rgb(BMPREAD_R rp)
 			return false;
 		}
 		break;
+
 	case BI_OS2_RLE24:
 		if (rp->ih->bitcount != 24) {
 			logerr(rp->c.log, "Invalid bitcount %d for RLE24 compression", (int) rp->ih->bitcount);
@@ -861,6 +868,7 @@ static bool s_is_bmptype_supported_rgb(BMPREAD_R rp)
 			return false;
 		}
 		break;
+
 	default:
 		logerr(rp->c.log, "Unsupported compression %s for RGB image",
 		                 s_compression_name(rp->ih->compression));
