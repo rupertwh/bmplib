@@ -119,9 +119,6 @@ enum Bmpconv64 {
 	BMP_CONV64_SRGB   = 0,  /* default */
 	BMP_CONV64_LINEAR,
 	BMP_CONV64_NONE,
-
-	BMP_CONV64_16BIT_SRGB DEPR("use BMP_CONV64_SRGB instead")   = 0,
-	BMP_CONV64_16BIT      DEPR("use BMP_CONV64_LINEAR instead") = 1
 };
 typedef enum Bmpconv64 BMPCONV64;
 
@@ -181,8 +178,6 @@ typedef enum BmpRLEtype BMPRLETYPE;
 enum BmpUndefined {
 	BMP_UNDEFINED_LEAVE,
 	BMP_UNDEFINED_TO_ALPHA,  /* default */
-
-	BMP_UNDEFINED_TO_ZERO DEPR("use BMP_UNDEFINED_LEAVE instead") = 0,
 };
 typedef enum BmpUndefined BMPUNDEFINED;
 
@@ -372,15 +367,6 @@ APIDECL const char* bmp_version(void);
 #define BMP_ERR_NOINFO      0x00100000
 #define BMP_ERR_UNDEFMODE   0x00200000
 
-
-
-/* these functions are kept for binary compatibility and will be
- * removed from future versions:
- */
-
-APIDECL int  DEPR("use bmpread_orientation() instead")    bmpread_topdown(BMPHANDLE h);
-APIDECL void DEPR("use bmpread_set_undefined() instead")  bmpread_set_undefined_to_alpha(BMPHANDLE h, int mode);
-APIDECL int  DEPR("use bmpread_bitsperchannel() instead") bmpread_bits_per_channel(BMPHANDLE h);
 
 
 #ifdef __cplusplus
