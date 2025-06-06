@@ -122,21 +122,26 @@ API BMPRESULT bmpread_load_info(BMPHANDLE h)
 	case BMPFILE_CP:
 	case BMPFILE_IC:
 	case BMPFILE_PT:
-		if (rp->read_state < RS_EXPECT_ICON_MASK) {
+		if (rp->read_state != RS_EXPECT_ICON_MASK) {
 			pos = icon_load_masks(rp);
 			if (pos < 0)
 				goto abort;
 
+			/* re-read the file header, because for color icons/pointers
+			 * we started with the monochrome headers, and icon_load_masks()
+			 * returned the pos of the actual color headers.
+			 */
 			rp->bytes_read = 0;
 			if (fseek(rp->file, pos, SEEK_SET)) {
 				logsyserr(rp->c.log, "Setting file position");
 				goto abort;
 			}
+
 			if (!s_read_file_header(rp))
 				goto abort;
 
 			if (rp->fh->type != type) {
-				logerr(rp->c.log, "Filetype mismatch: have %x, expected %x",
+				logerr(rp->c.log, "Filetype mismatch: have 0x%04x, expected 0x%04x",
 				                                   (unsigned)rp->fh->type, type);
 				goto abort;
 			}
@@ -148,7 +153,12 @@ API BMPRESULT bmpread_load_info(BMPHANDLE h)
 				rp->icon_is_mono = true;
 		}
 
-		/* otherwise we read the AND/XOR masks as a normal image */
+		/* otherwise, state is RS_EXPECT_ICON_MASK, which means that
+		 * icon_load_masks() is reading the AND/XOR masks (under a
+		 * separate BMPHANDLE). We don't have to do anything special,
+		 * just treat it as a normal BMP image, not as an icon/pointer
+		 */
+
 		break;
 
 	case BMPFILE_BA:
@@ -161,9 +171,9 @@ API BMPRESULT bmpread_load_info(BMPHANDLE h)
 			goto abort;
 		}
 
-		rp->read_state = RS_ARRAY;
-		return BMP_RESULT_ARRAY;
-
+		rp->read_state     = RS_ARRAY;
+		rp->getinfo_return = BMP_RESULT_ARRAY;
+		return rp->getinfo_return;
 
 	default:
 		logerr(rp->c.log, "Unkown BMP type 0x%04x\n", (unsigned int) rp->fh->type);
