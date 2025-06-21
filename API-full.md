@@ -104,7 +104,30 @@ size_t    bmpread_buffersize(BMPHANDLE h);
 
 Returns the buffer size you have to allocate for the whole image.
 
-### 1.5. Indexed BMPs
+### 1.5. Image type
+
+```c
+BMPIMAGETYPE bmpread_image_type(BMPHANDLE h);
+```
+
+Returns one of
+- `BMP_IMAGETYPE_NONE` type hasn't been determined (yet). Either
+  `bmpread_load_info()` hasn't been called yet, or the file is not a valid
+  BMP file.
+- `BMP_IMAGETYPE_BM` bitmap (normal image)
+- `BMP_IMAGETYPE_BA` bitmap array
+- `BMP_IMAGETYPE_CI` color icon
+- `BMP_IMAGETYPE_CP` color pointer
+- `BMP_IMAGETYPE_IC` icon (monochrome)
+- `BMP_IMAGETYPE_PT` pointer (monochrome)
+
+Other than bitmap arrays (in which case `bmpread_load_info()` will have
+returned `BMP_RESULT_ARRAY`) and the limitations that apply to icon and
+pointer files (see below) the returned type is purely informational and no
+special actions need to be taken.
+
+
+### 1.6. Indexed BMPs
 
 By default, bmplib will interpret indexed (color palette) BMPs and return the
 image as 24-bit RGB data, same as non-indexed (RGB) BMPs.
@@ -153,7 +176,7 @@ RGB data. After you loaded the palette, calls to `bmpread_dimensions
 `bmpread_set_undefined()` will have no effect, as indexed images cannot have
 an alpha channel (see below).
 
-#### 1.5.1. Undefined pixels
+#### 1.6.1. Undefined pixels
 
 RLE-encoded BMP files may have undefined pixels, either by using early
 end-of-line or end-of-file codes, or by using delta codes to skip part of the
@@ -184,7 +207,7 @@ Note: If you use `bmpread_load_palette()` to switch to loading the index data
 instead of RGB data, this setting will have no effect and undefined pixels
 will always be left alone! (see above)
 
-### 1.6. ICC color profiles
+### 1.7. ICC color profiles
 
 ```c
 size_t    bmpread_iccprofile_size(BMPHANDLE h);
@@ -210,7 +233,7 @@ if (bmpread_iccprofile_size(h) > 0)
 ```
 
 
-### 1.7. Optional settings for 64bit BMPs
+### 1.8. Optional settings for 64bit BMPs
 
 ```c
 int bmpread_is_64bit(BMPHANDLE h);
@@ -238,7 +261,7 @@ Options for `bmpread_set_64bit()` are:
   `BMP_FORMAT_S2_13`. Image values are returned exactly as they are in the BMP
   file, without any conversion or attempt at interpretation.
 
-### 1.8. Setting a number format
+### 1.9. Setting a number format
 
 By default, bmplib will always return the image data as 8-,16-, or 32-bit
 integer values. You can instead set the number format to floating point or
@@ -250,7 +273,7 @@ BMPRESULT bmp_set_number_format(BMPHANDLE h, BMPFORMAT format);
 
 (see below, *3. General functions for both reading/writing BMPs*)
 
-### 1.9. Huge files: bmpread_set_insanity_limit()
+### 1.10. Huge files: bmpread_set_insanity_limit()
 
 bmplib will refuse to load images beyond a certain size (default 500MB) and
 instead return `BMP_RESULT_INSANE`. If you want to load the image anyway, call
@@ -261,7 +284,7 @@ instead return `BMP_RESULT_INSANE`. If you want to load the image anyway, call
 void bmpread_set_insanity_limit(BMPHANDLE h, size_t limit);
 ```
 
-### 1.10. OS/2 bitmap arrays (type 'BA')
+### 1.11. OS/2 bitmap arrays (type 'BA')
 
 Bitmap arrays are meant to contain several versions (with different
 resolutions and color depths) of the same image. They are not meant to
@@ -324,9 +347,9 @@ Some limitations apply for loading icons and pointers:
   scheme.)
 
 
-### 1.11. Load the image
+### 1.12. Load the image
 
-#### 1.11.1. bmpread_load_image()
+#### 1.12.1. bmpread_load_image()
 
 ```c
 BMPRESULT bmpread_load_image(BMPHANDLE h, unsigned char **pbuffer);
@@ -363,7 +386,7 @@ If `bmpread_load_image()` returns `BMP_RESULT_TRUNCATED` or `BMP_RESULT_INVALID`
 the file may have been damaged or simply contains invalid image data. Image
 data is loaded anyway as far as possible and may be partially usable.
 
-#### 1.11.2. bmpread_load_line()
+#### 1.12.2. bmpread_load_line()
 
 ```c
 BMPRESULT bmpread_load_line(BMPHANDLE h, unsigned char **pbuffer);
@@ -395,7 +418,7 @@ returned in whichever order they are stored in the BMP. Use the value
 returned by `bmpread_orientation()` to determine if it is top-down or
 bottom-up. Almost all BMPs will be bottom-up. (see above)
 
-### 1.12. Invalid pixels
+### 1.13. Invalid pixels
 
 Invalid pixels may occur in indexed BMPs, both RLE and non-RLE. Invalid pixels
 either point beyond the given color palette, or they try to set pixels
@@ -407,7 +430,7 @@ In both cases, `bmpread_load_image()` and `bmpread_load_line()` will return
 `BMP_RESULT_INVALID`, unless the image is also truncated, then
 `BMP_RESULT_TRUNCATED` is returned.
 
-### 1.13. Query info about the BMP file
+### 1.14. Query info about the BMP file
 
 Note: these functions return information about the original BMP file being
 read. They do *not* describe the format of the returned image data, which may
@@ -423,7 +446,7 @@ const char* bmpread_info_compression_name(BMPHANDLE h);
 BMPRESULT   bmpread_info_channel_bits(BMPHANDLE h, int *r, int *g, int *b, int *a);
 ```
 
-### 1.14. Release the handle
+### 1.15. Release the handle
 
 ```c
 void bmp_free(BMPHANDLE h);

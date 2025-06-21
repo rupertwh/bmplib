@@ -252,6 +252,7 @@ struct BmpArrayInfo {
 APIDECL BMPHANDLE bmpread_new(FILE *file);
 
 APIDECL BMPRESULT bmpread_load_info(BMPHANDLE h);
+APIDECL BMPIMAGETYPE bmpread_image_type(BMPHANDLE h);
 
 APIDECL BMPRESULT bmpread_dimensions(BMPHANDLE  h,
                                      int       *width,

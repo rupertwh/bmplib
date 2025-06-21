@@ -285,6 +285,36 @@ abort:
 
 
 /*****************************************************************************
+ * 	bmpread_image_type
+ *****************************************************************************/
+
+API BMPIMAGETYPE bmpread_image_type(BMPHANDLE h)
+{
+	BMPREAD rp;
+
+	if (!(rp = cm_read_handle(h)))
+		return BMP_IMAGETYPE_NONE;
+
+	if (rp->read_state < RS_HEADER_OK) {
+		logerr(rp->c.log, "Must load info, first.");
+		return BMP_IMAGETYPE_NONE;
+	}
+
+	switch (rp->fh->type) {
+	case BMPFILE_BM: return BMP_IMAGETYPE_BM;
+	case BMPFILE_BA: return BMP_IMAGETYPE_BA;
+	case BMPFILE_IC: return BMP_IMAGETYPE_IC;
+	case BMPFILE_PT: return BMP_IMAGETYPE_PT;
+	case BMPFILE_CI: return BMP_IMAGETYPE_CI;
+	case BMPFILE_CP: return BMP_IMAGETYPE_CP;
+	default:
+		break;
+	}
+	return BMP_IMAGETYPE_NONE;
+}
+
+
+/*****************************************************************************
  * 	bmpread_set_64bit_conv
  *****************************************************************************/
 
