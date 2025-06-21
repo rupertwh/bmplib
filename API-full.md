@@ -314,11 +314,14 @@ First completely read one image before proceeding to the next one.
 OS/2 icons and pointers are often contained in bitmap arrays.
 
 Some limitations apply for loading icons and pointers:
-- The image is always returned as RGBA, loading index values and palette does
-  not work (yet).
+- The image is always returned as 8 bit per channel RGBA, loading index values
+  and palette is not supported.
 - Maximum supported size is 512x512. This shouldn't be limiting for actual
   legacy icons and pointers.
-- RLE is not supported (yet)
+- For RLE images, undefined mode is always assumed to be
+  `BMP_UNDEFINED_LEAVE`, regardless of what `bmpread_set_undefined()` was set
+  to. (Because icons and pointers have their own mask-based transparency
+  scheme.)
 
 
 ### 1.11. Load the image

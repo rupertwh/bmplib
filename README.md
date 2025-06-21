@@ -32,7 +32,7 @@ Download [bmplib on github](https://github.com/rupertwh/bmplib).
     BMP_RESULT_PNG and leave the file pointer in the correct state to be
     passed on to either libpng or libjpeg. Works as designed. Don't want to
     create dependency on those libs.
-  - We currently ignore icc-profiles and chromaticity/gamma values. See TODO.
+  - We currently ignore chromaticity/gamma values from V4+ headers. See TODO.
 
 
 ### Writing BMP files:
@@ -136,50 +136,20 @@ Microsoft tools, the new GIMP 3.0 is the only one I am aware of). Use
 ## TODOs:
 ### Definitely:
 
-   - [x] write indexed images.
-   - [x] write RLE-compressed images ~~(RLE4/RLE8 only. No OS/2 v2 BMPs)~~.
-   - [x] read RLE24-encoded BMPs.
-   - [x] read Huffman-encoded BMPs. (Still haven't found any real-life examples)
-   - [x] line-by-line reading/writing. ~~Right now, the image can only be
-     passed as a whole to/from bmplib.~~
-   - [x] read/write icc-profile and chromaticity/gamma values
-   - [x] sanity checks for size of of image / palette. Require confirmation
-     above a certain size (~ 500MB?)
-   - [x] store undefined pixels (RLE delta and early EOL/EOF) as alpha
+   - [ ] read/write chromaticity/gamma values
 
 
 ### Maybe:
 
-   - [x] passing indexed data and palette to user (optionally) instead of
-     RGB-data.
    - [ ] interpret icc-profile, to enable giving at least sRGB/not-sRGB info.
      (Like sRGB / probably-sRGB / maybe-sRGB). Torn on that one, would need
      dependency on liblcms2.
-   - [x] "BA"-files (bitmap-arrays). Either return the first bitmap only
-     (which is the 'official' default) or let user pick one/multiple/all to
-     be read in sequence.
-   - [ ] Add a 'not-a-BMP-file' return type instead of just returning error.
-   - [x] icon- and pointer-files ("CI", "CP", "IC", "PT").
-   - [x] 64-bits BMPs. (I changed my mind)
 
 ### Unclear:
 
    - [ ] platforms: I am writing bmplib on Linux/intel (Ubuntu) using meson.
      Suggestions welcome on what is necessary to build on other
      platforms/cpus. And Windows?
-
-
-### Non-feature (internal):
-
-   - [x] complete API description (see API-full.md and API-quick-start.md)
-   - [x] bmp-read.c is getting too big, split into several files
-
-
-
-
-## Misc:
-- [x] License: probably LPGL3? That's what I'm going with for now.
-
 
 
 Cheers,
