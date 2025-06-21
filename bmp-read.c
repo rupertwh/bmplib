@@ -151,6 +151,8 @@ API BMPRESULT bmpread_load_info(BMPHANDLE h)
 				rp->icon_is_mono = false;
 			else
 				rp->icon_is_mono = true;
+
+			rp->undefined_mode = BMP_UNDEFINED_LEAVE;
 		}
 
 		/* otherwise, state is RS_EXPECT_ICON_MASK, which means that
@@ -726,6 +728,12 @@ API void bmpread_set_undefined(BMPHANDLE h, enum BmpUndefined mode)
 
 	if (!(rp = cm_read_handle(h)))
 		return;
+
+	if (rp->is_icon && mode != BMP_UNDEFINED_LEAVE) {
+		logerr(rp->c.log, "For icons/pointers, only BMP_UNDEFINED_LEAVE is valid.");
+		rp->lasterr = BMP_ERR_UNDEFMODE;
+		mode = BMP_UNDEFINED_LEAVE;
+	}
 
 	if (mode == rp->undefined_mode)
 		return;
