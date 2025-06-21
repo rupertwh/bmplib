@@ -74,6 +74,7 @@ static void s_read_indexed_line(BMPREAD_R rp, unsigned char *restrict line);
 static void s_read_rle_line(BMPREAD_R rp, unsigned char *restrict line,
                                int *restrict x, int *restrict yoff);
 static void s_read_huffman_line(BMPREAD_R rp, unsigned char *restrict line);
+static bool s_are_settings_icon_compatible(BMPREAD_R rp);
 
 static_assert(sizeof(float) == 4, "sizeof(float) must be 4. Cannot build bmplib.");
 static_assert(sizeof(int) * CHAR_BIT >= 32, "int must be at least 32bit. Cannot build bmplib.");
@@ -156,6 +157,15 @@ static BMPRESULT s_load_image_or_line(BMPREAD_R rp, unsigned char **restrict buf
 		return BMP_RESULT_INSANE;
 	}
 
+	if (rp->read_state < RS_LOAD_STARTED && rp->is_icon) {
+		if (!s_are_settings_icon_compatible(rp)) {
+			logerr(rp->c.log, "Panic! Trying to load icon/pointer with incompatibele settings.\n");
+			rp->read_state = RS_FATAL;
+			rp->lasterr = BMP_ERR_INTERNAL;
+			return BMP_RESULT_ERROR;
+		}
+	}
+
 	if (!buffer) {
 		logerr(rp->c.log, "Buffer pointer is NULL. (It may point to a NULL pointer, but must not itself be NULL)");
 		return BMP_RESULT_ERROR;
@@ -217,7 +227,27 @@ abort:
 	return BMP_RESULT_ERROR;
 }
 
+static bool s_are_settings_icon_compatible(BMPREAD_R rp)
+{
+	/* some catch-all sanity checks for icons/pointers. Strictly, these
+	 * shouldn't be necessary, as they should have been caught already.
+	 * If any of these fail, there is a bug somewhere else.
+	 */
 
+	if (rp->result_channels != 4 || rp->result_bitsperchannel != 8)
+		return false;
+
+	if (rp->result_format != BMP_FORMAT_INT)
+		return false;
+
+	if (rp->rle && (rp->undefined_mode != BMP_UNDEFINED_LEAVE))
+		return false;
+
+	if (!(rp->rle || (rp->ih->compression == BI_RGB)))
+		return false;
+
+	return true;
+}
 
 /********************************************************
  * 	apply_icon_alpha
@@ -225,9 +255,6 @@ abort:
 
 static void apply_icon_alpha(BMPREAD_R rp, int y, unsigned char *restrict line)
 {
-	if (!(rp->result_channels == 4 && rp->result_bitsperchannel == 8))
-		return;
-
 	for (int x = 0; x < rp->width; x++) {
 		line[x * 4 + 3] = rp->icon_mono_and[(rp->height - y - 1) * rp->width + x];
 	}

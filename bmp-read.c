@@ -815,7 +815,10 @@ static bool s_is_bmptype_supported(BMPREAD_R rp)
 	}
 
 	if (rp->is_icon) {
-		if (rp->ih->compression != BI_RGB) {
+		if (rp->ih->compression != BI_RGB &&
+		    rp->ih->compression != BI_RLE4 &&
+		    rp->ih->compression != BI_RLE8 &&
+		    rp->ih->compression != BI_OS2_RLE24) {
 			logerr(rp->c.log, "Unsupported compression %s for icon/pointer",
 			                                         s_compression_name(rp->ih->compression));
 			rp->lasterr = BMP_ERR_UNSUPPORTED;
