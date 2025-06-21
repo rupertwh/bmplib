@@ -802,7 +802,7 @@ static bool s_is_bmptype_supported(BMPREAD_R rp)
 {
 	if (rp->ih->planes != 1) {
 		logerr(rp->c.log, "Unsupported number of planes (%d). Must be 1.", (int) rp->ih->planes);
-		rp->lasterr = BMP_ERR_HEADER;
+		rp->lasterr = BMP_ERR_UNSUPPORTED;
 		return false;
 	}
 
@@ -810,21 +810,25 @@ static bool s_is_bmptype_supported(BMPREAD_R rp)
 		if (rp->ih->compression != BI_RGB) {
 			logerr(rp->c.log, "Unsupported compression %s for icon/pointer",
 			                                         s_compression_name(rp->ih->compression));
+			rp->lasterr = BMP_ERR_UNSUPPORTED;
 			return false;
 		}
 		if (rp->ih->bitcount > 32) {
 			logerr(rp->c.log, "Unsupported bitcount %d for icon/pointer",
 			                                         (int) rp->ih->bitcount);
+			rp->lasterr = BMP_ERR_UNSUPPORTED;
 			return false;
 		}
 		if (rp->ih->version > BMPINFO_OS22) {
 			logerr(rp->c.log, "Unsupported header version %s for icon/pointer",
 			                                         cm_infoheader_name(rp->ih->version));
+			rp->lasterr = BMP_ERR_UNSUPPORTED;
 			return false;
 		}
 		if (rp->result_format != BMP_FORMAT_INT) {
 			logerr(rp->c.log, "Chosen number format %s is incompatible with icon/pointer",
 			                                         cm_format_name(rp->result_format));
+			rp->lasterr = BMP_ERR_UNSUPPORTED;
 			return false;
 		}
 	}

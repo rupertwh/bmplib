@@ -125,8 +125,12 @@ bool icon_read_array(BMPREAD_R rp)
 	s_array_header_from_file_header(&ah, rp->fh);
 
 	while (n < nmax) {
-		if (ah.type != BMPFILE_BA)
+		if (ah.type != BMPFILE_BA) {
+			logerr(rp->c.log, "Invalid BMP type (0x%04x), expected 'BA'", (unsigned) ah.type);
+			invalid = true;
+			rp->lasterr = BMP_ERR_HEADER;
 			break;
+		}
 
 		memcpy(&imgs[n].ah, &ah, sizeof ah);
 
@@ -139,10 +143,13 @@ bool icon_read_array(BMPREAD_R rp)
 				bmp_free(imgs[n].handle);
 				invalid = true;
 				rp->lasterr = BMP_ERR_HEADER;
+				break;
 			}
 		} else {
+			logerr(rp->c.log, "Failed to create handle for array image");
 			invalid = true;
-			rp->lasterr = BMP_ERR_HEADER;
+			rp->lasterr = BMP_ERR_MEMORY;
+			break;
 		}
 
 		if (!ah.offsetnext)
